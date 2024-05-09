@@ -8,6 +8,11 @@ use fuser::{Filesystem, KernelConfig, Request};
 const FS_UFS2_MAGIC: i32 = 0x19540119;
 
 /**
+ * Magic number of a CylGroup
+ */
+const CG_MAGIC: i32 = 0x090255;
+
+/**
  * Location of the superblock on UFS2.
  */
 const SBLOCK_UFS2: usize = 65536;
@@ -16,6 +21,16 @@ const SBLOCK_UFS2: usize = 65536;
  * Size of a superblock
  */
 const SBLOCKSIZE: usize = 8192;
+
+/**
+ * Size of the CylGroup structure.
+ */
+const CGSIZE: usize = 32768;
+
+/**
+ * Max number of fragments per block.
+ */
+const MAXFRAG: usize = 8;
 
 /**
  * `ufs_time_t` on FreeBSD
@@ -84,6 +99,10 @@ struct Csum {
 	nbfree: i32,				// number of free blocks
 	nifree: i32,				// number of free inodes
 	nffree: i32,				// number of free frags
+}
+
+fn howmany(x: usize, y: usize) -> usize {
+	(x + (y - 1)) / y
 }
 
 /**
@@ -216,6 +235,58 @@ struct Superblock {
 	magic: i32,					// magic number 
 }
 
+#[derive(Debug)]
+#[allow(dead_code)]
+#[repr(C)]
+struct CylGroup {
+	firstfield: i32,		// historic cyl groups linked list 
+	magic: i32,				// magic number 
+	old_time: i32,			// time last written 
+	cgx: u32,				// we are the cgx'th cylinder group 
+	old_ncyl: i16,			// number of cyl's this cg 
+	old_niblk: i16,			// number of inode blocks this cg 
+	ndblk: u32,				// number of data blocks this cg 
+	cs: Csum,				// cylinder summary information 
+	rotor: u32,				// position of last used block 
+	frotor: u32,			// position of last used frag 
+	irotor: u32,			// position of last used inode 
+	frsum: [u32; MAXFRAG],	// counts of available frags 
+	old_btotoff: i32,		// (int32) block totals per cylinder 
+	old_boff: i32,			// (uint16) free block positions 
+	iusedoff: u32,			// (ui8) used inode map 
+	freeoff: u32,			// (ui8) free block map 
+	nextfreeoff: u32,		// (ui8) next available space 
+	clustersumoff: u32,		// (ui32) counts of avail clusters 
+	clusteroff: u32,		// (ui8) free cluster map 
+	nclusterblks: u32,		// number of clusters this cg 
+	niblk: u32,				// number of inode blocks this cg 
+	initediblk: u32,		// last initialized inode 
+	unrefs: u32,			// number of unreferenced inodes 
+	sparecon32: [i32; 1],	// reserved for future use 
+	ckhash: u32,			// check-hash of this cg 
+	time: UfsTime,			// time last written 
+	sparecon64: [i64; 3],	// reserved for future use 
+	// actually longer - space used for cylinder group maps 
+}
+
+impl Superblock {
+	/// Calculate the size of a cylinder group.
+	fn cgsize(&self) -> u64 {
+		self.fpg as u64 * self.fsize as u64
+	}
+	/// Calculate the size of a cylinder group structure.
+	fn cgsize_struct(&self) -> usize {
+		size_of::<CylGroup>()
+			+ howmany(self.fpg as usize, 8)
+			+ howmany(self.ipg as usize, 8)
+			+ size_of::<i32>()
+			+ (if self.contigsumsize <= 0 { 0usize } else {
+				self.contigsumsize as usize * size_of::<i32>()
+					+ howmany(self.fpg as usize >> (self.fshift as usize), 8)
+			})
+	}
+}
+
 pub struct Ufs {
 	file: File,
 	superblock: Superblock,
@@ -238,6 +309,7 @@ impl Ufs {
 		if superblock.magic != FS_UFS2_MAGIC {
 			bail!("invalid superblock magic number: {}", superblock.magic);
 		}
+		assert_eq!(superblock.cgsize, CGSIZE as i32);
 		Ok(Self {
 			file,
 			superblock,
@@ -247,8 +319,46 @@ impl Ufs {
 
 impl Filesystem for Ufs {
 	fn init(&mut self, _req: &Request<'_>, _config: &mut KernelConfig) -> Result<(), c_int> {
+		let sb = &self.superblock;
 		println!("init()");
-		println!("Superblock: {:#?}", self.superblock);
+		println!("Superblock: {:#?}", sb);
+
+		println!("Summary:");
+		println!("Block Size: {}", sb.bsize);
+		println!("# Blocks: {}", sb.size);
+		println!("# Data Blocks: {}", sb.dsize);
+		println!("Fragment Size: {}", sb.fsize);
+		println!("Fragments per Block: {}", sb.frag);
+		println!("# Cylinder Groups: {}", sb.ncg);
+		println!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
+		assert!(sb.cgsize_struct() < sb.bsize as usize);
+
+		// check that all superblocks are ok.
+		for i in 0..sb.ncg {
+			let addr = ((sb.fpg + sb.sblkno) * sb.fsize) as u64;
+			let mut block = [0u8; SBLOCKSIZE];
+			self.file.seek(SeekFrom::Start(addr)).unwrap();
+			self.file.read_exact(&mut block).unwrap();
+			let csb: Superblock = unsafe { transmute_copy(&block) };
+			if csb.magic != FS_UFS2_MAGIC {
+				eprintln!("CG{i} has invalid superblock magic: {:x}", csb.magic);
+			}
+		}
+
+		// check that all cylgroups are ok.
+		for i in 0..sb.ncg {
+			let addr = ((sb.fpg + sb.cblkno) * sb.fsize) as u64;
+			let mut block = [0u8; CGSIZE];
+			self.file.seek(SeekFrom::Start(addr)).unwrap();
+			self.file.read_exact(&mut block).unwrap();
+			let cg: CylGroup = unsafe { transmute_copy(&block) };
+			if cg.magic != CG_MAGIC {
+				eprintln!("CG{i} has invalid cg magic: {:x}", cg.magic);
+			}
+		}
+
+		println!("OK");
+		
 		Ok(())
 	}
 	fn destroy(&mut self) {
@@ -257,7 +367,8 @@ impl Filesystem for Ufs {
 }
 
 fn main() -> Result<()> {
-	let fs = Ufs::open(PathBuf::from("/dev/da1"))?;
+	assert_eq!(size_of::<Superblock>(), 1376);
+	let fs = Ufs::open(PathBuf::from("/dev/da0"))?;
 	let mp = Path::new("mp");
 	let options = &[];
 
