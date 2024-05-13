@@ -1,6 +1,9 @@
 use anyhow::{bail, Context, Result};
-use std::{ffi::c_int, fs::File, io::{Read, Seek, SeekFrom}, mem::{size_of, transmute_copy}, path::{Path, PathBuf}, thread::sleep, time::Duration};
+use std::{ffi::c_int, fs::File, io::{Read, Result as IoResult, Seek, SeekFrom}, mem::{size_of, transmute_copy}, path::{Path, PathBuf}, process::Command, thread::sleep, time::Duration};
 use fuser::{Filesystem, KernelConfig, Request};
+use crate::inode::Inode;
+
+mod inode;
 
 /**
  * UFS2 fast filesystem magic number
@@ -315,6 +318,37 @@ impl Ufs {
 			superblock,
 		})
 	}
+
+	fn read(&mut self, off: u64, buf: &mut [u8]) -> IoResult<()> {
+		let bs = self.superblock.fsize as u64;
+		let blkno = off / bs;
+		let blkoff = off % bs;
+		let blkcnt = ((buf.len() as u64) + blkoff + bs - 1) / bs;
+		let buflen = (blkcnt * bs) as usize;
+		let mut buffer = Vec::with_capacity(buflen);
+		buffer.resize(buflen, 0u8);
+
+		self.file.seek(SeekFrom::Start(blkno * bs))?;
+		self.file.read_exact(&mut buffer)?;
+
+		let begin = blkoff as usize;
+		let end = begin + buf.len();
+		buf.copy_from_slice(&buffer[begin..end]);
+		Ok(())
+	}
+
+	fn read_inode(&mut self, ino: u64) -> IoResult<Inode> {
+		let sb = &self.superblock;
+		let cg = ino / sb.ipg as u64;
+		let cgoff = cg * sb.cgsize();
+		let off = cgoff + (sb.iblkno as u64 * sb.fsize as u64)
+			+ (ino * size_of::<Inode>() as u64);
+		let mut buffer = [0u8; size_of::<Inode>()];
+		self.read(off, &mut buffer)?;
+		let ino = unsafe { transmute_copy(&buffer) };
+		
+		Ok(ino)
+	}
 }
 
 impl Filesystem for Ufs {
@@ -358,21 +392,44 @@ impl Filesystem for Ufs {
 		}
 
 		println!("OK");
+
 		
 		Ok(())
 	}
 	fn destroy(&mut self) {
 		println!("destroy()");
 	}
+
+	fn getattr(&mut self, _req: &Request<'_>, mut ino: u64, reply: fuser::ReplyAttr) {
+		if ino == fuser::FUSE_ROOT_ID {
+			ino = 2;
+		}
+		match self.read_inode(ino) {
+			Ok(x) => reply.attr(&Duration::ZERO, &x.as_fileattr(ino)),
+			Err(e) => reply.error(e.raw_os_error().unwrap()),
+		}
+	}
+}
+
+fn shell(cmd: &str) {
+	Command::new("sh")
+		.args(&["-c", cmd])
+		.spawn()
+		.unwrap()
+		.wait()
+		.unwrap();
 }
 
 fn main() -> Result<()> {
 	assert_eq!(size_of::<Superblock>(), 1376);
+	assert_eq!(size_of::<Inode>(), 256);
 	let fs = Ufs::open(PathBuf::from("/dev/da0"))?;
 	let mp = Path::new("mp");
 	let options = &[];
 
 	let mount = fuser::spawn_mount2(fs, mp, options)?;
+	sleep(Duration::new(1, 0));
+	shell("ls -ld mp");
 	sleep(Duration::new(1, 0));
 	drop(mount);
 
