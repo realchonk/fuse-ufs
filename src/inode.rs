@@ -6,18 +6,18 @@ use crate::{UfsTime, UfsDaddr};
 /**
  * External addresses in inode.
  */
-const UFS_NXADDR: usize = 2;
+pub const UFS_NXADDR: usize = 2;
 /**
  * Direct addresses in inode.
  */
-const UFS_NDADDR: usize = 12;
+pub const UFS_NDADDR: usize = 12;
 /**
  * Indirect addresses in inode.
  */
-const UFS_NIADDR: usize = 3;
+pub const UFS_NIADDR: usize = 3;
 
-#[derive(Clone, Copy)]
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct UfsInodeBlocks {
 	pub direct: [UfsDaddr; UFS_NDADDR],

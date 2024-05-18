@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
-use std::{ffi::c_int, fs::File, io::{Read, Result as IoResult, Seek, SeekFrom}, mem::{size_of, transmute_copy}, path::{Path, PathBuf}, process::Command, thread::sleep, time::Duration};
+use std::{ffi::c_int, fs::File, io::{Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom}, mem::{size_of, transmute_copy}, path::{Path, PathBuf}, process::Command, thread::sleep, time::Duration};
 use fuser::{Filesystem, KernelConfig, Request};
-use crate::inode::Inode;
+use crate::inode::{Inode, UFS_NDADDR};
 
 mod inode;
 
@@ -146,19 +146,19 @@ struct Superblock {
 	bsize: i32,					// size of basic blocks in fs 
 	fsize: i32,					// size of frag blocks in fs 
 	frag: i32,					// number of frags in a block in fs 
-// these are configuration parameters 
+	// these are configuration parameters 
 	minfree: i32,				// minimum percentage of free blocks 
 	old_rotdelay: i32,			// num of ms for optimal next block 
 	old_rps: i32,				// disk revolutions per second 
-// these fields can be computed from the others 
+	// these fields can be computed from the others 
 	bmask: i32,					// ``blkoff'' calc of blk offsets 
 	fmask: i32,					// ``fragoff'' calc of frag offsets 
 	bshift: i32,				// ``lblkno'' calc of logical blkno 
 	fshift: i32,				// ``numfrags'' calc number of frags 
-// these are configuration parameters 
+	// these are configuration parameters 
 	fs_maxcontig: i32,			// max number of contiguous blks 
-		fs_maxbpg: i32,			// max number of blks per cyl group 
-// these fields can be computed from the others 
+	fs_maxbpg: i32,			// max number of blks per cyl group 
+	// these fields can be computed from the others 
 	fragshift: i32,				// block to frag shift 
 	fsbtodb: i32,				// fsbtodb and dbtofsb shift constant 
 	sbsize: i32,				// actual size of super block 
@@ -167,13 +167,13 @@ struct Superblock {
 	nindir: i32,				// value of NINDIR 
 	inopb: u32,					// value of INOPB 
 	old_nspf: i32,				// value of NSPF 
-// yet another configuration parameter 
+	// yet another configuration parameter 
 	optim: i32,					// optimization preference, see below 
 	old_npsect: i32,			// # sectors/track including spares 
 	old_interleave: i32,		// hardware sector interleave 
 	old_trackskew: i32,			// sector 0 skew, per track 
 	id: [i32; 2],				// unique filesystem id 
-// sizes determined by number of cylinder groups and their sizes 
+	// sizes determined by number of cylinder groups and their sizes 
 	old_csaddr: i32,			// blk addr of cyl grp summary area 
 	cssize: i32,				// size of cyl grp summary area 
 	cgsize: i32,				// cylinder group size 
@@ -184,9 +184,9 @@ struct Superblock {
 	old_cpg: i32,				// cylinders per group 
 	ipg: u32,					// inodes per group 
 	fpg: i32,					// blocks per group * fs_frag 
-// this data must be re-computed after crashes 
+	// this data must be re-computed after crashes 
 	old_cstotal: Csum,			// cylinder summary information 
-// these fields are cleared at mount time 
+	// these fields are cleared at mount time 
 	fmod: i8,					// super block modified flag 
 	clean: i8,					// filesystem is clean flag 
 	ronly: i8,					// mounted read-only flag 
@@ -195,7 +195,7 @@ struct Superblock {
 	volname: [u8; MAXVOLLEN],	// volume name 
 	swuid: u64,					// system-wide uid 
 	pad: i32,					// due to alignment of fs_swuid 
-// these fields retain the current block allocation info 
+	// these fields retain the current block allocation info 
 	cgrotor: i32,				// last cg searched 
 	ocsp: [usize; NOCSPTRS],	// padding; was list of fs_cs buffers 
 	si: usize,					// In-core pointer to summary info 
@@ -234,7 +234,7 @@ struct Superblock {
 	old_postblformat: i32,		// format of positional layout tables 
 	old_nrpos: i32,				// number of rotational positions 
 	spare5: [i32; 2],			// old fs_postbloff 
-								// old fs_rotbloff 
+	// old fs_rotbloff 
 	magic: i32,					// magic number 
 }
 
@@ -349,6 +349,32 @@ impl Ufs {
 		
 		Ok(ino)
 	}
+	fn read_file_block(
+		&mut self,
+		ino: u64,
+		blkno: usize,
+		buf: &mut [u8; 4096]
+	) -> IoResult<()> {
+		let bs = self.superblock.fsize as u64;
+		let ino = self.read_inode(ino)?;
+
+		if blkno >= ino.blocks as usize {
+			return Err(IoError::new(ErrorKind::InvalidInput, "out of bounds"));
+		}
+
+		if blkno < UFS_NDADDR {
+			let blkaddr = unsafe { ino.data.blocks.direct[blkno] } as u64;
+			self.file.seek(SeekFrom::Start(blkaddr * bs))?;
+			self.file.read_exact(buf)?;
+			Ok(())
+		} else {
+			todo!("indirect block addressing is unsupported")
+		}
+	}
+}
+
+fn transino(ino: u64) -> u64 {
+	return if ino == fuser::FUSE_ROOT_ID { 2 } else { ino }
 }
 
 impl Filesystem for Ufs {
@@ -390,24 +416,43 @@ impl Filesystem for Ufs {
 				eprintln!("CG{i} has invalid cg magic: {:x}", cg.magic);
 			}
 		}
-
 		println!("OK");
 
-		
 		Ok(())
 	}
 	fn destroy(&mut self) {
 		println!("destroy()");
 	}
 
-	fn getattr(&mut self, _req: &Request<'_>, mut ino: u64, reply: fuser::ReplyAttr) {
-		if ino == fuser::FUSE_ROOT_ID {
-			ino = 2;
-		}
+	fn getattr(&mut self, _req: &Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
+		let ino = transino(ino);
+		eprintln!("stat({ino});");
 		match self.read_inode(ino) {
 			Ok(x) => reply.attr(&Duration::ZERO, &x.as_fileattr(ino)),
 			Err(e) => reply.error(e.raw_os_error().unwrap()),
 		}
+	}
+
+	fn open(&mut self, _req: &Request<'_>, ino: u64, flags: i32, reply: fuser::ReplyOpen) {
+		let ino = transino(ino);
+		eprintln!("open({ino}, {flags});");
+	}
+	fn opendir(&mut self, _req: &Request<'_>, ino: u64, flags: i32, reply: fuser::ReplyOpen) {
+		let ino = transino(ino);
+		eprintln!("opendir({ino}, {flags});");
+		reply.opened(0, 0);
+	}
+	fn readdir(
+		&mut self,
+		_req: &Request<'_>,
+		ino: u64,
+		_fh: u64,
+		offset: i64,
+		reply: fuser::ReplyDirectory,
+	) {
+		let ino = transino(ino);
+		eprintln!("readdir({ino}, {offset});");
+		reply.ok()
 	}
 }
 
@@ -430,6 +475,7 @@ fn main() -> Result<()> {
 	let mount = fuser::spawn_mount2(fs, mp, options)?;
 	sleep(Duration::new(1, 0));
 	shell("ls -ld mp");
+	shell("ls -l mp");
 	sleep(Duration::new(1, 0));
 	drop(mount);
 
