@@ -9,3 +9,12 @@ exclude = ["doc/*"]
 [dependencies]
 anyhow = "1.0.83"
 fuser = "0.14.0"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+cfg-if = "1.0"
+lazy_static = "1.4.0"
+nix = { version = "0.28.0", features = ["fs"] }
+rstest = "0.16.0"
+rstest_reuse = "0.6.0"
+tempfile = "3.0"
