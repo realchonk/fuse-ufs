@@ -2,88 +2,65 @@ use std::mem::size_of;
 
 use bincode::Decode;
 
-/**
- * UFS2 fast filesystem magic number
- */
+/// UFS2 fast filesystem magic number
 pub const FS_UFS2_MAGIC: i32 = 0x19540119;
 
-/**
- * Magic number of a CylGroup
- */
+/// Magic number of a CylGroup
 pub const CG_MAGIC: i32 = 0x090255;
 
-/**
- * Location of the superblock on UFS2.
- */
+/// Location of the superblock on UFS2.
 pub const SBLOCK_UFS2: usize = 65536;
 
-/**
- * Size of a superblock
- */
+/// Size of a superblock
 pub const SBLOCKSIZE: usize = 8192;
 
-/**
- * Size of the CylGroup structure.
- */
+/// Size of the CylGroup structure.
 pub const CGSIZE: usize = 32768;
 
-/**
- * Max number of fragments per block.
- */
+/// Max number of fragments per block.
 pub const MAXFRAG: usize = 8;
 
-/**
- * `ufs_time_t` on FreeBSD
- */
+/// `ufs_time_t` on FreeBSD
 pub type UfsTime = i64;
 
-/**
- * `ufs2_daddr_t` on FreeBSD
- */
+/// `ufs2_daddr_t` on FreeBSD
 pub type UfsDaddr = i64;
 
+/// UFS-native inode number type
 pub type InodeNum = u32;
 
-/**
- * The path name on which the filesystem is mounted is maintained
- * in fs_fsmnt. MAXMNTLEN defines the amount of space allocated in
- * the super block for this name.
- */
+/// The path name on which the filesystem is mounted is maintained
+/// in fs_fsmnt. MAXMNTLEN defines the amount of space allocated in
+/// the super block for this name.
 pub const MAXMNTLEN: usize = 468;
 
-/**
- * The volume name for this filesystem is maintained in fs_volname.
- * MAXVOLLEN defines the length of the buffer allocated.
- */
+/// The volume name for this filesystem is maintained in fs_volname.
+/// MAXVOLLEN defines the length of the buffer allocated.
 pub const MAXVOLLEN: usize = 32;
 
-/**
- * The maximum number of snapshot nodes that can be associated
- * with each filesystem. This limit affects only the number of
- * snapshot files that can be recorded within the superblock so
- * that they can be found when the filesystem is mounted. However,
- * maintaining too many will slow the filesystem performance, so
- * having this limit is a good idea.
- */
+/// The maximum number of snapshot nodes that can be associated
+/// with each filesystem. This limit affects only the number of
+/// snapshot files that can be recorded within the superblock so
+/// that they can be found when the filesystem is mounted. However,
+/// maintaining too many will slow the filesystem performance, so
+/// having this limit is a good idea.
 pub const FSMAXSNAP: usize = 20;
 
-/**
- * There is a 128-byte region in the superblock reserved for in-core
- * pointers to summary information. Originally this included an array
- * of pointers to blocks of struct csum; now there are just a few
- * pointers and the remaining space is padded with fs_ocsp[].
- *
- * NOCSPTRS determines the size of this padding. Historically this
- * space was used to store pointers to structures that summaried
- * filesystem usage and layout information. However, these pointers
- * left various kernel pointers in the superblock which made otherwise
- * identical superblocks appear to have differences. So, all the
- * pointers in the superblock were moved to a fs_summary_info structure
- * reducing the superblock to having only a single pointer to this
- * structure. When writing the superblock to disk, this pointer is
- * temporarily NULL'ed out so that the kernel pointer will not appear
- * in the on-disk copy of the superblock.
- */
+/// There is a 128-byte region in the superblock reserved for in-core
+/// pointers to summary information. Originally this included an array
+/// of pointers to blocks of struct csum; now there are just a few
+/// pointers and the remaining space is padded with fs_ocsp[].
+///
+/// NOCSPTRS determines the size of this padding. Historically this
+/// space was used to store pointers to structures that summaried
+/// filesystem usage and layout information. However, these pointers
+/// left various kernel pointers in the superblock which made otherwise
+/// identical superblocks appear to have differences. So, all the
+/// pointers in the superblock were moved to a fs_summary_info structure
+/// reducing the superblock to having only a single pointer to this
+/// structure. When writing the superblock to disk, this pointer is
+/// temporarily NULL'ed out so that the kernel pointer will not appear
+/// in the on-disk copy of the superblock.
 pub const NOCSPTRS: usize = (128 / size_of::<usize>()) - 1;
 
 /// External addresses in inode.
@@ -132,13 +109,11 @@ pub const DT_LNK: u8 = 10;
 pub const DT_SOCK: u8 = 12;
 pub const DT_WHT: u8 = 14;
 
-/**
- * Per cylinder group information; summarized in blocks allocated
- * from first cylinder group data blocks.  These blocks have to be
- * read in from fs_csaddr (size fs_cssize) in addition to the
- * super block.
- * `struct csum` in FreeBSD
- */
+/// Per cylinder group information; summarized in blocks allocated
+/// from first cylinder group data blocks.  These blocks have to be
+/// read in from fs_csaddr (size fs_cssize) in addition to the
+/// super block.
+/// `struct csum` in FreeBSD
 #[derive(Debug, Decode)]
 pub struct Csum {
 	pub ndir:   i32, // number of directories
@@ -147,9 +122,7 @@ pub struct Csum {
 	pub nffree: i32, // number of free frags
 }
 
-/**
- * `struct csum_total` in FreeBSD
- */
+/// `struct csum_total` in FreeBSD
 #[derive(Debug, Decode)]
 pub struct CsumTotal {
 	pub ndir:        i64,      // number of directories
@@ -160,10 +133,8 @@ pub struct CsumTotal {
 	pub spare:       [i64; 3], // future expansion
 }
 
-/*
- * Super block for an FFS filesystem.
- * `struct fs` in FreeBSD
- */
+/// Super block for an FFS filesystem.
+/// `struct fs` in FreeBSD
 #[derive(Debug, Decode)]
 pub struct Superblock {
 	pub firstfield:       i32, // historic filesystem linked list,
