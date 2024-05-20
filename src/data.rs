@@ -42,6 +42,8 @@ pub type UfsTime = i64;
  */
 pub type UfsDaddr = i64;
 
+pub type InodeNum = u32;
+
 /**
  * The path name on which the filesystem is mounted is maintained
  * in fs_fsmnt. MAXMNTLEN defines the amount of space allocated in
@@ -90,6 +92,9 @@ pub const UFS_NXADDR: usize = 2;
 /// Direct addresses in inode.
 pub const UFS_NDADDR: usize = 12;
 
+/// Maximum length of a file name.
+pub const UFS_MAXNAMELEN: usize = 255;
+
 /// Indirect addresses in inode.
 pub const UFS_NIADDR: usize = 3;
 
@@ -116,6 +121,16 @@ pub const S_IFLNK: u16 = 0o120000;
 
 /// socket
 pub const S_IFSOCK: u16 = 0o140000;
+
+pub const DT_UNKNOWN: u8 = 0;
+pub const DT_FIFO: u8 =	 1;
+pub const DT_CHR: u8 =	 2;
+pub const DT_DIR: u8 =	 4;
+pub const DT_BLK: u8 =	 6;
+pub const DT_REG: u8 =	 8;
+pub const DT_LNK: u8 =	10;
+pub const DT_SOCK: u8 =	12;
+pub const DT_WHT: u8 =	14;
 
 /**
  * Per cylinder group information; summarized in blocks allocated
@@ -354,6 +369,36 @@ impl Superblock {
 				self.contigsumsize as usize * size_of::<i32>() +
 					howmany(self.fpg as usize >> (self.fshift as usize), 8)
 			})
+	}
+
+	/// inode number to cylinder group number.
+	pub fn ino_to_cg(&self, ino: u64) -> u64 {
+		ino / self.ipg as u64
+	}
+
+	pub fn blocks_to_frags(&self, blocks: u64) -> u64 {
+		blocks << self.fragshift as u32
+	}
+
+	/// inode number to filesystem block adddress.
+	pub fn ino_to_fsba(&self, ino: u64) -> u64 {
+		let cg = self.ino_to_cg(ino);
+		let cgstart = cg * self.fpg as u64;
+		let cgimin = cgstart + self.iblkno as u64;
+		let frags = self.blocks_to_frags(ino % self.ipg as u64) / self.inopb as u64;
+		cgimin + frags
+	}
+
+	/// inode number to filesystem block offset.
+	pub fn ino_to_fsbo(&self, ino: u64) -> u64 {
+		ino % self.inopb as u64
+	}
+
+	/// inode number to filesystem offset.
+	pub fn ino_to_fso(&self, ino: u64) -> u64 {
+		let addr = self.ino_to_fsba(ino) * self.fsize as u64;
+		let off = self.ino_to_fsbo(ino) * size_of::<Inode>() as u64;
+		addr + off
 	}
 }
 

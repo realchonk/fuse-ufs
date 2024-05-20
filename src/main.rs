@@ -10,6 +10,7 @@ use anyhow::Result;
 
 use crate::{data::*, ufs::Ufs};
 
+mod decoder;
 mod data;
 mod inode;
 mod ufs;
@@ -35,7 +36,7 @@ fn main() -> Result<()> {
 	let mount = fuser::spawn_mount2(fs, mp, options)?;
 	sleep(Duration::new(1, 0));
 	shell("ls -ld mp");
-	shell("ls -l mp");
+	shell("ls -la mp");
 	sleep(Duration::new(1, 0));
 	drop(mount);
 

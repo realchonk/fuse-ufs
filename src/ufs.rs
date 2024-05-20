@@ -1,7 +1,7 @@
 use std::{
-	ffi::c_int,
+	ffi::{c_int, OsStr},
 	fs::File,
-	io::{BufReader, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
+	io::{Cursor, Error as IoError, ErrorKind, Result as IoResult},
 	mem::size_of,
 	num::NonZeroU64,
 	path::PathBuf,
@@ -9,73 +9,47 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use bincode::{
-	config::{Configuration, Fixint, LittleEndian, NoLimit},
-	Decode,
-};
-use fuser::{Filesystem, KernelConfig, Request};
+use fuser::{FileType, Filesystem, KernelConfig, Request};
 
-use crate::data::*;
+use crate::{decoder::Decoder, data::*};
 
 pub struct Ufs {
-	config:     Configuration<LittleEndian, Fixint, NoLimit>,
-	file:       BufReader<File>,
+	file: Decoder<File>,
 	superblock: Superblock,
 }
 
 impl Ufs {
 	pub fn open(path: PathBuf) -> Result<Self> {
-		let config = bincode::config::standard()
-			.with_little_endian()
-			.with_fixed_int_encoding();
-
 		let file = File::options()
 			.read(true)
 			.write(false)
 			.open(path)
 			.context("failed to open device")?;
 
-		let mut file = BufReader::new(file);
+		let mut file = Decoder::new(file);
 
-		file.seek(SeekFrom::Start(SBLOCK_UFS2 as u64))
-			.context("failed to seek to superblock")?;
-
-		let superblock: Superblock = bincode::decode_from_reader(&mut file, config)?;
-
+		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
 		if superblock.magic != FS_UFS2_MAGIC {
 			bail!("invalid superblock magic number: {}", superblock.magic);
 		}
 		assert_eq!(superblock.cgsize, CGSIZE as i32);
 		Ok(Self {
-			config,
 			file,
 			superblock,
 		})
 	}
 
-	fn decode<T: Decode>(&mut self, off: u64) -> IoResult<T> {
-		self.file.seek(SeekFrom::Start(off))?;
-		bincode::decode_from_reader(&mut self.file, self.config)
-			.map_err(|_| IoError::new(ErrorKind::InvalidInput, "failed to decode"))
-	}
-
 	// TODO: bincodify inode
 	fn read_inode(&mut self, ino: u64) -> IoResult<Inode> {
-		let sb = &self.superblock;
-		let cg = ino / sb.ipg as u64;
-		let cgoff = cg * sb.cgsize();
-		let off = cgoff + (sb.iblkno as u64 * sb.fsize as u64) + (ino * size_of::<Inode>() as u64);
+		let off = self.superblock.ino_to_fso(ino);
 
-		let mut buffer = [0u8; size_of::<Inode>()];
-		self.file.seek(SeekFrom::Start(off))?;
-		self.file.read_exact(&mut buffer)?;
+		let buffer: [u8; size_of::<Inode>()] = self.file.decode_at(off)?;
 
 		Ok(unsafe { std::mem::transmute_copy(&buffer) })
 	}
 
-	fn resolve_file_block(&mut self, ino: u64, blkno: u64) -> IoResult<Option<NonZeroU64>> {
+	fn resolve_file_block(&mut self, ino: &Inode, blkno: u64) -> IoResult<Option<NonZeroU64>> {
 		let nd = UFS_NDADDR as u64;
-		let ino = self.read_inode(ino)?;
 
 		if blkno >= ino.blocks {
 			return Err(IoError::new(ErrorKind::InvalidInput, "out of bounds"));
@@ -91,21 +65,77 @@ impl Ufs {
 	}
 
 	// TODO: block size is not always 4096
-	fn read_file_block(&mut self, ino: u64, blkno: u64, buf: &mut [u8; 4096]) -> IoResult<()> {
+	fn read_file_block(&mut self, ino: &Inode, blkno: u64) -> IoResult<[u8; 4096]> {
 		match self.resolve_file_block(ino, blkno)? {
-			Some(blkno) => {
-				*buf = self.decode(blkno.get() * self.superblock.fsize as u64)?;
-			}
-			None => {
-				buf.fill(0u8);
+			Some(blkno) => self.file.decode_at(blkno.get() * self.superblock.fsize as u64),
+			None => Ok([0u8; 4096]),
+		}
+	}
+
+	fn readdir<T>(&mut self, ino: &Inode, mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>) -> IoResult<Option<T>> {
+		for i in 0..ino.blocks {
+			let block = self.read_file_block(&ino, i)?;
+
+			let x = readdir_block(&block, &mut f)?;
+			if x.is_some() {
+				return Ok(x);
 			}
 		}
-		Ok(())
+		Ok(None)
 	}
+
+}
+
+fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
+	f()
+		.map_err(|e| e.raw_os_error().unwrap_or(1))
 }
 
 fn transino(ino: u64) -> u64 {
 	return if ino == fuser::FUSE_ROOT_ID { 2 } else { ino };
+}
+
+fn readdir_block<T>(block: &[u8], mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>) -> IoResult<Option<T>> {
+	let mut name = [0u8; UFS_MAXNAMELEN + 1];
+	let file = Cursor::new(block);
+	let mut file = Decoder::new(file);
+
+	loop {
+		let Ok(ino) = file.decode::<InodeNum>() else { break };
+		if ino == 0 {
+			break;
+		}
+		
+		let reclen: u16 = file.decode()?;
+		let kind: u8 = file.decode()?;
+		let namelen: u8 = file.decode()?;
+		let name = &mut name[0..namelen.into()];
+		file.read(name)?;
+
+		// skip remaining bytes of record, if any
+		let off = reclen - (namelen as u16) - 8;
+		file.seek_relative(off as i64)?;
+
+		let name = unsafe { OsStr::from_encoded_bytes_unchecked(name) };
+		let kind = match kind {
+			DT_FIFO	=> FileType::NamedPipe,
+			DT_CHR	=> FileType::CharDevice,
+			DT_DIR	=> FileType::Directory,
+			DT_BLK	=> FileType::BlockDevice,
+			DT_REG	=> FileType::RegularFile,
+			DT_LNK	=> FileType::Symlink,
+			DT_SOCK	=> FileType::Socket,
+			DT_WHT	=> todo!("DT_WHT: {ino}"),
+			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
+			_ => panic!("invalid filetype: {kind}"),
+		};
+		let res = f(name, ino, kind);
+		if res.is_some() {
+			return Ok(res);
+		}
+	}
+	
+	Ok(None)
 }
 
 impl Filesystem for Ufs {
@@ -127,7 +157,7 @@ impl Filesystem for Ufs {
 		for i in 0..sb.ncg {
 			let sb = &self.superblock;
 			let addr = ((sb.fpg + sb.sblkno) * sb.fsize) as u64;
-			let csb: Superblock = self.decode(addr).unwrap();
+			let csb: Superblock = self.file.decode_at(addr).unwrap();
 			if csb.magic != FS_UFS2_MAGIC {
 				eprintln!("CG{i} has invalid superblock magic: {:x}", csb.magic);
 			}
@@ -137,7 +167,7 @@ impl Filesystem for Ufs {
 		for i in 0..self.superblock.ncg {
 			let sb = &self.superblock;
 			let addr = ((sb.fpg + sb.cblkno) * sb.fsize) as u64;
-			let cg: CylGroup = self.decode(addr).unwrap();
+			let cg: CylGroup = self.file.decode_at(addr).unwrap();
 			if cg.magic != CG_MAGIC {
 				eprintln!("CG{i} has invalid cg magic: {:x}", cg.magic);
 			}
@@ -153,7 +183,7 @@ impl Filesystem for Ufs {
 		let ino = transino(ino);
 		match self.read_inode(ino) {
 			Ok(x) => reply.attr(&Duration::ZERO, &x.as_fileattr(ino)),
-			Err(e) => reply.error(e.raw_os_error().unwrap()),
+			Err(e) => reply.error(e.raw_os_error().unwrap_or(1)),
 		}
 	}
 
@@ -167,16 +197,65 @@ impl Filesystem for Ufs {
 		reply.opened(0, 0);
 	}
 
+	// TODO: support offset
 	fn readdir(
 		&mut self,
 		_req: &Request<'_>,
 		ino: u64,
 		_fh: u64,
-		_offset: i64,
-		reply: fuser::ReplyDirectory,
+		offset: i64,
+		mut reply: fuser::ReplyDirectory,
 	) {
-		// TODO
-		let _ino = transino(ino);
-		reply.ok()
+		let ino = transino(ino);
+		let f = || {
+			if offset != 0 {
+				return Ok(());
+			}
+
+			let ino = self.read_inode(ino)?;
+
+			self.readdir(&ino, |name, ino, kind| {
+					if reply.add(ino.into(), 123, kind, name) {
+						todo!("What if the buffer is full?");
+					}
+					None::<()>
+			})?;
+			
+			Ok(())
+		};
+		match run(f) {
+			Ok(_) => reply.ok(),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn lookup(&mut self, _req: &Request<'_>, pino: u64, name: &OsStr, reply: fuser::ReplyEntry) {
+		let pino = transino(pino);
+
+		let f = || {
+			let pino = self.read_inode(pino)?;
+
+			let x = self.readdir(&pino, |name2, ino, _| {
+				if name == name2 {
+					Some(ino.into())
+				} else {
+					None
+				}
+			});
+
+			match x {
+				Ok(Some(inr)) => {
+					let ino = self.read_inode(inr)?;
+					Ok((ino.as_fileattr(inr), ino.gen))
+				},
+				Ok(None) => Err(IoError::new(ErrorKind::NotFound, "file not found")),
+				Err(e) => Err(e),
+			}
+		};
+		
+		match run(f) {
+			Ok((attr, gen)) => reply.entry(&Duration::ZERO, &attr, gen.into()),
+			Err(e) => reply.error(e),
+		}
 	}
 }
