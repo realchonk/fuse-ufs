@@ -8,6 +8,7 @@ exclude = ["doc/*"]
 
 [dependencies]
 anyhow = "1.0.83"
+bincode = "2.0.0-rc.3"
 env_logger = "0.11.3"
 fuser = "0.14.0"
 

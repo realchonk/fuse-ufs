@@ -1,3 +1,4 @@
+use bincode::Decode;
 use std::mem::size_of;
 
 /**
@@ -122,9 +123,7 @@ pub const S_IFSOCK: u16 = 0o140000;
  * super block.
  * `struct csum` in FreeBSD
  */
-#[derive(Debug)]
-#[allow(dead_code)]
-#[repr(C)]
+#[derive(Debug, Decode)]
 pub struct Csum {
 	pub ndir:   i32, // number of directories
 	pub nbfree: i32, // number of free blocks
@@ -135,9 +134,7 @@ pub struct Csum {
 /**
  * `struct csum_total` in FreeBSD
  */
-#[derive(Debug)]
-#[allow(dead_code)]
-#[repr(C)]
+#[derive(Debug, Decode)]
 pub struct CsumTotal {
 	pub ndir:        i64,      // number of directories
 	pub nbfree:      i64,      // number of free blocks
@@ -151,9 +148,7 @@ pub struct CsumTotal {
  * Super block for an FFS filesystem.
  * `struct fs` in FreeBSD
  */
-#[derive(Debug)]
-#[allow(dead_code)]
-#[repr(C)]
+#[derive(Debug, Decode)]
 pub struct Superblock {
 	pub firstfield:       i32, // historic filesystem linked list,
 	pub unused_1:         i32, // used for incore super blocks

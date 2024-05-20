@@ -1,40 +1,48 @@
 use std::{
 	ffi::c_int,
 	fs::File,
-	io::{Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
+	io::{BufReader, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::{size_of, transmute_copy},
 	path::PathBuf,
 	time::Duration,
 };
 
 use anyhow::{bail, Context, Result};
+use bincode::{config::{Configuration, Fixint, LittleEndian, NoLimit}, Decode};
 use fuser::{Filesystem, KernelConfig, Request};
 
 use crate::data::*;
 
 pub struct Ufs {
-	file:       File,
+	config: Configuration<LittleEndian, Fixint, NoLimit>,
+	file:       BufReader<File>,
 	superblock: Superblock,
 }
 
 impl Ufs {
 	pub fn open(path: PathBuf) -> Result<Self> {
-		let mut file = File::options()
+		let config = bincode::config::standard()
+			.with_little_endian()
+			.with_fixed_int_encoding();
+
+		let file = File::options()
 			.read(true)
 			.write(false)
 			.open(path)
 			.context("failed to open device")?;
-		let mut block = [0u8; SBLOCKSIZE];
+
+		let mut file = BufReader::new(file);
+
 		file.seek(SeekFrom::Start(SBLOCK_UFS2 as u64))
 			.context("failed to seek to superblock")?;
-		file.read_exact(&mut block)
-			.context("failed to read superblock")?;
-		let superblock: Superblock = unsafe { transmute_copy(&block) };
+
+		let superblock: Superblock = bincode::decode_from_reader(&mut file, config)?;
+		
 		if superblock.magic != FS_UFS2_MAGIC {
 			bail!("invalid superblock magic number: {}", superblock.magic);
 		}
 		assert_eq!(superblock.cgsize, CGSIZE as i32);
-		Ok(Self { file, superblock })
+		Ok(Self { config, file, superblock })
 	}
 
 	fn read(&mut self, off: u64, buf: &mut [u8]) -> IoResult<()> {
@@ -53,6 +61,16 @@ impl Ufs {
 		let end = begin + buf.len();
 		buf.copy_from_slice(&buffer[begin..end]);
 		Ok(())
+	}
+
+	fn decode<T: Decode>(&mut self, off: u64) -> Result<T> {
+		self
+			.file
+			.seek(SeekFrom::Start(off))
+			.context("failed to seek")?;
+		let x = bincode::decode_from_reader(&mut self.file, self.config)
+			.context("failed to decode")?;
+		Ok(x)
 	}
 
 	fn read_inode(&mut self, ino: u64) -> IoResult<Inode> {
@@ -107,16 +125,15 @@ impl Filesystem for Ufs {
 
 		// check that all superblocks are ok.
 		for i in 0..sb.ncg {
+			let sb = &self.superblock;
 			let addr = ((sb.fpg + sb.sblkno) * sb.fsize) as u64;
-			let mut block = [0u8; SBLOCKSIZE];
-			self.file.seek(SeekFrom::Start(addr)).unwrap();
-			self.file.read_exact(&mut block).unwrap();
-			let csb: Superblock = unsafe { transmute_copy(&block) };
+			let csb: Superblock = self.decode(addr).unwrap();
 			if csb.magic != FS_UFS2_MAGIC {
 				eprintln!("CG{i} has invalid superblock magic: {:x}", csb.magic);
 			}
 		}
 
+		let sb = &self.superblock;
 		// check that all cylgroups are ok.
 		for i in 0..sb.ncg {
 			let addr = ((sb.fpg + sb.cblkno) * sb.fsize) as u64;
