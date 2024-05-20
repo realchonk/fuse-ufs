@@ -1,0 +1,70 @@
+setup: &FREEBSD_SETUP
+  env:
+    HOME: /tmp # cargo needs it
+    RUST_BACKTRACE: full  # Better info for debugging test failures.
+  setup_script:
+    - fetch https://sh.rustup.rs -o rustup.sh
+    - sh rustup.sh -y --profile=minimal --default-toolchain ${VERSION}
+    - pkg install -y fusefs-libs3 pkgconf
+    - kldload fusefs
+
+test: &TEST
+  cargo_cache:
+    folder: $HOME/.cargo/registry
+    fingerprint_script: cat Cargo.lock || echo ""
+  build_script:
+    - . $HOME/.cargo/env || true
+    - cargo build
+  test_script:
+    - . $HOME/.cargo/env || true
+    - cargo test
+
+task:
+  env:
+    VERSION: 1.77.0
+  name: FreeBSD 13.3 MSRV
+  freebsd_instance:
+    image: freebsd-13-3-release-amd64
+  << : *FREEBSD_SETUP
+  << : *TEST
+  before_cache_script: rm -rf $HOME/.cargo/registry/index
+
+task:
+  name: FreeBSD 14.0 nightly
+  env:
+    VERSION: nightly
+  freebsd_instance:
+    image: freebsd-14-0-release-amd64-ufs
+  << : *FREEBSD_SETUP
+  << : *TEST
+  clippy_script:
+    - . $HOME/.cargo/env
+    - rustup component add clippy
+    - cargo clippy --all-targets -- -D warnings
+  # Test our minimal version spec
+  minver_test_script:
+    - . $HOME/.cargo/env
+    - cargo update -Zminimal-versions
+    - cargo check --all-targets
+  before_cache_script: rm -rf $HOME/.cargo/registry/index
+
+task:
+  name: Linux MSRV
+  container:
+    image: rust:1.77.0
+  setup_script:
+    apt-get install libfuse3-dev
+  << : *TEST
+  before_cache_script: rm -rf $HOME/.cargo/registry/index
+
+task:
+  name: Lint
+  container:
+    image: rustlang/rust:nightly
+  fmt_script:
+    - rustup component add rustfmt
+    - cargo fmt -- --check --color=never
+  audit_script:
+    - cargo install cargo-audit
+    - cargo audit
+  before_cache_script: rm -rf $CARGO_HOME/registry/index
