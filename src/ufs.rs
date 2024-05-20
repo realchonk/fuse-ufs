@@ -45,24 +45,6 @@ impl Ufs {
 		Ok(Self { config, file, superblock })
 	}
 
-	fn read(&mut self, off: u64, buf: &mut [u8]) -> IoResult<()> {
-		let bs = self.superblock.fsize as u64;
-		let blkno = off / bs;
-		let blkoff = off % bs;
-		let blkcnt = ((buf.len() as u64) + blkoff + bs - 1) / bs;
-		let buflen = (blkcnt * bs) as usize;
-		let mut buffer = Vec::with_capacity(buflen);
-		buffer.resize(buflen, 0u8);
-
-		self.file.seek(SeekFrom::Start(blkno * bs))?;
-		self.file.read_exact(&mut buffer)?;
-
-		let begin = blkoff as usize;
-		let end = begin + buf.len();
-		buf.copy_from_slice(&buffer[begin..end]);
-		Ok(())
-	}
-
 	fn decode<T: Decode>(&mut self, off: u64) -> Result<T> {
 		self
 			.file
@@ -73,16 +55,18 @@ impl Ufs {
 		Ok(x)
 	}
 
+	// TODO: bincodify inode
 	fn read_inode(&mut self, ino: u64) -> IoResult<Inode> {
 		let sb = &self.superblock;
 		let cg = ino / sb.ipg as u64;
 		let cgoff = cg * sb.cgsize();
 		let off = cgoff + (sb.iblkno as u64 * sb.fsize as u64) + (ino * size_of::<Inode>() as u64);
-		let mut buffer = [0u8; size_of::<Inode>()];
-		self.read(off, &mut buffer)?;
-		let ino = unsafe { std::mem::transmute_copy(&buffer) };
 
-		Ok(ino)
+		let mut buffer = [0u8; size_of::<Inode>()];
+		self.file.seek(SeekFrom::Start(off))?;
+		self.file.read_exact(&mut buffer)?;
+
+		Ok(unsafe { std::mem::transmute_copy(&buffer) })
 	}
 
 	fn read_file_block(&mut self, ino: u64, blkno: usize, buf: &mut [u8; 4096]) -> IoResult<()> {
