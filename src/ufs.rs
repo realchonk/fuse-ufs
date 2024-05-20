@@ -94,7 +94,11 @@ fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
 }
 
 fn transino(ino: u64) -> u64 {
-	if ino == fuser::FUSE_ROOT_ID { 2 } else { ino }
+	if ino == fuser::FUSE_ROOT_ID {
+		2
+	} else {
+		ino
+	}
 }
 
 fn readdir_block<T>(
