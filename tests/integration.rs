@@ -1,12 +1,11 @@
 use std::{
     ffi::OsString,
-    fmt,
-    fs,
+    fmt, fs,
     os::unix::ffi::OsStringExt,
     path::PathBuf,
     process::{Child, Command},
+    thread::sleep,
     time::{Duration, Instant},
-    thread::sleep
 };
 
 use assert_cmd::cargo::CommandCargoExt;
@@ -14,7 +13,6 @@ use cfg_if::cfg_if;
 use lazy_static::lazy_static;
 use rstest::{fixture, rstest};
 use tempfile::{tempdir, TempDir};
-
 
 fn prepare_image(filename: &str) -> PathBuf {
     let mut zimg = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -30,9 +28,7 @@ fn prepare_image(filename: &str) -> PathBuf {
     // https://github.com/facebook/zstd/issues/3748
     let zmtime = fs::metadata(&zimg).unwrap().modified().unwrap();
     let mtime = fs::metadata(&img);
-    if mtime.is_err() || (mtime.unwrap().modified().unwrap() +
-                          Duration::from_secs(1)) < zmtime
-    {
+    if mtime.is_err() || (mtime.unwrap().modified().unwrap() + Duration::from_secs(1)) < zmtime {
         Command::new("unzstd")
             .arg("-f")
             .arg("-o")
@@ -78,13 +74,14 @@ where
 
 struct Harness {
     d: TempDir,
-    child: Child
+    child: Child,
 }
 
 #[fixture]
 fn harness() -> Harness {
     let d = tempdir().unwrap();
-    let child = Command::cargo_bin("fuse-ufs").unwrap()
+    let child = Command::cargo_bin("fuse-ufs")
+        .unwrap()
         .arg(GOLDEN.as_path())
         .arg(d.path())
         .spawn()
@@ -99,22 +96,17 @@ fn harness() -> Harness {
                 s.filesystem_type() == nix::sys::statfs::FUSE_SUPER_MAGIC
             }
         }
-    }).unwrap();
+    })
+    .unwrap();
 
-    Harness {
-        d,
-        child
-    }
-
+    Harness { d, child }
 }
 
 impl Drop for Harness {
     #[allow(clippy::if_same_then_else)]
     fn drop(&mut self) {
         loop {
-            let cmd = Command::new("umount")
-                .arg(self.d.path())
-                .output();
+            let cmd = Command::new("umount").arg(self.d.path()).output();
             match cmd {
                 Err(e) => {
                     eprintln!("Executing umount failed: {}", e);
@@ -123,15 +115,12 @@ impl Drop for Harness {
                         return;
                     }
                     panic!("Executing umount failed");
-                },
+                }
                 Ok(output) => {
-                    let errmsg = OsString::from_vec(output.stderr)
-                        .into_string()
-                        .unwrap();
+                    let errmsg = OsString::from_vec(output.stderr).into_string().unwrap();
                     if output.status.success() {
                         break;
-                    } else if errmsg.contains("not a file system root directory")
-                    {
+                    } else if errmsg.contains("not a file system root directory") {
                         // The daemon probably crashed.
                         break;
                     } else if errmsg.contains("Device busy") {
