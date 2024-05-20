@@ -308,7 +308,6 @@ pub struct Ufs {
 
 impl Ufs {
     pub fn open(path: PathBuf) -> Result<Self> {
-        println!("sizeof(Superblock) = {}", size_of::<Superblock>());
         let mut file = File::options()
             .read(true)
             .write(false)
@@ -382,7 +381,6 @@ fn transino(ino: u64) -> u64 {
 impl Filesystem for Ufs {
     fn init(&mut self, _req: &Request<'_>, _config: &mut KernelConfig) -> Result<(), c_int> {
         let sb = &self.superblock;
-        println!("init()");
         println!("Superblock: {:#?}", sb);
 
         println!("Summary:");
@@ -423,12 +421,10 @@ impl Filesystem for Ufs {
         Ok(())
     }
     fn destroy(&mut self) {
-        println!("destroy()");
     }
 
     fn getattr(&mut self, _req: &Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
         let ino = transino(ino);
-        eprintln!("stat({ino});");
         match self.read_inode(ino) {
             Ok(x) => reply.attr(&Duration::ZERO, &x.as_fileattr(ino)),
             Err(e) => reply.error(e.raw_os_error().unwrap()),
@@ -437,11 +433,9 @@ impl Filesystem for Ufs {
 
     fn open(&mut self, _req: &Request<'_>, ino: u64, flags: i32, reply: fuser::ReplyOpen) {
         let ino = transino(ino);
-        eprintln!("open({ino}, {flags});");
     }
     fn opendir(&mut self, _req: &Request<'_>, ino: u64, flags: i32, reply: fuser::ReplyOpen) {
         let ino = transino(ino);
-        eprintln!("opendir({ino}, {flags});");
         reply.opened(0, 0);
     }
     fn readdir(
@@ -453,7 +447,6 @@ impl Filesystem for Ufs {
         reply: fuser::ReplyDirectory,
     ) {
         let ino = transino(ino);
-        eprintln!("readdir({ino}, {offset});");
         reply.ok()
     }
 }
@@ -468,6 +461,9 @@ fn shell(cmd: &str) {
 }
 
 fn main() -> Result<()> {
+	env_logger::init();
+
+	
     assert_eq!(size_of::<Superblock>(), 1376);
     assert_eq!(size_of::<Inode>(), 256);
     let fs = Ufs::open(PathBuf::from("/dev/da0"))?;

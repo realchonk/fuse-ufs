@@ -3,6 +3,9 @@ SRC != find src -name '*.rs'
 
 all: fuse-ufs
 
+run: fuse-ufs
+	RUST_BACKTRACE=full RUST_LOG=debug ./fuse-ufs /dev/da0
+
 prepare: fmt lint
 
 fmt:
