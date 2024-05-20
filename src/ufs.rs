@@ -11,10 +11,10 @@ use std::{
 use anyhow::{bail, Context, Result};
 use fuser::{FileType, Filesystem, KernelConfig, Request};
 
-use crate::{decoder::Decoder, data::*};
+use crate::{data::*, decoder::Decoder};
 
 pub struct Ufs {
-	file: Decoder<File>,
+	file:       Decoder<File>,
 	superblock: Superblock,
 }
 
@@ -33,10 +33,7 @@ impl Ufs {
 			bail!("invalid superblock magic number: {}", superblock.magic);
 		}
 		assert_eq!(superblock.cgsize, CGSIZE as i32);
-		Ok(Self {
-			file,
-			superblock,
-		})
+		Ok(Self { file, superblock })
 	}
 
 	// TODO: bincodify inode
@@ -67,12 +64,19 @@ impl Ufs {
 	// TODO: block size is not always 4096
 	fn read_file_block(&mut self, ino: &Inode, blkno: u64) -> IoResult<[u8; 4096]> {
 		match self.resolve_file_block(ino, blkno)? {
-			Some(blkno) => self.file.decode_at(blkno.get() * self.superblock.fsize as u64),
+			Some(blkno) => {
+				self.file
+					.decode_at(blkno.get() * self.superblock.fsize as u64)
+			}
 			None => Ok([0u8; 4096]),
 		}
 	}
 
-	fn readdir<T>(&mut self, ino: &Inode, mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>) -> IoResult<Option<T>> {
+	fn readdir<T>(
+		&mut self,
+		ino: &Inode,
+		mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
+	) -> IoResult<Option<T>> {
 		for i in 0..ino.blocks {
 			let block = self.read_file_block(&ino, i)?;
 
@@ -83,29 +87,32 @@ impl Ufs {
 		}
 		Ok(None)
 	}
-
 }
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
-	f()
-		.map_err(|e| e.raw_os_error().unwrap_or(1))
+	f().map_err(|e| e.raw_os_error().unwrap_or(1))
 }
 
 fn transino(ino: u64) -> u64 {
 	return if ino == fuser::FUSE_ROOT_ID { 2 } else { ino };
 }
 
-fn readdir_block<T>(block: &[u8], mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>) -> IoResult<Option<T>> {
+fn readdir_block<T>(
+	block: &[u8],
+	mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
+) -> IoResult<Option<T>> {
 	let mut name = [0u8; UFS_MAXNAMELEN + 1];
 	let file = Cursor::new(block);
 	let mut file = Decoder::new(file);
 
 	loop {
-		let Ok(ino) = file.decode::<InodeNum>() else { break };
+		let Ok(ino) = file.decode::<InodeNum>() else {
+			break;
+		};
 		if ino == 0 {
 			break;
 		}
-		
+
 		let reclen: u16 = file.decode()?;
 		let kind: u8 = file.decode()?;
 		let namelen: u8 = file.decode()?;
@@ -118,14 +125,14 @@ fn readdir_block<T>(block: &[u8], mut f: impl FnMut(&OsStr, InodeNum, FileType) 
 
 		let name = unsafe { OsStr::from_encoded_bytes_unchecked(name) };
 		let kind = match kind {
-			DT_FIFO	=> FileType::NamedPipe,
-			DT_CHR	=> FileType::CharDevice,
-			DT_DIR	=> FileType::Directory,
-			DT_BLK	=> FileType::BlockDevice,
-			DT_REG	=> FileType::RegularFile,
-			DT_LNK	=> FileType::Symlink,
-			DT_SOCK	=> FileType::Socket,
-			DT_WHT	=> todo!("DT_WHT: {ino}"),
+			DT_FIFO => FileType::NamedPipe,
+			DT_CHR => FileType::CharDevice,
+			DT_DIR => FileType::Directory,
+			DT_BLK => FileType::BlockDevice,
+			DT_REG => FileType::RegularFile,
+			DT_LNK => FileType::Symlink,
+			DT_SOCK => FileType::Socket,
+			DT_WHT => todo!("DT_WHT: {ino}"),
 			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
 			_ => panic!("invalid filetype: {kind}"),
 		};
@@ -134,7 +141,7 @@ fn readdir_block<T>(block: &[u8], mut f: impl FnMut(&OsStr, InodeNum, FileType) 
 			return Ok(res);
 		}
 	}
-	
+
 	Ok(None)
 }
 
@@ -215,12 +222,12 @@ impl Filesystem for Ufs {
 			let ino = self.read_inode(ino)?;
 
 			self.readdir(&ino, |name, ino, kind| {
-					if reply.add(ino.into(), 123, kind, name) {
-						todo!("What if the buffer is full?");
-					}
-					None::<()>
+				if reply.add(ino.into(), 123, kind, name) {
+					todo!("What if the buffer is full?");
+				}
+				None::<()>
 			})?;
-			
+
 			Ok(())
 		};
 		match run(f) {
@@ -247,12 +254,12 @@ impl Filesystem for Ufs {
 				Ok(Some(inr)) => {
 					let ino = self.read_inode(inr)?;
 					Ok((ino.as_fileattr(inr), ino.gen))
-				},
+				}
 				Ok(None) => Err(IoError::new(ErrorKind::NotFound, "file not found")),
 				Err(e) => Err(e),
 			}
 		};
-		
+
 		match run(f) {
 			Ok((attr, gen)) => reply.entry(&Duration::ZERO, &attr, gen.into()),
 			Err(e) => reply.error(e),

@@ -10,8 +10,8 @@ use anyhow::Result;
 
 use crate::{data::*, ufs::Ufs};
 
-mod decoder;
 mod data;
+mod decoder;
 mod inode;
 mod ufs;
 

@@ -1,17 +1,19 @@
 use std::io::{BufReader, Error, ErrorKind, Read, Result, Seek, SeekFrom};
 
-use bincode::{config::{Configuration, Fixint, LittleEndian, NoLimit}, Decode};
-
+use bincode::{
+	config::{Configuration, Fixint, LittleEndian, NoLimit},
+	Decode,
+};
 
 pub struct Decoder<T> {
-	inner: BufReader<T>,
+	inner:  BufReader<T>,
 	config: Configuration<LittleEndian, Fixint, NoLimit>,
 }
 
 impl<T: Read> Decoder<T> {
 	pub fn new(inner: T) -> Self {
 		Self {
-			inner: BufReader::new(inner),
+			inner:  BufReader::new(inner),
 			config: bincode::config::standard()
 				.with_fixed_int_encoding()
 				.with_little_endian(),
@@ -30,7 +32,6 @@ impl<T: Read> Decoder<T> {
 	pub fn get_ref(&self) -> &T {
 		self.inner.get_ref()
 	}
-
 }
 
 impl<T: Read + Seek> Decoder<T> {
@@ -38,10 +39,12 @@ impl<T: Read + Seek> Decoder<T> {
 		self.seek(pos)?;
 		self.decode()
 	}
+
 	pub fn seek(&mut self, pos: u64) -> Result<()> {
 		self.inner.seek(SeekFrom::Start(pos))?;
 		Ok(())
 	}
+
 	pub fn seek_relative(&mut self, off: i64) -> Result<()> {
 		self.inner.seek_relative(off)
 	}

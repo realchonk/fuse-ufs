@@ -123,14 +123,14 @@ pub const S_IFLNK: u16 = 0o120000;
 pub const S_IFSOCK: u16 = 0o140000;
 
 pub const DT_UNKNOWN: u8 = 0;
-pub const DT_FIFO: u8 =	 1;
-pub const DT_CHR: u8 =	 2;
-pub const DT_DIR: u8 =	 4;
-pub const DT_BLK: u8 =	 6;
-pub const DT_REG: u8 =	 8;
-pub const DT_LNK: u8 =	10;
-pub const DT_SOCK: u8 =	12;
-pub const DT_WHT: u8 =	14;
+pub const DT_FIFO: u8 = 1;
+pub const DT_CHR: u8 = 2;
+pub const DT_DIR: u8 = 4;
+pub const DT_BLK: u8 = 6;
+pub const DT_REG: u8 = 8;
+pub const DT_LNK: u8 = 10;
+pub const DT_SOCK: u8 = 12;
+pub const DT_WHT: u8 = 14;
 
 /**
  * Per cylinder group information; summarized in blocks allocated
