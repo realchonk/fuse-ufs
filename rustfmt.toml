@@ -11,3 +11,5 @@ reorder_impl_items = true
 reorder_imports = true
 struct_field_align_threshold = 16
 use_field_init_shorthand = true
+hard_tabs = true
+tab_spaces = 4
