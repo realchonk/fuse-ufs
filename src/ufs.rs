@@ -90,7 +90,7 @@ impl Ufs {
 }
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
-	f().map_err(|e| e.raw_os_error().unwrap_or(1))
+	f().map_err(|e| e.raw_os_error().unwrap_or(libc::EIO))
 }
 
 fn transino(ino: u64) -> u64 {
@@ -194,7 +194,7 @@ impl Filesystem for Ufs {
 		let ino = transino(ino);
 		match self.read_inode(ino) {
 			Ok(x) => reply.attr(&Duration::ZERO, &x.as_fileattr(ino)),
-			Err(e) => reply.error(e.raw_os_error().unwrap_or(1)),
+			Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
 		}
 	}
 
