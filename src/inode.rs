@@ -1,5 +1,6 @@
-use fuser::{FileAttr, FileType};
 use std::time::{Duration, SystemTime};
+
+use fuser::{FileAttr, FileType};
 
 use crate::data::*;
 
@@ -22,18 +23,23 @@ impl Inode {
 	pub fn atime(&self) -> SystemTime {
 		timetosys(self.atime, self.atimensec)
 	}
+
 	pub fn mtime(&self) -> SystemTime {
 		timetosys(self.mtime, self.mtimensec)
 	}
+
 	pub fn ctime(&self) -> SystemTime {
 		timetosys(self.ctime, self.ctimensec)
 	}
+
 	pub fn btime(&self) -> SystemTime {
 		timetosys(self.birthtime, self.birthnsec)
 	}
+
 	pub fn perm(&self) -> u16 {
 		self.mode & 0o7777
 	}
+
 	pub fn kind(&self) -> FileType {
 		let mode = self.mode & S_IFMT;
 		match mode {
