@@ -264,6 +264,7 @@ pub struct Superblock {
 
 #[derive(Debug)]
 #[allow(dead_code)]
+#[repr(C)]
 pub struct CylGroup {
 	pub firstfield: i32,       // historic cyl groups linked list
 	pub magic: i32,            // magic number
