@@ -19,7 +19,7 @@ clean:
 	cargo clean
 
 
-fuse-ufs: ${SRC}
+fuse-ufs: Cargo.lock ${SRC}
 	cargo build --release
 	cp -f target/release/fuse-ufs .
 
