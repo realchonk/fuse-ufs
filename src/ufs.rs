@@ -2,7 +2,7 @@ use std::{
 	ffi::c_int,
 	fs::File,
 	io::{BufReader, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
-	mem::{size_of, transmute_copy},
+	mem::size_of,
 	path::PathBuf,
 	time::Duration,
 };
@@ -80,7 +80,7 @@ impl Ufs {
 		let off = cgoff + (sb.iblkno as u64 * sb.fsize as u64) + (ino * size_of::<Inode>() as u64);
 		let mut buffer = [0u8; size_of::<Inode>()];
 		self.read(off, &mut buffer)?;
-		let ino = unsafe { transmute_copy(&buffer) };
+		let ino = unsafe { std::mem::transmute_copy(&buffer) };
 
 		Ok(ino)
 	}
@@ -133,14 +133,11 @@ impl Filesystem for Ufs {
 			}
 		}
 
-		let sb = &self.superblock;
 		// check that all cylgroups are ok.
-		for i in 0..sb.ncg {
+		for i in 0..self.superblock.ncg {
+			let sb = &self.superblock;
 			let addr = ((sb.fpg + sb.cblkno) * sb.fsize) as u64;
-			let mut block = [0u8; CGSIZE];
-			self.file.seek(SeekFrom::Start(addr)).unwrap();
-			self.file.read_exact(&mut block).unwrap();
-			let cg: CylGroup = unsafe { transmute_copy(&block) };
+			let cg: CylGroup = self.decode(addr).unwrap();
 			if cg.magic != CG_MAGIC {
 				eprintln!("CG{i} has invalid cg magic: {:x}", cg.magic);
 			}
