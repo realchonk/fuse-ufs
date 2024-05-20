@@ -78,7 +78,7 @@ impl Ufs {
 		mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
 	) -> IoResult<Option<T>> {
 		for i in 0..ino.blocks {
-			let block = self.read_file_block(&ino, i)?;
+			let block = self.read_file_block(ino, i)?;
 
 			let x = readdir_block(&block, &mut f)?;
 			if x.is_some() {
@@ -94,7 +94,7 @@ fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
 }
 
 fn transino(ino: u64) -> u64 {
-	return if ino == fuser::FUSE_ROOT_ID { 2 } else { ino };
+	if ino == fuser::FUSE_ROOT_ID { 2 } else { ino }
 }
 
 fn readdir_block<T>(

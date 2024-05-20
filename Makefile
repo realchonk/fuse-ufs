@@ -12,7 +12,7 @@ fmt:
 	cargo fmt
 
 lint:
-	cargo clippy
+	cargo clippy --all-targets
 
 clean:
 	rm -f fuse-ufs

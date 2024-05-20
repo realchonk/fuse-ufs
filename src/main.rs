@@ -17,7 +17,7 @@ mod ufs;
 
 fn shell(cmd: &str) {
 	Command::new("sh")
-		.args(&["-c", cmd])
+		.args(["-c", cmd])
 		.spawn()
 		.unwrap()
 		.wait()
