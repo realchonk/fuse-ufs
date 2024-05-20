@@ -3,18 +3,22 @@ use std::{
 	fs::File,
 	io::{BufReader, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
+	num::NonZeroU64,
 	path::PathBuf,
 	time::Duration,
 };
 
 use anyhow::{bail, Context, Result};
-use bincode::{config::{Configuration, Fixint, LittleEndian, NoLimit}, Decode};
+use bincode::{
+	config::{Configuration, Fixint, LittleEndian, NoLimit},
+	Decode,
+};
 use fuser::{Filesystem, KernelConfig, Request};
 
 use crate::data::*;
 
 pub struct Ufs {
-	config: Configuration<LittleEndian, Fixint, NoLimit>,
+	config:     Configuration<LittleEndian, Fixint, NoLimit>,
 	file:       BufReader<File>,
 	superblock: Superblock,
 }
@@ -37,22 +41,22 @@ impl Ufs {
 			.context("failed to seek to superblock")?;
 
 		let superblock: Superblock = bincode::decode_from_reader(&mut file, config)?;
-		
+
 		if superblock.magic != FS_UFS2_MAGIC {
 			bail!("invalid superblock magic number: {}", superblock.magic);
 		}
 		assert_eq!(superblock.cgsize, CGSIZE as i32);
-		Ok(Self { config, file, superblock })
+		Ok(Self {
+			config,
+			file,
+			superblock,
+		})
 	}
 
-	fn decode<T: Decode>(&mut self, off: u64) -> Result<T> {
-		self
-			.file
-			.seek(SeekFrom::Start(off))
-			.context("failed to seek")?;
-		let x = bincode::decode_from_reader(&mut self.file, self.config)
-			.context("failed to decode")?;
-		Ok(x)
+	fn decode<T: Decode>(&mut self, off: u64) -> IoResult<T> {
+		self.file.seek(SeekFrom::Start(off))?;
+		bincode::decode_from_reader(&mut self.file, self.config)
+			.map_err(|_| IoError::new(ErrorKind::InvalidInput, "failed to decode"))
 	}
 
 	// TODO: bincodify inode
@@ -69,22 +73,34 @@ impl Ufs {
 		Ok(unsafe { std::mem::transmute_copy(&buffer) })
 	}
 
-	fn read_file_block(&mut self, ino: u64, blkno: usize, buf: &mut [u8; 4096]) -> IoResult<()> {
-		let bs = self.superblock.fsize as u64;
+	fn resolve_file_block(&mut self, ino: u64, blkno: u64) -> IoResult<Option<NonZeroU64>> {
+		let nd = UFS_NDADDR as u64;
 		let ino = self.read_inode(ino)?;
 
-		if blkno >= ino.blocks as usize {
+		if blkno >= ino.blocks {
 			return Err(IoError::new(ErrorKind::InvalidInput, "out of bounds"));
 		}
 
-		if blkno < UFS_NDADDR {
-			let blkaddr = unsafe { ino.data.blocks.direct[blkno] } as u64;
-			self.file.seek(SeekFrom::Start(blkaddr * bs))?;
-			self.file.read_exact(buf)?;
-			Ok(())
+		if blkno < nd {
+			Ok(NonZeroU64::new(
+				unsafe { ino.data.blocks.direct[blkno as usize] } as u64,
+			))
 		} else {
-			todo!("indirect block addressing is unsupported")
+			todo!("indirect block addressing")
 		}
+	}
+
+	// TODO: block size is not always 4096
+	fn read_file_block(&mut self, ino: u64, blkno: u64, buf: &mut [u8; 4096]) -> IoResult<()> {
+		match self.resolve_file_block(ino, blkno)? {
+			Some(blkno) => {
+				*buf = self.decode(blkno.get() * self.superblock.fsize as u64)?;
+			}
+			None => {
+				buf.fill(0u8);
+			}
+		}
+		Ok(())
 	}
 }
 

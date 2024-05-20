@@ -1,5 +1,6 @@
-use bincode::Decode;
 use std::mem::size_of;
+
+use bincode::Decode;
 
 /**
  * UFS2 fast filesystem magic number
