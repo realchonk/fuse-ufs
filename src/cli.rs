@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+
 use clap::Parser;
 use fuser::MountOption;
 
@@ -10,7 +11,7 @@ pub struct Cli {
 	#[arg(short, long)]
 	pub verbose: bool,
 
-	pub device: PathBuf,
+	pub device:     PathBuf,
 	pub mountpoint: PathBuf,
 }
 
@@ -25,7 +26,7 @@ impl Cli {
 
 		for opt in &self.options {
 			let opt = match opt.as_str() {
-				"allow_other "=> MountOption::AllowOther,
+				"allow_other" => MountOption::AllowOther,
 				"allow_root" => MountOption::AllowRoot,
 				"async" => MountOption::Async,
 				"atime" => MountOption::Atime,
