@@ -9,6 +9,7 @@ exclude = ["doc/*"]
 [dependencies]
 anyhow = "1.0.83"
 bincode = "2.0.0-rc.3"
+clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 fuser = "0.14.0"
 libc = "0.2.155"

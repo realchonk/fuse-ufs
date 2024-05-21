@@ -1,2 +1,3 @@
 - use log crate instead of println
 - bincodify Inode
+- `-v` option

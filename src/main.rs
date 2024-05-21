@@ -1,39 +1,20 @@
-use std::{mem::size_of, path::Path, process::Command, thread::sleep, time::Duration};
-
 use anyhow::Result;
-
-use crate::{data::*, ufs::Ufs};
+use clap::Parser;
+use crate::{cli::Cli, ufs::Ufs};
 
 mod blockreader;
+mod cli;
 mod data;
 mod decoder;
 mod inode;
 mod ufs;
 
-fn shell(cmd: &str) {
-	Command::new("sh")
-		.args(["-c", cmd])
-		.spawn()
-		.unwrap()
-		.wait()
-		.unwrap();
-}
-
 fn main() -> Result<()> {
 	env_logger::init();
+	let cli = Cli::parse();
+	// TODO: set log level to debug, if cli.verbose
+	let fs = Ufs::open(&cli.device)?;
 
-	assert_eq!(size_of::<Superblock>(), 1376);
-	assert_eq!(size_of::<Inode>(), 256);
-	let fs = Ufs::open(Path::new("/dev/da0"))?;
-	let mp = Path::new("mp");
-	let options = &[];
-
-	let mount = fuser::spawn_mount2(fs, mp, options)?;
-	sleep(Duration::new(1, 0));
-	shell("ls -ld mp");
-	shell("ls -la mp");
-	sleep(Duration::new(1, 0));
-	drop(mount);
-
+	fuser::mount2(fs, &cli.mountpoint, &cli.options())?;
 	Ok(())
 }
