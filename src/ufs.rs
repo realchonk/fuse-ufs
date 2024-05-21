@@ -10,6 +10,8 @@ use std::{
 use anyhow::{bail, Result};
 use fuser::{FileType, Filesystem, KernelConfig, Request};
 
+const MAX_CACHE: Duration = Duration::MAX;
+
 use crate::{blockreader::BlockReader, data::*, decoder::Decoder};
 
 pub struct Ufs {
@@ -37,7 +39,13 @@ impl Ufs {
 
 		let buffer: [u8; size_of::<Inode>()] = self.file.decode_at(off)?;
 
-		Ok(unsafe { std::mem::transmute_copy(&buffer) })
+		let ino: Inode = unsafe { std::mem::transmute_copy(&buffer) };
+
+		if (ino.mode & S_IFMT) == 0 {
+			return Err(IoError::new(ErrorKind::BrokenPipe, "invalid inode"));
+		}
+		
+		Ok(ino)
 	}
 
 	fn resolve_file_block(&mut self, ino: &Inode, blkno: u64) -> IoResult<Option<NonZeroU64>> {
@@ -228,7 +236,7 @@ impl Filesystem for Ufs {
 	fn getattr(&mut self, _req: &Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
 		let ino = transino(ino);
 		match self.read_inode(ino) {
-			Ok(x) => reply.attr(&Duration::ZERO, &x.as_fileattr(ino)),
+			Ok(x) => reply.attr(&MAX_CACHE, &x.as_fileattr(ino)),
 			Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
 		}
 	}
@@ -243,7 +251,7 @@ impl Filesystem for Ufs {
 		reply.opened(0, 0);
 	}
 
-	// TODO: support offset
+	// TODO: use offset in a less stupid way
 	fn readdir(
 		&mut self,
 		_req: &Request<'_>,
@@ -260,11 +268,16 @@ impl Filesystem for Ufs {
 
 			let ino = self.read_inode(ino)?;
 
+			let mut i = 0;
+
 			self.readdir(&ino, |name, ino, kind| {
-				if reply.add(ino.into(), 123, kind, name) {
-					todo!("What if the buffer is full?");
+				i += 1;
+				if i > offset {
+					if reply.add(ino.into(), i, kind, name) {
+						return Some(());
+					}
 				}
-				None::<()>
+				None
 			})?;
 
 			Ok(())
