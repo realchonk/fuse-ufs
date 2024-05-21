@@ -44,7 +44,7 @@ impl Ufs {
 		if (ino.mode & S_IFMT) == 0 {
 			return Err(IoError::new(ErrorKind::BrokenPipe, "invalid inode"));
 		}
-		
+
 		Ok(ino)
 	}
 
