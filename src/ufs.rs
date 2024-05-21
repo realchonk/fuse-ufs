@@ -94,7 +94,7 @@ impl Ufs {
 
 	fn read_file_block(&mut self, ino: &Inode, blkidx: u64, buf: &mut [u8]) -> IoResult<usize> {
 		let fs = self.superblock.fsize as u64;
-		let size = self.inode_get_block_size(ino, blkidx) as usize;
+		let size = self.inode_get_block_size(ino, blkidx);
 		match self.resolve_file_block(ino, blkidx)? {
 			Some(blkno) => {
 				self.file.read_at(blkno.get() * fs, &mut buf[0..size])?;
