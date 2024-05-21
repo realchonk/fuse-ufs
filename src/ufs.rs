@@ -1,30 +1,25 @@
 use std::{
 	ffi::{c_int, OsStr},
-	fs::File,
 	io::{Cursor, Error as IoError, ErrorKind, Result as IoResult},
 	mem::size_of,
 	num::NonZeroU64,
-	path::PathBuf,
+	path::Path,
 	time::Duration,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use fuser::{FileType, Filesystem, KernelConfig, Request};
 
-use crate::{data::*, decoder::Decoder};
+use crate::{blockreader::BlockReader, data::*, decoder::Decoder};
 
 pub struct Ufs {
-	file:       Decoder<File>,
+	file:       Decoder<BlockReader>,
 	superblock: Superblock,
 }
 
 impl Ufs {
-	pub fn open(path: PathBuf) -> Result<Self> {
-		let file = File::options()
-			.read(true)
-			.write(false)
-			.open(path)
-			.context("failed to open device")?;
+	pub fn open(path: &Path) -> Result<Self> {
+		let file = BlockReader::open(path)?;
 
 		let mut file = Decoder::new(file);
 
@@ -253,6 +248,7 @@ impl Filesystem for Ufs {
 					None
 				}
 			});
+
 
 			match x {
 				Ok(Some(inr)) => {

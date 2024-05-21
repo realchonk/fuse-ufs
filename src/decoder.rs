@@ -1,4 +1,4 @@
-use std::io::{BufReader, Error, ErrorKind, Read, Result, Seek, SeekFrom};
+use std::io::{BufReader, Read, Result, Seek, SeekFrom};
 
 use bincode::{
 	config::{Configuration, Fixint, LittleEndian, NoLimit},
@@ -13,7 +13,7 @@ pub struct Decoder<T> {
 impl<T: Read> Decoder<T> {
 	pub fn new(inner: T) -> Self {
 		Self {
-			inner:  BufReader::new(inner),
+			inner:  BufReader::with_capacity(4096, inner),
 			config: bincode::config::standard()
 				.with_fixed_int_encoding()
 				.with_little_endian(),
@@ -21,8 +21,10 @@ impl<T: Read> Decoder<T> {
 	}
 
 	pub fn decode<X: Decode>(&mut self) -> Result<X> {
-		bincode::decode_from_reader(&mut self.inner, self.config)
-			.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to decode"))
+		let x = bincode::decode_from_reader(&mut self.inner, self.config)
+			.unwrap();
+			//.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to decode"));
+		Ok(x)
 	}
 
 	pub fn read(&mut self, buf: &mut [u8]) -> Result<()> {

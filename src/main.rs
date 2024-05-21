@@ -1,6 +1,6 @@
 use std::{
 	mem::size_of,
-	path::{Path, PathBuf},
+	path::Path,
 	process::Command,
 	thread::sleep,
 	time::Duration,
@@ -10,6 +10,7 @@ use anyhow::Result;
 
 use crate::{data::*, ufs::Ufs};
 
+mod blockreader;
 mod data;
 mod decoder;
 mod inode;
@@ -29,7 +30,7 @@ fn main() -> Result<()> {
 
 	assert_eq!(size_of::<Superblock>(), 1376);
 	assert_eq!(size_of::<Inode>(), 256);
-	let fs = Ufs::open(PathBuf::from("/dev/da0"))?;
+	let fs = Ufs::open(Path::new("/dev/da0"))?;
 	let mp = Path::new("mp");
 	let options = &[];
 
