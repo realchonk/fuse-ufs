@@ -4,7 +4,7 @@ SRC != find src -name '*.rs'
 all: fuse-ufs
 
 run: fuse-ufs
-	(RUST_BACKTRACE=full RUST_LOG=debug ./fuse-ufs /dev/da0 mp & { sleep 2; ls -l mp; sleep 3; umount mp; })
+	(RUST_BACKTRACE=full RUST_LOG=debug ./fuse-ufs /dev/da0 mp & { sleep 2; ls -l mp; cat mp/file1; sleep 3; umount mp; })
 
 prepare: fmt lint
 

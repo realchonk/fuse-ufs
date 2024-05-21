@@ -52,19 +52,59 @@ impl Ufs {
 				unsafe { ino.data.blocks.direct[blkno as usize] } as u64,
 			))
 		} else {
-			todo!("indirect block addressing")
+			eprintln!("TODO: indirect block addressing");
+			Ok(None)
 		}
 	}
 
-	// TODO: block size is not always 4096
-	fn read_file_block(&mut self, ino: &Inode, blkno: u64) -> IoResult<[u8; 4096]> {
-		match self.resolve_file_block(ino, blkno)? {
-			Some(blkno) => {
-				self.file
-					.decode_at(blkno.get() * self.superblock.fsize as u64)
+	fn find_file_block(&mut self, ino: &Inode, offset: u64) -> BlockInfo {
+		let bs = self.superblock.bsize as u64;
+		let fs = self.superblock.fsize as u64;
+		let nfull = ino.blocks / self.superblock.frag as u64;
+		let fullend = nfull * bs;
+
+		if offset < fullend {
+			BlockInfo {
+				blkidx: offset / bs,
+				off: offset % bs,
+				size: bs,
 			}
-			None => Ok([0u8; 4096]),
+		} else if offset < (ino.blocks * fs) {
+			BlockInfo {
+				blkidx: nfull + (offset - fullend) / fs,
+				off: offset % fs,
+				size: fs,
+			}
+		} else {
+			panic!("out of bounds")
 		}
+	}
+
+	fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> usize {
+		let nfull = ino.blocks / self.superblock.frag as u64;
+
+		if blkidx < nfull {
+			self.superblock.bsize as usize
+		} else if blkidx < ino.blocks {
+			self.superblock.fsize as usize
+		} else {
+			panic!("out of bounds")
+		}
+	}
+
+	fn read_file_block(&mut self, ino: &Inode, blkidx: u64, buf: &mut [u8]) -> IoResult<usize> {
+		let fs = self.superblock.fsize as u64;
+		let size = self.inode_get_block_size(ino, blkidx) as usize;
+		match self.resolve_file_block(ino, blkidx)? {
+			Some(blkno) => {
+				self
+					.file
+					.read_at(blkno.get() * fs, &mut buf[0..size])?;
+			},
+			None => buf.fill(0u8),
+		}
+
+		Ok(size)
 	}
 
 	fn readdir<T>(
@@ -72,10 +112,12 @@ impl Ufs {
 		ino: &Inode,
 		mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
 	) -> IoResult<Option<T>> {
-		for i in 0..ino.blocks {
-			let block = self.read_file_block(ino, i)?;
+		let mut block = vec![0u8; self.superblock.bsize as usize];
+		
+		for blkidx in 0..ino.blocks {
+			let size = self.read_file_block(ino, blkidx, &mut block)?;
 
-			let x = readdir_block(&block, &mut f)?;
+			let x = readdir_block(&block[0..size], &mut f)?;
 			if x.is_some() {
 				return Ok(x);
 			}
@@ -261,6 +303,50 @@ impl Filesystem for Ufs {
 
 		match run(f) {
 			Ok((attr, gen)) => reply.entry(&Duration::ZERO, &attr, gen.into()),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn read(
+        &mut self,
+        _req: &Request<'_>,
+        ino: u64,
+        _fh: u64,
+        offset: i64,
+        size: u32,
+        _flags: i32,
+        _lock_owner: Option<u64>,
+        reply: fuser::ReplyData,
+    ) {
+		let ino = transino(ino);
+
+		let f = || {
+			let mut buffer = vec![0u8; size as usize];
+			let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
+			let ino = self.read_inode(ino)?;
+
+			let mut offset = offset as u64;
+			let mut boff = 0;
+			let len = size as u64;
+			let end = offset + len;
+
+			while offset < end {
+				let block = self.find_file_block(&ino, offset);
+				let num = (block.size - block.off).min(end - offset);
+
+				dbg!((&block, boff, num));
+				self.read_file_block(&ino, block.blkidx, &mut blockbuf[0..(block.size as usize)])?;
+				buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[0..(num as usize)]);
+				
+				offset += num;
+				boff += num as usize;
+			}
+
+			Ok(buffer)
+		};
+
+		match run(f) {
+			Ok(buf) => reply.data(&buf),
 			Err(e) => reply.error(e),
 		}
 	}

@@ -322,6 +322,18 @@ pub struct Inode {
 	pub spare:     [u32; 2], // 248: Reserved; currently unused
 }
 
+#[derive(Debug)]
+pub struct BlockInfo {
+	/// offset from the start of the block
+	pub off: u64,
+
+	/// block index in the inode
+	pub blkidx: u64,
+
+	/// size of the block
+	pub size: u64,
+}
+
 impl Superblock {
 	/// Calculate the size of a cylinder group.
 	pub fn cgsize(&self) -> u64 {
