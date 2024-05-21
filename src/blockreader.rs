@@ -1,18 +1,19 @@
-use std::{fs::File, io::{BufRead, Read, Result as IoResult, Seek, SeekFrom}, os::unix::fs::MetadataExt, path::Path};
-
+use std::{
+	fs::File,
+	io::{BufRead, Read, Result as IoResult, Seek, SeekFrom},
+	os::unix::fs::MetadataExt,
+	path::Path,
+};
 
 pub struct BlockReader {
-	file: File,
+	file:  File,
 	block: Vec<u8>,
-	idx: usize,
+	idx:   usize,
 }
 
 impl BlockReader {
 	pub fn open(path: &Path) -> IoResult<Self> {
-		let file = File::options()
-			.read(true)
-			.write(false)
-			.open(path)?;
+		let file = File::options().read(true).write(false).open(path)?;
 
 		let bs = file.metadata()?.blksize() as usize;
 		let block = vec![0u8; bs];
@@ -81,7 +82,7 @@ impl Seek for BlockReader {
 				self.idx = rem as usize;
 
 				Ok(real + rem)
-			},
+			}
 			SeekFrom::Current(_) => todo!("SeekFrom::Current()"),
 			SeekFrom::End(_) => todo!("SeekFrom::End()"),
 		}

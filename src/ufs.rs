@@ -249,7 +249,6 @@ impl Filesystem for Ufs {
 				}
 			});
 
-
 			match x {
 				Ok(Some(inr)) => {
 					let ino = self.read_inode(inr)?;

@@ -1,10 +1,4 @@
-use std::{
-	mem::size_of,
-	path::Path,
-	process::Command,
-	thread::sleep,
-	time::Duration,
-};
+use std::{mem::size_of, path::Path, process::Command, thread::sleep, time::Duration};
 
 use anyhow::Result;
 
