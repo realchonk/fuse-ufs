@@ -66,14 +66,14 @@ impl Ufs {
 		if offset < fullend {
 			BlockInfo {
 				blkidx: offset / bs,
-				off: offset % bs,
-				size: bs,
+				off:    offset % bs,
+				size:   bs,
 			}
 		} else if offset < (ino.blocks * fs) {
 			BlockInfo {
 				blkidx: nfull + (offset - fullend) / fs,
-				off: offset % fs,
-				size: fs,
+				off:    offset % fs,
+				size:   fs,
 			}
 		} else {
 			panic!("out of bounds")
@@ -97,10 +97,8 @@ impl Ufs {
 		let size = self.inode_get_block_size(ino, blkidx) as usize;
 		match self.resolve_file_block(ino, blkidx)? {
 			Some(blkno) => {
-				self
-					.file
-					.read_at(blkno.get() * fs, &mut buf[0..size])?;
-			},
+				self.file.read_at(blkno.get() * fs, &mut buf[0..size])?;
+			}
 			None => buf.fill(0u8),
 		}
 
@@ -113,7 +111,7 @@ impl Ufs {
 		mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
 	) -> IoResult<Option<T>> {
 		let mut block = vec![0u8; self.superblock.bsize as usize];
-		
+
 		for blkidx in 0..ino.blocks {
 			let size = self.read_file_block(ino, blkidx, &mut block)?;
 
@@ -308,16 +306,16 @@ impl Filesystem for Ufs {
 	}
 
 	fn read(
-        &mut self,
-        _req: &Request<'_>,
-        ino: u64,
-        _fh: u64,
-        offset: i64,
-        size: u32,
-        _flags: i32,
-        _lock_owner: Option<u64>,
-        reply: fuser::ReplyData,
-    ) {
+		&mut self,
+		_req: &Request<'_>,
+		ino: u64,
+		_fh: u64,
+		offset: i64,
+		size: u32,
+		_flags: i32,
+		_lock_owner: Option<u64>,
+		reply: fuser::ReplyData,
+	) {
 		let ino = transino(ino);
 
 		let f = || {
@@ -337,7 +335,7 @@ impl Filesystem for Ufs {
 				dbg!((&block, boff, num));
 				self.read_file_block(&ino, block.blkidx, &mut blockbuf[0..(block.size as usize)])?;
 				buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[0..(num as usize)]);
-				
+
 				offset += num;
 				boff += num as usize;
 			}

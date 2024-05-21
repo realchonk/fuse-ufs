@@ -39,7 +39,7 @@ impl<T: Read + Seek> Decoder<T> {
 		self.seek(pos)?;
 		self.read(buf)
 	}
-	
+
 	pub fn decode_at<X: Decode>(&mut self, pos: u64) -> Result<X> {
 		self.seek(pos)?;
 		self.decode()
