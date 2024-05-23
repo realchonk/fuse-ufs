@@ -65,6 +65,7 @@ task:
     - rustup component add rustfmt
     - cargo fmt -- --check --color=never
   audit_script:
-    - cargo install cargo-audit
+    # install ca_root_nss due to https://github.com/rustsec/rustsec/issues/1137
+    - pkg install -y ca_root_nss cargo-audit
     - cargo audit
   before_cache_script: rm -rf $CARGO_HOME/registry/index
