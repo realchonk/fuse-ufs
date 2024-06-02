@@ -92,7 +92,7 @@ fn harness() -> Harness {
 		let s = nix::sys::statfs::statfs(d.path()).unwrap();
 		cfg_if! {
 			if #[cfg(target_os = "freebsd")] {
-				s.filesystem_type_name() == "fusefs"
+				s.filesystem_type_name() == "fusefs.ufs"
 			} else if #[cfg(target_os = "linux")] {
 				s.filesystem_type() == nix::sys::statfs::FUSE_SUPER_MAGIC
 			}

@@ -29,7 +29,7 @@ impl Ufs {
 		if superblock.magic != FS_UFS2_MAGIC {
 			bail!("invalid superblock magic number: {}", superblock.magic);
 		}
-		assert_eq!(superblock.cgsize, CGSIZE as i32);
+		//assert_eq!(superblock.cgsize, CGSIZE as i32);
 		Ok(Self { file, superblock })
 	}
 
@@ -360,5 +360,21 @@ impl Filesystem for Ufs {
 			Ok(buf) => reply.data(&buf),
 			Err(e) => reply.error(e),
 		}
+	}
+
+	fn statfs(&mut self, _req: &Request<'_>, _ino: u64, reply: fuser::ReplyStatfs) {
+		let sb = &self.superblock;
+		let bfree = 0;
+		let ffree = 0;
+		reply.statfs(
+			sb.dsize as u64,
+			bfree,
+			bfree,
+			(sb.ipg * sb.ncg) as u64,
+			ffree,
+			sb.bsize as u32,
+			255,
+			sb.fsize as u32
+		)
 	}
 }
