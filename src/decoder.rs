@@ -28,10 +28,6 @@ impl<T: Read> Decoder<T> {
 	pub fn read(&mut self, buf: &mut [u8]) -> Result<()> {
 		self.inner.read_exact(buf)
 	}
-
-	pub fn get_ref(&self) -> &T {
-		self.inner.get_ref()
-	}
 }
 
 impl<T: Read + Seek> Decoder<T> {

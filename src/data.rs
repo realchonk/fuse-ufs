@@ -1,3 +1,6 @@
+// TODO: remove once the driver is complete
+#![allow(dead_code)]
+
 use std::mem::size_of;
 
 use bincode::Decode;

@@ -272,10 +272,8 @@ impl Filesystem for Ufs {
 
 			self.readdir(&ino, |name, ino, kind| {
 				i += 1;
-				if i > offset {
-					if reply.add(ino.into(), i, kind, name) {
-						return Some(());
-					}
+				if i > offset && reply.add(ino.into(), i, kind, name) {
+					return Some(());
 				}
 				None
 			})?;
