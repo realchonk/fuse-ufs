@@ -363,6 +363,7 @@ impl Filesystem for Ufs {
 	}
 
 	fn statfs(&mut self, _req: &Request<'_>, _ino: u64, reply: fuser::ReplyStatfs) {
+		// TODO: scan bitmaps for bfree & ffree
 		let sb = &self.superblock;
 		let bfree = 0;
 		let ffree = 0;

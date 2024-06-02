@@ -1,0 +1,5 @@
+- use log crate instead of println!()
+- bincodify Inode
+- `-v` option (verbose)
+- `-f` option (foreground)
+- statfs()
