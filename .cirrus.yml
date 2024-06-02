@@ -53,9 +53,9 @@ task:
   container:
     image: rust:1.77.0
   setup_script:
-    cat /etc/apt/sources.list
-    apt-get update
-    apt-get install libfuse3-dev
+    - cat /etc/apt/sources.list
+    - apt-get update
+    - apt-get install libfuse3-dev
   << : *TEST
   before_cache_script: rm -rf $HOME/.cargo/registry/index
 
