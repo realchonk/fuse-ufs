@@ -52,6 +52,10 @@ task:
   name: Linux MSRV
   container:
     image: rust:1.77.0
+  cap_add:
+    - SYS_ADMIN
+  devices:
+    - /dev/fuse
   setup_script:
     - apt-get update
     - apt-get install -y zstd libfuse3-dev fuse kmod
