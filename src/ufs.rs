@@ -375,7 +375,7 @@ impl Filesystem for Ufs {
 			ffree,
 			sb.bsize as u32,
 			255,
-			sb.fsize as u32
+			sb.fsize as u32,
 		)
 	}
 }
