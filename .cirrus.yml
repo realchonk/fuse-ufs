@@ -54,7 +54,7 @@ task:
     image: rust:1.77.0
   setup_script:
     - apt-get update
-    - apt-get install libfuse3-dev
+    - apt-get install -y libfuse3-dev
   << : *TEST
   before_cache_script: rm -rf $HOME/.cargo/registry/index
 
@@ -65,8 +65,10 @@ task:
   fmt_script:
     - rustup component add rustfmt
     - cargo fmt -- --check --color=never
+  setup_script:
+    - apt-get install -y cargo-audit
   audit_script:
     # install ca_root_nss due to https://github.com/rustsec/rustsec/issues/1137
-    - pkg install -y ca_root_nss cargo-audit
+    #- pkg install -y ca_root_nss cargo-audit
     - cargo audit
   before_cache_script: rm -rf $CARGO_HOME/registry/index
