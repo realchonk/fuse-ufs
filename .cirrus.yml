@@ -53,10 +53,10 @@ task:
   container:
     image: rust:1.77.0
     kvm: true
-  accel_check_script: emulator -accel-check
   setup_script:
     - apt-get update
     - apt-get install -y zstd libfuse3-dev fuse kmod
+    - modprobe fuse
   << : *TEST
   before_cache_script: rm -rf $HOME/.cargo/registry/index
 
