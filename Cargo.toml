@@ -18,7 +18,7 @@ libc = "0.2.155"
 assert_cmd = "2.0"
 cfg-if = "1.0"
 lazy_static = "1.4.0"
-nix = { version = "0.28.0", features = ["fs"] }
+nix = { version = "0.28.0", features = ["fs", "dir"] }
 rstest = "0.16.0"
 rstest_reuse = "0.6.0"
 tempfile = "3.0"

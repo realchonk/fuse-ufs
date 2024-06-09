@@ -23,6 +23,15 @@ clean:
 	rm -f fuse-ufs
 	cargo clean
 
+mount-test:
+	mkdir -p mp
+	(cd resources; unzstd -k ufs.img.zst)
+	mount -t ufs /dev/`mdconfig -f resources/ufs.img` mp
+
+umount-test:
+	umount mp
+	mdconfig -d -u 0
+	(cd resources; zstd ufs.img)
 
 fuse-ufs: Cargo.lock ${SRC}
 	cargo build --release
