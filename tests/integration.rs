@@ -132,7 +132,6 @@ fn harness() -> Harness {
 	let file1 = std::fs::read_to_string(d.path().join("file1")).unwrap();
 	assert_eq!(&file1, "This is a simple file.\n");
 
-	/* XXX: Depends on indirect block addressing.
 	let file3 = std::fs::read_to_string(d.path().join("file3")).unwrap();
 	file3
 		.lines()
@@ -141,7 +140,6 @@ fn harness() -> Harness {
 			let l = &l[0..15];
 			assert_eq!(l, format!("{i:015x}"));
 	});
-	*/
 
 	Harness { d, child }
 }

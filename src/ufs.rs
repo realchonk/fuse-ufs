@@ -49,7 +49,11 @@ impl Ufs {
 	}
 
 	fn resolve_file_block(&mut self, ino: &Inode, blkno: u64) -> IoResult<Option<NonZeroU64>> {
+		let sb = &self.superblock;
+		let fs = sb.fsize as u64;
 		let nd = UFS_NDADDR as u64;
+		let su64 = size_of::<u64>() as u64;
+		let pbp = fs / su64;
 
 		if blkno >= ino.blocks {
 			return Err(IoError::new(ErrorKind::InvalidInput, "out of bounds"));
@@ -59,8 +63,19 @@ impl Ufs {
 			Ok(NonZeroU64::new(
 				unsafe { ino.data.blocks.direct[blkno as usize] } as u64,
 			))
+		} else if blkno < (nd + pbp) {
+			let first = unsafe { ino.data.blocks.indirect[0] } as u64;
+			let pos = first * fs + (blkno - nd) * su64;
+			let pos: u64 = self.file.decode_at(pos)?;
+			Ok(NonZeroU64::new(pos))
+		} else if blkno < (nd + pbp * pbp) {
+			eprintln!("TODO: second-level indirect block addressing");
+			Ok(None)
+		} else if blkno < (nd + pbp * pbp * pbp) {
+			eprintln!("TODO: third-level indirect block addressing");
+			Ok(None)
 		} else {
-			eprintln!("TODO: indirect block addressing");
+			eprintln!("WARN: address too large");
 			Ok(None)
 		}
 	}
