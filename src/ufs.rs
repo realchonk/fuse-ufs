@@ -402,6 +402,8 @@ impl Filesystem for Ufs {
 
 			let max = size_of_val(unsafe { &ino.data.shortlink }) as u64;
 
+			assert_eq!(ino.blocks, 0);
+
 			if ino.size < max {
 				let len = ino.size as usize;
 				Ok(unsafe { &ino.data.shortlink[0..len] }.to_vec())
