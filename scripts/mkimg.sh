@@ -16,6 +16,12 @@ MNTDIR=`mktemp -d`
 mount -t ufs /dev/"$MD" "$MNTDIR"
 
 # TODO: create files and directories
+cd "$MNTDIR"
+echo 'This is a simple file.' > file1
+mkdir -p dir1/dir2/dir3
+echo 'Hello World' > dir1/dir2/dir3/file2
+jot $((1 << 16)) 0 | xargs printf '%015x\n' > file3
+cd -
 
 umount "$MNTDIR"
 rmdir "$MNTDIR"
