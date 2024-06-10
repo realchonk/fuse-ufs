@@ -101,46 +101,6 @@ fn harness() -> Harness {
 	})
 	.unwrap();
 
-	sleep(Duration::new(1, 0));
-	let mut dir = nix::dir::Dir::open(
-		d.path(),
-		OFlag::O_DIRECTORY | OFlag::O_RDONLY,
-		Mode::empty()
-	).unwrap();
-
-	let mut entries = dir
-		.iter()
-		.map(|x| x.unwrap())
-		.map(|e| String::from_utf8(e.file_name().to_bytes().to_vec()).unwrap())
-		.collect::<Vec<_>>();
-
-	entries.sort();
-
-	let mut expected = [
-		".",
-		"..",
-		".snap",
-		"dir1",
-		"file1",
-		"file3",
-	];
-
-	expected.sort();
-
-	assert_eq!(entries, expected);
-
-	let file1 = std::fs::read_to_string(d.path().join("file1")).unwrap();
-	assert_eq!(&file1, "This is a simple file.\n");
-
-	let file3 = std::fs::read_to_string(d.path().join("file3")).unwrap();
-	file3
-		.lines()
-		.enumerate()
-		.for_each(|(i, l)| {
-			let l = &l[0..15];
-			assert_eq!(l, format!("{i:015x}"));
-	});
-
 	Harness { d, child }
 }
 
@@ -187,4 +147,48 @@ impl Drop for Harness {
 #[rstest]
 fn mount(harness: Harness) {
 	drop(harness);
+}
+
+#[rstest]
+fn contents(harness: Harness) {
+	let d = &harness.d;
+	let mut dir = nix::dir::Dir::open(
+		d.path(),
+		OFlag::O_DIRECTORY | OFlag::O_RDONLY,
+		Mode::empty()
+	).unwrap();
+
+	let mut entries = dir
+		.iter()
+		.map(|x| x.unwrap())
+		.map(|e| String::from_utf8(e.file_name().to_bytes().to_vec()).unwrap())
+		.collect::<Vec<_>>();
+
+	entries.sort();
+
+	let mut expected = [
+		".",
+		"..",
+		".snap",
+		"dir1",
+		"file1",
+		"file3",
+	];
+
+	expected.sort();
+
+	assert_eq!(entries, expected);
+
+	let file1 = std::fs::read_to_string(d.path().join("file1")).unwrap();
+	assert_eq!(&file1, "This is a simple file.\n");
+
+	let file3 = std::fs::read_to_string(d.path().join("file3")).unwrap();
+	file3
+		.lines()
+		.enumerate()
+		.for_each(|(i, l)| {
+			let l = &l[0..15];
+			assert_eq!(l, format!("{i:015x}"));
+		});
+
 }
