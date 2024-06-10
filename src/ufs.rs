@@ -404,9 +404,7 @@ impl Filesystem for Ufs {
 
 			if ino.size < max {
 				let len = ino.size as usize;
-				let mut data = vec![0; len];
-				data.copy_from_slice(unsafe { &ino.data.shortlink[0..len] });
-				Ok(data)
+				Ok(unsafe { &ino.data.shortlink[0..len] }.to_vec())
 			} else {
 				Err(IoError::new(ErrorKind::Unsupported, "TODO: long links"))
 			}
