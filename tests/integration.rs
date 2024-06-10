@@ -155,8 +155,9 @@ fn contents(harness: Harness) {
 	let mut dir = nix::dir::Dir::open(
 		d.path(),
 		OFlag::O_DIRECTORY | OFlag::O_RDONLY,
-		Mode::empty()
-	).unwrap();
+		Mode::empty(),
+	)
+	.unwrap();
 
 	let mut entries = dir
 		.iter()
@@ -166,14 +167,7 @@ fn contents(harness: Harness) {
 
 	entries.sort();
 
-	let mut expected = [
-		".",
-		"..",
-		".snap",
-		"dir1",
-		"file1",
-		"file3",
-	];
+	let mut expected = [".", "..", ".snap", "dir1", "file1", "file3"];
 
 	expected.sort();
 
@@ -183,12 +177,8 @@ fn contents(harness: Harness) {
 	assert_eq!(&file1, "This is a simple file.\n");
 
 	let file3 = std::fs::read_to_string(d.path().join("file3")).unwrap();
-	file3
-		.lines()
-		.enumerate()
-		.for_each(|(i, l)| {
-			let l = &l[0..15];
-			assert_eq!(l, format!("{i:015x}"));
-		});
-
+	file3.lines().enumerate().for_each(|(i, l)| {
+		let l = &l[0..15];
+		assert_eq!(l, format!("{i:015x}"));
+	});
 }
