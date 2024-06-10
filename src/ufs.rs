@@ -1,7 +1,7 @@
 use std::{
 	ffi::{c_int, OsStr},
 	io::{Cursor, Error as IoError, ErrorKind, Result as IoResult},
-	mem::size_of,
+	mem::{size_of, size_of_val},
 	num::NonZeroU64,
 	path::Path,
 	time::Duration,
@@ -390,5 +390,31 @@ impl Filesystem for Ufs {
 			255,
 			sb.fsize as u32,
 		)
+	}
+
+	fn readlink(&mut self, _req: &Request<'_>, ino: u64, reply: fuser::ReplyData) {
+		let ino = transino(ino);
+		let f = || {
+			let ino = self.read_inode(ino)?;
+			if ino.kind() != FileType::Symlink {
+				return Err(IoError::new(ErrorKind::InvalidInput, "not a symlink"));
+			}
+
+			let max = size_of_val(unsafe { &ino.data.shortlink }) as u64;
+
+			if ino.size < max {
+				let len = ino.size as usize;
+				let mut data = vec![0; len];
+				data.copy_from_slice(unsafe { &ino.data.shortlink[0..len] });
+				Ok(data)
+			} else {
+				Err(IoError::new(ErrorKind::Unsupported, "TODO: long links"))
+			}
+		};
+
+		match run(f) {
+			Ok(x) => reply.data(&x),
+			Err(e) => reply.error(e),
+		}
 	}
 }

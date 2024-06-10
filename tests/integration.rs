@@ -3,7 +3,7 @@ use std::{
 	fmt,
 	fs,
 	os::unix::ffi::OsStringExt,
-	path::PathBuf,
+	path::{Path, PathBuf},
 	process::{Child, Command},
 	thread::sleep,
 	time::{Duration, Instant},
@@ -167,7 +167,7 @@ fn contents(harness: Harness) {
 
 	entries.sort();
 
-	let mut expected = [".", "..", ".snap", "dir1", "file1", "file3"];
+	let mut expected = [".", "..", ".snap", "dir1", "file1", "file3", "link1"];
 
 	expected.sort();
 
@@ -181,4 +181,7 @@ fn contents(harness: Harness) {
 		let l = &l[0..15];
 		assert_eq!(l, format!("{i:015x}"));
 	});
+
+	let link1 = std::fs::read_link(d.path().join("link1")).unwrap();
+	assert_eq!(&link1, Path::new("dir1/dir2/dir3/file2"));
 }

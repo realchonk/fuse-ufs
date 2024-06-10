@@ -3,3 +3,4 @@
 - `-v` option (verbose)
 - `-f` option (foreground)
 - statfs()
+- long symbolic links
