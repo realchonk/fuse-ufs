@@ -1,6 +1,6 @@
 use std::{
 	fs::File,
-	io::{BufRead, Read, Result as IoResult, Seek, SeekFrom},
+	io::{self, BufRead, Read, Result as IoResult, Seek, SeekFrom},
 	os::unix::fs::MetadataExt,
 	path::Path,
 };
@@ -83,8 +83,121 @@ impl Seek for BlockReader {
 
 				Ok(real + rem)
 			}
-			SeekFrom::Current(_) => todo!("SeekFrom::Current()"),
+			SeekFrom::Current(offset) => {
+				let real = self.file.stream_position()?;
+				let cur = real - self.block.len() as u64 + self.idx as u64;
+				let newidx = offset + self.idx as i64;
+				if newidx >= 0 && newidx < self.blksize() as i64 {
+					// The data is already buffered; just adjust the pointer
+					self.idx = newidx as usize;
+					Ok(real - self.block.len() as u64 + newidx as u64)
+				} else if cur as i64 + offset < 0 {
+					Err(io::Error::from_raw_os_error(libc::EINVAL))
+				} else {
+					self.seek(SeekFrom::Start((cur as i64 + offset) as u64))
+				}
+			}
 			SeekFrom::End(_) => todo!("SeekFrom::End()"),
+		}
+	}
+}
+
+#[cfg(test)]
+mod t {
+	use super::*;
+
+	mod seek {
+		use super::*;
+
+		const FSIZE: u64 = 1 << 20;
+
+		fn harness() -> BlockReader {
+			let f = tempfile::NamedTempFile::new().unwrap();
+			f.as_file().set_len(FSIZE).unwrap();
+			let br = BlockReader::open(f.path()).unwrap();
+			let bs = br.blksize();
+			assert!(FSIZE > 2 * bs as u64);
+			br
+		}
+
+		/// Seeking to SeekFrom::Current(0) should refill the internal buffer but otherwise be a
+		/// no-op.
+		#[test]
+		#[allow(clippy::seek_from_current)] // That's the whole point of the test
+		fn current_0() {
+			let mut br = harness();
+			let bs = br.blksize();
+			let pos = bs + (bs >> 2);
+			br.seek(SeekFrom::Start(pos as u64)).unwrap();
+			let idx = br.idx;
+			let real_pos = br.file.stream_position().unwrap();
+
+			br.seek(SeekFrom::Current(0)).unwrap();
+			assert_eq!(real_pos, br.file.stream_position().unwrap());
+			assert_eq!(idx, br.idx);
+		}
+
+		/// Seek to a negative offset from current
+		#[test]
+		fn current_neg() {
+			let mut br = harness();
+			let bs = br.blksize();
+			let initial = bs + (bs >> 2);
+			br.seek(SeekFrom::Start(initial as u64)).unwrap();
+			let idx = br.idx as u64;
+			let real_pos = br.file.stream_position().unwrap();
+
+			br.seek(SeekFrom::Current(-1)).unwrap();
+			assert_eq!(
+				real_pos + idx - 1,
+				br.file.stream_position().unwrap() + br.idx as u64
+			);
+		}
+
+		/// Seek to a negative absolute offset using SeekFrom::Current
+		#[test]
+		fn current_neg_neg() {
+			let mut br = harness();
+			let bs = br.blksize();
+			let initial = bs + (bs >> 2);
+			br.seek(SeekFrom::Start(initial as u64)).unwrap();
+
+			let e = br.seek(SeekFrom::Current(-2 * initial as i64)).unwrap_err();
+			assert_eq!(libc::EINVAL, e.raw_os_error().unwrap());
+		}
+
+		/// Seek to a small positive offset from current, within the current block
+		#[test]
+		fn current_pos_incr() {
+			let mut br = harness();
+			let bs = br.blksize();
+			let initial = bs + (bs >> 2);
+			br.seek(SeekFrom::Start(initial as u64)).unwrap();
+			let idx = br.idx as u64;
+			let real_pos = br.file.stream_position().unwrap();
+
+			br.seek(SeekFrom::Current(1)).unwrap();
+			assert_eq!(
+				real_pos + idx + 1,
+				br.file.stream_position().unwrap() + br.idx as u64
+			);
+		}
+
+		/// Seek to a large positive offset from current
+		#[test]
+		fn current_pos_large() {
+			let mut br = harness();
+			let bs = br.blksize();
+			let initial = bs + (bs >> 2);
+			br.seek(SeekFrom::Start(initial as u64)).unwrap();
+			let idx = br.idx as u64;
+			let real_pos = br.file.stream_position().unwrap();
+
+			br.seek(SeekFrom::Current(bs as i64)).unwrap();
+			assert_eq!(
+				real_pos + idx + bs as u64,
+				br.file.stream_position().unwrap() + br.idx as u64
+			);
 		}
 	}
 }
