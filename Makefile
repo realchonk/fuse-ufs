@@ -14,7 +14,7 @@ run: fuse-ufs
 prepare: fmt lint
 
 fmt:
-	cargo fmt
+	cargo +nightly fmt
 
 lint:
 	cargo clippy --all-targets
