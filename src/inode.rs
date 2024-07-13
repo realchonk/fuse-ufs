@@ -1,5 +1,6 @@
-use std::time::{Duration, SystemTime};
+use std::{mem::{size_of, transmute_copy}, time::{Duration, SystemTime}};
 
+use bincode::{de::Decoder, error::DecodeError, Decode};
 use fuser::{FileAttr, FileType};
 
 use crate::data::*;
@@ -72,5 +73,59 @@ impl Inode {
 			blksize: self.blksize,
 			flags: self.flags,
 		}
+	}
+}
+
+impl Decode for Inode {
+	fn decode<D: Decoder>(d: &mut D) -> Result<Self, DecodeError> {
+		let data;
+		let mut ino = Self {
+			mode: u16::decode(d)?,
+			nlink: u16::decode(d)?,
+			uid: u32::decode(d)?,
+			gid: u32::decode(d)?,
+			blksize: u32::decode(d)?,
+			size: u64::decode(d)?,
+			blocks: u64::decode(d)?,
+			atime: UfsTime::decode(d)?,
+			mtime: UfsTime::decode(d)?,
+			ctime: UfsTime::decode(d)?,
+			birthtime: UfsTime::decode(d)?,
+			mtimensec: u32::decode(d)?,
+			atimensec: u32::decode(d)?,
+			ctimensec: u32::decode(d)?,
+			birthnsec: u32::decode(d)?,
+			gen: u32::decode(d)?,
+			kernflags: u32::decode(d)?,
+			flags: u32::decode(d)?,
+			extsize: u32::decode(d)?,
+			extb: <[UfsDaddr; UFS_NXADDR]>::decode(d)?,
+			data: {
+				data = <[u8; UFS_SLLEN]>::decode(d)?;
+				InodeData::Shortlink([0; UFS_SLLEN])
+			},
+			modrev: u64::decode(d)?,
+			ignored: u32::decode(d)?,
+			ckhash: u32::decode(d)?,
+			spare: <[u32; 2]>::decode(d)?,
+		};
+
+		if (ino.mode & S_IFMT) == S_IFLNK && ino.blocks == 0 {
+			ino.data = InodeData::Shortlink(data);
+		} else {
+			const SZ: usize = size_of::<UfsDaddr>();
+			let mut direct = [0u8; UFS_NDADDR * SZ];
+			let mut indirect = [0u8; UFS_NIADDR * SZ];
+			let len = direct.len();
+			direct.copy_from_slice(&data[0..len]);
+			indirect.copy_from_slice(&data[len..]);
+			
+			ino.data = InodeData::Blocks {
+				direct: unsafe { transmute_copy(&direct) },
+				indirect: unsafe { transmute_copy(&indirect) },
+			};
+		}
+
+		Ok(ino)
 	}
 }
