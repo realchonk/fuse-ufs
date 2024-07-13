@@ -6,9 +6,9 @@ use std::{
 };
 
 pub struct BlockReader {
-	file: File,
+	file:  File,
 	block: Vec<u8>,
-	idx: usize,
+	idx:   usize,
 }
 
 impl BlockReader {

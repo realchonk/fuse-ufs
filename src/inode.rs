@@ -83,34 +83,34 @@ impl Decode for Inode {
 	fn decode<D: Decoder>(d: &mut D) -> Result<Self, DecodeError> {
 		let data;
 		let mut ino = Self {
-			mode: u16::decode(d)?,
-			nlink: u16::decode(d)?,
-			uid: u32::decode(d)?,
-			gid: u32::decode(d)?,
-			blksize: u32::decode(d)?,
-			size: u64::decode(d)?,
-			blocks: u64::decode(d)?,
-			atime: UfsTime::decode(d)?,
-			mtime: UfsTime::decode(d)?,
-			ctime: UfsTime::decode(d)?,
+			mode:      u16::decode(d)?,
+			nlink:     u16::decode(d)?,
+			uid:       u32::decode(d)?,
+			gid:       u32::decode(d)?,
+			blksize:   u32::decode(d)?,
+			size:      u64::decode(d)?,
+			blocks:    u64::decode(d)?,
+			atime:     UfsTime::decode(d)?,
+			mtime:     UfsTime::decode(d)?,
+			ctime:     UfsTime::decode(d)?,
 			birthtime: UfsTime::decode(d)?,
 			mtimensec: u32::decode(d)?,
 			atimensec: u32::decode(d)?,
 			ctimensec: u32::decode(d)?,
 			birthnsec: u32::decode(d)?,
-			gen: u32::decode(d)?,
+			gen:       u32::decode(d)?,
 			kernflags: u32::decode(d)?,
-			flags: u32::decode(d)?,
-			extsize: u32::decode(d)?,
-			extb: <[UfsDaddr; UFS_NXADDR]>::decode(d)?,
-			data: {
+			flags:     u32::decode(d)?,
+			extsize:   u32::decode(d)?,
+			extb:      <[UfsDaddr; UFS_NXADDR]>::decode(d)?,
+			data:      {
 				data = <[u8; UFS_SLLEN]>::decode(d)?;
 				InodeData::Shortlink([0; UFS_SLLEN])
 			},
-			modrev: u64::decode(d)?,
-			ignored: u32::decode(d)?,
-			ckhash: u32::decode(d)?,
-			spare: <[u32; 2]>::decode(d)?,
+			modrev:    u64::decode(d)?,
+			ignored:   u32::decode(d)?,
+			ckhash:    u32::decode(d)?,
+			spare:     <[u32; 2]>::decode(d)?,
 		};
 
 		if (ino.mode & S_IFMT) == S_IFLNK && ino.blocks == 0 {
@@ -124,7 +124,7 @@ impl Decode for Inode {
 			indirect.copy_from_slice(&data[len..]);
 
 			ino.data = InodeData::Blocks {
-				direct: unsafe { transmute_copy(&direct) },
+				direct:   unsafe { transmute_copy(&direct) },
 				indirect: unsafe { transmute_copy(&indirect) },
 			};
 		}

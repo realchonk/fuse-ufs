@@ -6,14 +6,14 @@ use bincode::{
 };
 
 pub struct Decoder<T> {
-	inner: BufReader<T>,
+	inner:  BufReader<T>,
 	config: Configuration<LittleEndian, Fixint, NoLimit>,
 }
 
 impl<T: Read> Decoder<T> {
 	pub fn new(inner: T) -> Self {
 		Self {
-			inner: BufReader::with_capacity(4096, inner),
+			inner:  BufReader::with_capacity(4096, inner),
 			config: bincode::config::standard()
 				.with_fixed_int_encoding()
 				.with_little_endian(),

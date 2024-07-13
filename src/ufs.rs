@@ -15,7 +15,7 @@ const MAX_CACHE: Duration = Duration::MAX;
 use crate::{blockreader::BlockReader, data::*, decoder::Decoder};
 
 pub struct Ufs {
-	file: Decoder<BlockReader>,
+	file:       Decoder<BlockReader>,
 	superblock: Superblock,
 }
 
@@ -88,14 +88,14 @@ impl Ufs {
 		if offset < fullend {
 			BlockInfo {
 				blkidx: offset / bs,
-				off: offset % bs,
-				size: bs,
+				off:    offset % bs,
+				size:   bs,
 			}
 		} else if offset < (ino.blocks * fs) {
 			BlockInfo {
 				blkidx: nfull + (offset - fullend) / fs,
-				off: offset % fs,
-				size: fs,
+				off:    offset % fs,
+				size:   fs,
 			}
 		} else {
 			panic!("out of bounds")
