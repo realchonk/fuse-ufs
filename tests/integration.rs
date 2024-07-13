@@ -1,7 +1,6 @@
 use std::{
 	ffi::OsString,
-	fmt,
-	fs,
+	fmt, fs,
 	os::unix::ffi::OsStringExt,
 	path::{Path, PathBuf},
 	process::{Child, Command},
@@ -75,7 +74,7 @@ where
 }
 
 struct Harness {
-	d:     TempDir,
+	d: TempDir,
 	child: Child,
 }
 

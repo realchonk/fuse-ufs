@@ -15,7 +15,7 @@ const MAX_CACHE: Duration = Duration::MAX;
 use crate::{blockreader::BlockReader, data::*, decoder::Decoder};
 
 pub struct Ufs {
-	file:       Decoder<BlockReader>,
+	file: Decoder<BlockReader>,
 	superblock: Superblock,
 }
 
@@ -61,9 +61,7 @@ impl Ufs {
 		};
 
 		if blkno < nd {
-			Ok(NonZeroU64::new(
-				direct[blkno as usize] as u64
-			))
+			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
 		} else if blkno < (nd + pbp) {
 			let first = indirect[0] as u64;
 			let pos = first * fs + (blkno - nd) * su64;
@@ -90,14 +88,14 @@ impl Ufs {
 		if offset < fullend {
 			BlockInfo {
 				blkidx: offset / bs,
-				off:    offset % bs,
-				size:   bs,
+				off: offset % bs,
+				size: bs,
 			}
 		} else if offset < (ino.blocks * fs) {
 			BlockInfo {
 				blkidx: nfull + (offset - fullend) / fs,
-				off:    offset % fs,
-				size:   fs,
+				off: offset % fs,
+				size: fs,
 			}
 		} else {
 			panic!("out of bounds")
@@ -149,8 +147,7 @@ impl Ufs {
 }
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
-	f()
-		.inspect_err(|e| eprintln!("Error: {e:?}"))
+	f().inspect_err(|e| eprintln!("Error: {e:?}"))
 		.map_err(|e| e.raw_os_error().unwrap_or(libc::EIO))
 }
 
@@ -409,7 +406,7 @@ impl Filesystem for Ufs {
 					assert_eq!(ino.blocks, 0);
 					let len = ino.size as usize;
 					Ok(link[0..len].to_vec())
-				},
+				}
 				_ => Err(IoError::new(ErrorKind::Unsupported, "TODO: long links")),
 			}
 		};

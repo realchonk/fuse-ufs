@@ -11,7 +11,7 @@ pub struct Cli {
 	#[arg(short, long)]
 	pub verbose: bool,
 
-	pub device:     PathBuf,
+	pub device: PathBuf,
 	pub mountpoint: PathBuf,
 }
 

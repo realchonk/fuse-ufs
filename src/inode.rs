@@ -1,4 +1,7 @@
-use std::{mem::{size_of, transmute_copy}, time::{Duration, SystemTime}};
+use std::{
+	mem::{size_of, transmute_copy},
+	time::{Duration, SystemTime},
+};
 
 use bincode::{de::Decoder, error::DecodeError, Decode};
 use fuser::{FileAttr, FileType};
@@ -119,7 +122,7 @@ impl Decode for Inode {
 			let len = direct.len();
 			direct.copy_from_slice(&data[0..len]);
 			indirect.copy_from_slice(&data[len..]);
-			
+
 			ino.data = InodeData::Blocks {
 				direct: unsafe { transmute_copy(&direct) },
 				indirect: unsafe { transmute_copy(&indirect) },
