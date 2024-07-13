@@ -250,9 +250,9 @@ impl Filesystem for Ufs {
 
 	fn getattr(&mut self, _req: &Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
 		let ino = transino(ino);
-		match self.read_inode(ino) {
+		match run(|| self.read_inode(ino)) {
 			Ok(x) => reply.attr(&MAX_CACHE, &x.as_fileattr(ino)),
-			Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
+			Err(e) => reply.error(e),
 		}
 	}
 
