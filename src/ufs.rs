@@ -148,7 +148,9 @@ impl Ufs {
 }
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
-	f().map_err(|e| e.raw_os_error().unwrap_or(libc::EIO))
+	f()
+		.inspect_err(|e| eprintln!("Error: {e:?}"))
+		.map_err(|e| e.raw_os_error().unwrap_or(libc::EIO))
 }
 
 fn transino(ino: u64) -> u64 {
