@@ -33,7 +33,6 @@ impl Ufs {
 		Ok(Self { file, superblock })
 	}
 
-	// TODO: bincodify inode
 	fn read_inode(&mut self, ino: u64) -> IoResult<Inode> {
 		let off = self.superblock.ino_to_fso(ino);
 		let ino: Inode = self.file.decode_at(off)?;
