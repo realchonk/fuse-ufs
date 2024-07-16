@@ -33,7 +33,7 @@ impl BlockReader {
 					// TODO: replace with log::warn!() once other PRs are merged
 					eprintln!("Warning: short read at: {pos}");
 					break;
-				},
+				}
 				n => num += n,
 			}
 		}
