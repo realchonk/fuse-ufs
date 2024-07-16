@@ -146,7 +146,7 @@ impl Ufs {
 }
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
-	f().inspect_err(|e| eprintln!("Error: {e:?}"))
+	f().inspect_err(|e| log::error!("Error: {e}"))
 		.map_err(|e| e.raw_os_error().unwrap_or(libc::EIO))
 }
 
