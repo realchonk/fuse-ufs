@@ -22,6 +22,7 @@ mkdir -p dir1/dir2/dir3
 echo 'Hello World' > dir1/dir2/dir3/file2
 jot $((1 << 16)) 0 | xargs printf '%015x\n' > file3
 ln -sf dir1/dir2/dir3/file2 link1
+ln -sf "$(yes ./ | head -n200 | tr -d '\n')/file1" long-link
 cd -
 
 umount "$MNTDIR"
