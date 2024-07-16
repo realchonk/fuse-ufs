@@ -167,7 +167,16 @@ fn contents(harness: Harness) {
 
 	entries.sort();
 
-	let mut expected = [".", "..", ".snap", "dir1", "file1", "file3", "link1", "long-link"];
+	let mut expected = [
+		".",
+		"..",
+		".snap",
+		"dir1",
+		"file1",
+		"file3",
+		"link1",
+		"long-link",
+	];
 
 	expected.sort();
 
