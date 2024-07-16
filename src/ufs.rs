@@ -1,7 +1,7 @@
 use std::{
 	ffi::{c_int, OsStr},
 	io::{Cursor, Error as IoError, ErrorKind, Result as IoResult},
-	mem::{size_of, size_of_val},
+	mem::size_of,
 	num::NonZeroU64,
 	path::Path,
 	time::Duration,
@@ -33,13 +33,9 @@ impl Ufs {
 		Ok(Self { file, superblock })
 	}
 
-	// TODO: bincodify inode
 	fn read_inode(&mut self, ino: u64) -> IoResult<Inode> {
 		let off = self.superblock.ino_to_fso(ino);
-
-		let buffer: [u8; size_of::<Inode>()] = self.file.decode_at(off)?;
-
-		let ino: Inode = unsafe { std::mem::transmute_copy(&buffer) };
+		let ino: Inode = self.file.decode_at(off)?;
 
 		if (ino.mode & S_IFMT) == 0 {
 			return Err(IoError::new(ErrorKind::BrokenPipe, "invalid inode"));
@@ -59,12 +55,14 @@ impl Ufs {
 			return Err(IoError::new(ErrorKind::InvalidInput, "out of bounds"));
 		}
 
+		let InodeData::Blocks { direct, indirect } = &ino.data else {
+			return Err(IoError::new(ErrorKind::InvalidInput, "doesn't have blocks"));
+		};
+
 		if blkno < nd {
-			Ok(NonZeroU64::new(
-				unsafe { ino.data.blocks.direct[blkno as usize] } as u64,
-			))
+			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
 		} else if blkno < (nd + pbp) {
-			let first = unsafe { ino.data.blocks.indirect[0] } as u64;
+			let first = indirect[0] as u64;
 			let pos = first * fs + (blkno - nd) * su64;
 			let pos: u64 = self.file.decode_at(pos)?;
 			Ok(NonZeroU64::new(pos))
@@ -148,7 +146,8 @@ impl Ufs {
 }
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
-	f().map_err(|e| e.raw_os_error().unwrap_or(libc::EIO))
+	f().inspect_err(|e| log::error!("Error: {e}"))
+		.map_err(|e| e.raw_os_error().unwrap_or(libc::EIO))
 }
 
 fn transino(ino: u64) -> u64 {
@@ -250,9 +249,9 @@ impl Filesystem for Ufs {
 
 	fn getattr(&mut self, _req: &Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
 		let ino = transino(ino);
-		match self.read_inode(ino) {
+		match run(|| self.read_inode(ino)) {
 			Ok(x) => reply.attr(&MAX_CACHE, &x.as_fileattr(ino)),
-			Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
+			Err(e) => reply.error(e),
 		}
 	}
 
@@ -396,19 +395,18 @@ impl Filesystem for Ufs {
 		let ino = transino(ino);
 		let f = || {
 			let ino = self.read_inode(ino)?;
+
 			if ino.kind() != FileType::Symlink {
 				return Err(IoError::new(ErrorKind::InvalidInput, "not a symlink"));
 			}
 
-			let max = size_of_val(unsafe { &ino.data.shortlink }) as u64;
-
-			assert_eq!(ino.blocks, 0);
-
-			if ino.size < max {
-				let len = ino.size as usize;
-				Ok(unsafe { &ino.data.shortlink[0..len] }.to_vec())
-			} else {
-				Err(IoError::new(ErrorKind::Unsupported, "TODO: long links"))
+			match &ino.data {
+				InodeData::Shortlink(link) => {
+					assert_eq!(ino.blocks, 0);
+					let len = ino.size as usize;
+					Ok(link[0..len].to_vec())
+				}
+				_ => Err(IoError::new(ErrorKind::Unsupported, "TODO: long links")),
 			}
 		};
 

@@ -78,6 +78,12 @@ pub const UFS_MAXNAMELEN: usize = 255;
 /// Indirect addresses in inode.
 pub const UFS_NIADDR: usize = 3;
 
+/// Length of a short link.
+pub const UFS_SLLEN: usize = (UFS_NDADDR + UFS_NIADDR) * size_of::<UfsDaddr>();
+
+/// Size of an on-disk inode.
+pub const UFS_INOSZ: usize = 256;
+
 /// type of file mask
 pub const S_IFMT: u16 = 0o170000;
 
@@ -280,23 +286,17 @@ pub struct CylGroup {
 	                                   // actually longer - space used for cylinder group maps
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct UfsInodeBlocks {
-	pub direct:   [UfsDaddr; UFS_NDADDR],
-	pub indirect: [UfsDaddr; UFS_NIADDR],
+#[derive(Debug)]
+pub enum InodeData {
+	Blocks {
+		direct:   [UfsDaddr; UFS_NDADDR],
+		indirect: [UfsDaddr; UFS_NIADDR],
+	},
+	Shortlink([u8; UFS_SLLEN]),
 }
 
 #[allow(dead_code)]
-#[repr(C)]
-pub union UfsInodeData {
-	pub blocks:    UfsInodeBlocks,
-	pub shortlink: [u8; (UFS_NDADDR + UFS_NIADDR) * size_of::<UfsDaddr>()],
-}
-
-#[allow(dead_code)]
-#[repr(C)]
+#[derive(Debug)]
 pub struct Inode {
 	pub mode:      u16,                    //   0: IFMT, permissions; see below.
 	pub nlink:     u16,                    //   2: File link count.
@@ -318,7 +318,7 @@ pub struct Inode {
 	pub flags:     u32,                    //  88: Status flags (chflags).
 	pub extsize:   u32,                    //  92: External attributes size.
 	pub extb:      [UfsDaddr; UFS_NXADDR], //  96: External attributes block.
-	pub data:      UfsInodeData,           // XXX: Blocks
+	pub data:      InodeData,              // XXX: Blocks
 	pub modrev:    u64,                    // 232: i_modrev for NFSv4
 	pub ignored:   u32, // 240: (SUJ: Next unlinked inode) or (IFDIR: depth from root dir)
 	pub ckhash:    u32, // 244: if CK_INODE, its check-hash
@@ -383,7 +383,7 @@ impl Superblock {
 	/// inode number to filesystem offset.
 	pub fn ino_to_fso(&self, ino: u64) -> u64 {
 		let addr = self.ino_to_fsba(ino) * self.fsize as u64;
-		let off = self.ino_to_fsbo(ino) * size_of::<Inode>() as u64;
+		let off = self.ino_to_fsbo(ino) * UFS_INOSZ as u64;
 		addr + off
 	}
 }
