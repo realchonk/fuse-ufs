@@ -51,7 +51,7 @@ task:
 task:
   name: Linux MSRV
   container:
-    image: rust:1.77.0
+    image: rust:1.74.1
     kvm: true
   setup_script:
     - apt-get update
