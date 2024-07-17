@@ -1,5 +1,6 @@
 use std::{
-	io::Cursor, time::{Duration, SystemTime}
+	io::Cursor,
+	time::{Duration, SystemTime},
 };
 
 use bincode::{de::Decoder, error::DecodeError, Decode};
