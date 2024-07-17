@@ -8,6 +8,7 @@ pub struct Cli {
 	#[arg(short, long, value_delimiter(','))]
 	pub options: Vec<String>,
 
+	// TODO: passing multiple '-v's increases log level
 	#[arg(short, long)]
 	pub verbose: bool,
 

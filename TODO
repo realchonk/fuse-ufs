@@ -1,5 +1,4 @@
-- use log crate instead of println!()
-- `-v` option (verbose)
+- support for specifying multiple `-v`
 - `-f` option (foreground)
 - statfs()
 - long symbolic links
