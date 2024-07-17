@@ -18,7 +18,7 @@ fn main() -> Result<()> {
 	if cli.verbose {
 		log::set_max_level(LevelFilter::Trace);
 	}
-	
+
 	// TODO: set log level to debug, if cli.verbose
 	let fs = Ufs::open(&cli.device)?;
 
