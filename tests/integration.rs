@@ -44,7 +44,8 @@ fn prepare_image(filename: &str) -> PathBuf {
 
 lazy_static! {
 	// TODO: GOLDEN_BIG and other configs, like 64K/8K, 4K/4k, etc.
-	pub static ref GOLDEN: PathBuf = prepare_image("ufs.img");
+	pub static ref GOLDEN_LE: PathBuf = prepare_image("ufs-little.img");
+	//pub static ref GOLDEN_BE: PathBuf = prepare_image("ufs-big.img");
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -85,7 +86,7 @@ fn harness() -> Harness {
 	let d = tempdir().unwrap();
 	let child = Command::cargo_bin("fuse-ufs")
 		.unwrap()
-		.arg(GOLDEN.as_path())
+		.arg(GOLDEN_LE.as_path())
 		.arg(d.path())
 		.spawn()
 		.unwrap();
