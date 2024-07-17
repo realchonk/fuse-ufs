@@ -67,13 +67,14 @@ impl Ufs {
 			let pos: u64 = self.file.decode_at(pos)?;
 			Ok(NonZeroU64::new(pos))
 		} else if blkno < (nd + pbp * pbp) {
-			eprintln!("TODO: second-level indirect block addressing");
+			log::error!("TODO: second-level indirect block addressing");
 			Ok(None)
 		} else if blkno < (nd + pbp * pbp * pbp) {
-			eprintln!("TODO: third-level indirect block addressing");
+			log::error!("TODO: third-level indirect block addressing");
 			Ok(None)
 		} else {
-			eprintln!("WARN: address too large");
+			let max = nd + pbp * pbp * pbp;
+			log::warn!("block number too large: {blkno} >= {max}");
 			Ok(None)
 		}
 	}
@@ -211,16 +212,16 @@ fn readdir_block<T>(
 impl Filesystem for Ufs {
 	fn init(&mut self, _req: &Request<'_>, _config: &mut KernelConfig) -> Result<(), c_int> {
 		let sb = &self.superblock;
-		println!("Superblock: {:#?}", sb);
+		log::debug!("Superblock: {sb:#?}");
 
-		println!("Summary:");
-		println!("Block Size: {}", sb.bsize);
-		println!("# Blocks: {}", sb.size);
-		println!("# Data Blocks: {}", sb.dsize);
-		println!("Fragment Size: {}", sb.fsize);
-		println!("Fragments per Block: {}", sb.frag);
-		println!("# Cylinder Groups: {}", sb.ncg);
-		println!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
+		log::info!("Summary:");
+		log::info!("Block Size: {}", sb.bsize);
+		log::info!("# Blocks: {}", sb.size);
+		log::info!("# Data Blocks: {}", sb.dsize);
+		log::info!("Fragment Size: {}", sb.fsize);
+		log::info!("Fragments per Block: {}", sb.frag);
+		log::info!("# Cylinder Groups: {}", sb.ncg);
+		log::info!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
 		assert!(sb.cgsize_struct() < sb.bsize as usize);
 
 		// check that all superblocks are ok.
@@ -229,7 +230,7 @@ impl Filesystem for Ufs {
 			let addr = ((sb.fpg + sb.sblkno) * sb.fsize) as u64;
 			let csb: Superblock = self.file.decode_at(addr).unwrap();
 			if csb.magic != FS_UFS2_MAGIC {
-				eprintln!("CG{i} has invalid superblock magic: {:x}", csb.magic);
+				log::error!("CG{i} has invalid superblock magic: {:x}", csb.magic);
 			}
 		}
 
@@ -239,10 +240,10 @@ impl Filesystem for Ufs {
 			let addr = ((sb.fpg + sb.cblkno) * sb.fsize) as u64;
 			let cg: CylGroup = self.file.decode_at(addr).unwrap();
 			if cg.magic != CG_MAGIC {
-				eprintln!("CG{i} has invalid cg magic: {:x}", cg.magic);
+				log::error!("CG{i} has invalid cg magic: {:x}", cg.magic);
 			}
 		}
-		println!("OK");
+		log::info!("OK");
 
 		Ok(())
 	}
