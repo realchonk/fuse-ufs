@@ -194,3 +194,17 @@ fn contents(harness: Harness) {
 	let link1 = std::fs::read_link(d.path().join("link1")).unwrap();
 	assert_eq!(&link1, Path::new("dir1/dir2/dir3/file2"));
 }
+
+#[rstest]
+fn readlink_long(harness: Harness) {
+	let d = &harness.d;
+
+	let link = std::fs::read_link(d.path().join("long-link")).unwrap();
+	let expected = (0..200)
+		.map(|_| "./")
+		.fold(String::new(), |a, x| a + x)
+		+ "/file1"
+		;
+
+	assert_eq!(link, Path::new(&expected));
+}
