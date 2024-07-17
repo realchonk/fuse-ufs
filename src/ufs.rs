@@ -55,7 +55,7 @@ impl Ufs {
 			return Err(IoError::new(ErrorKind::InvalidInput, "out of bounds"));
 		}
 
-		let InodeData::Blocks { direct, indirect } = &ino.data else {
+		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &ino.data else {
 			return Err(IoError::new(ErrorKind::InvalidInput, "doesn't have blocks"));
 		};
 
