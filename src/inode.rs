@@ -1,5 +1,5 @@
 use std::{
-	mem::{size_of, transmute_copy},
+	io::Cursor,
 	time::{Duration, SystemTime},
 };
 
@@ -116,17 +116,10 @@ impl Decode for Inode {
 		if (ino.mode & S_IFMT) == S_IFLNK && ino.blocks == 0 {
 			ino.data = InodeData::Shortlink(data);
 		} else {
-			const SZ: usize = size_of::<UfsDaddr>();
-			let mut direct = [0u8; UFS_NDADDR * SZ];
-			let mut indirect = [0u8; UFS_NIADDR * SZ];
-			let len = direct.len();
-			direct.copy_from_slice(&data[0..len]);
-			indirect.copy_from_slice(&data[len..]);
-
-			ino.data = InodeData::Blocks {
-				direct:   unsafe { transmute_copy(&direct) },
-				indirect: unsafe { transmute_copy(&indirect) },
-			};
+			let file = Cursor::new(&data);
+			let mut file = crate::decoder::Decoder::new(file);
+			let blocks: InodeBlocks = file.decode().unwrap();
+			ino.data = InodeData::Blocks(blocks);
 		}
 
 		Ok(ino)

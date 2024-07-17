@@ -286,12 +286,15 @@ pub struct CylGroup {
 	                                   // actually longer - space used for cylinder group maps
 }
 
+#[derive(Debug, Decode)]
+pub struct InodeBlocks {
+	pub direct:   [UfsDaddr; UFS_NDADDR],
+	pub indirect: [UfsDaddr; UFS_NIADDR],
+}
+
 #[derive(Debug)]
 pub enum InodeData {
-	Blocks {
-		direct:   [UfsDaddr; UFS_NDADDR],
-		indirect: [UfsDaddr; UFS_NIADDR],
-	},
+	Blocks(InodeBlocks),
 	Shortlink([u8; UFS_SLLEN]),
 }
 
