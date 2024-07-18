@@ -432,7 +432,16 @@ impl Filesystem for Ufs {
 					let len = ino.size as usize;
 					Ok(link[0..len].to_vec())
 				}
-				_ => Err(IoError::new(ErrorKind::Unsupported, "TODO: long links")),
+				InodeData::Blocks { .. } => {
+					// TODO: this has to be tested for other configurations, such as 4K/4K
+					assert!(ino.blocks <= 8);
+
+					let len = ino.size as usize;
+					let mut buf = vec![0u8; self.superblock.bsize as usize];
+					self.read_file_block(&ino, 0, &mut buf)?;
+					buf.resize(len, 0u8);
+					Ok(buf)
+				}
 			}
 		};
 
