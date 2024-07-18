@@ -5,8 +5,6 @@ use bincode::{
 	Decode,
 };
 
-use crate::cli::Endian;
-
 #[derive(Clone, Copy)]
 pub enum Config {
 	Little(Configuration<LittleEndian, Fixint, NoLimit>),
@@ -26,13 +24,6 @@ impl Config {
 			.with_fixed_int_encoding()
 			.with_big_endian();
 		Self::Big(cfg)
-	}
-
-	pub const fn new(endian: Endian) -> Self {
-		match endian {
-			Endian::Little => Self::little(),
-			Endian::Big => Self::big(),
-		}
 	}
 
 	fn decode<T: Read, X: Decode>(&self, rdr: &mut BufReader<T>) -> Result<X> {

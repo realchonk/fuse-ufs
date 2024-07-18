@@ -1,15 +1,7 @@
 use std::path::PathBuf;
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use fuser::MountOption;
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum Endian {
-	/// little endian
-	Little,
-	/// big endian
-	Big,
-}
 
 #[derive(Parser)]
 pub struct Cli {
@@ -19,10 +11,6 @@ pub struct Cli {
 	// TODO: passing multiple '-v's increases log level
 	#[arg(short, long)]
 	pub verbose: bool,
-
-	// TODO: maybe use the systems endianness as default?
-	#[arg(short, long, value_enum, default_value_t = Endian::Little)]
-	pub endian: Endian,
 
 	pub device:     PathBuf,
 	pub mountpoint: PathBuf,

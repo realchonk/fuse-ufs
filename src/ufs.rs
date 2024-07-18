@@ -1,7 +1,7 @@
 use std::{
 	ffi::{c_int, OsStr},
-	io::{Cursor, Error as IoError, ErrorKind, Result as IoResult},
-	mem::size_of,
+	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
+	mem::{size_of, size_of_val},
 	num::NonZeroU64,
 	path::Path,
 	time::Duration,
@@ -20,8 +20,21 @@ pub struct Ufs {
 }
 
 impl Ufs {
-	pub fn open(path: &Path, config: Config) -> Result<Self> {
-		let file = BlockReader::open(path)?;
+	pub fn open(path: &Path) -> Result<Self> {
+		let mut file = BlockReader::open(path)?;
+
+		let pos = SBLOCK_UFS2 as u64 + 1372;
+		file.seek(SeekFrom::Start(pos))?;
+		let mut magic = [0u8; 4];
+		file.read_exact(&mut magic)?;
+
+		// magic: 0x19 54 01 19
+		let config = match magic {
+			[0x19, 0x01, 0x54, 0x19] => Config::little(),
+			[0x19, 0x54, 0x01, 0x19] => Config::big(),
+			_ => bail!("invalid superblock magic number: {magic:?}"),
+		};
+
 		let mut file = Decoder::new(file, config);
 
 		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
