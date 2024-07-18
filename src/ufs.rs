@@ -384,7 +384,6 @@ impl Filesystem for Ufs {
 				let block = self.find_file_block(&ino, offset);
 				let num = (block.size - block.off).min(end - offset);
 
-				dbg!((&block, boff, num));
 				self.read_file_block(&ino, block.blkidx, &mut blockbuf[0..(block.size as usize)])?;
 				buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[0..(num as usize)]);
 

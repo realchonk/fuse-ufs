@@ -43,7 +43,9 @@ fn prepare_image(filename: &str) -> PathBuf {
 }
 
 lazy_static! {
-	pub static ref GOLDEN: PathBuf = prepare_image("ufs.img");
+	// TODO: GOLDEN_BIG and other configs, like 64K/8K, 4K/4k, etc.
+	pub static ref GOLDEN_LE: PathBuf = prepare_image("ufs-little.img");
+	//pub static ref GOLDEN_BE: PathBuf = prepare_image("ufs-big.img");
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -84,7 +86,7 @@ fn harness() -> Harness {
 	let d = tempdir().unwrap();
 	let child = Command::cargo_bin("fuse-ufs")
 		.unwrap()
-		.arg(GOLDEN.as_path())
+		.arg(GOLDEN_LE.as_path())
 		.arg(d.path())
 		.spawn()
 		.unwrap();
@@ -149,6 +151,7 @@ fn mount(harness: Harness) {
 	drop(harness);
 }
 
+// TODO: find all files recursively
 #[rstest]
 fn contents(harness: Harness) {
 	let d = &harness.d;
@@ -167,21 +170,57 @@ fn contents(harness: Harness) {
 
 	entries.sort();
 
-	let mut expected = [".", "..", ".snap", "dir1", "file1", "file3", "link1"];
+	let mut expected = [
+		".",
+		"..",
+		".snap",
+		"dir1",
+		"file1",
+		"file3",
+		"link1",
+		"long-link",
+	];
 
 	expected.sort();
 
 	assert_eq!(entries, expected);
+}
 
-	let file1 = std::fs::read_to_string(d.path().join("file1")).unwrap();
-	assert_eq!(&file1, "This is a simple file.\n");
+#[rstest]
+fn read_direct(harness: Harness) {
+	let d = &harness.d;
 
-	let file3 = std::fs::read_to_string(d.path().join("file3")).unwrap();
-	file3.lines().enumerate().for_each(|(i, l)| {
+	let file = std::fs::read_to_string(d.path().join("file1")).unwrap();
+	assert_eq!(&file, "This is a simple file.\n");
+}
+
+#[rstest]
+fn read_indir1(harness: Harness) {
+	let d = &harness.d;
+
+	let file = std::fs::read_to_string(d.path().join("file3")).unwrap();
+	file.lines().enumerate().for_each(|(i, l)| {
 		let l = &l[0..15];
 		assert_eq!(l, format!("{i:015x}"));
 	});
-
-	let link1 = std::fs::read_link(d.path().join("link1")).unwrap();
-	assert_eq!(&link1, Path::new("dir1/dir2/dir3/file2"));
 }
+
+// TODO: read_indir{2,3} pending #29
+
+#[rstest]
+fn readlink_short(harness: Harness) {
+	let d = &harness.d;
+
+	let link = std::fs::read_link(d.path().join("link1")).unwrap();
+	assert_eq!(&link, Path::new("dir1/dir2/dir3/file2"));
+}
+
+//#[rstest]
+//fn readlink_long(harness: Harness) {
+//	let d = &harness.d;
+//
+//	let link = std::fs::read_link(d.path().join("long-link")).unwrap();
+//	let expected = (0..200).map(|_| "./").fold(String::new(), |a, x| a + x) + "/file1";
+//
+//	assert_eq!(link, Path::new(&expected));
+//}
