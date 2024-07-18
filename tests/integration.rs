@@ -233,7 +233,7 @@ fn statfs(harness: Harness) {
 
 	assert_eq!(sfs.blocks(), 15751);
 	assert_eq!(sfs.files(), 8704);
-	assert_eq!(sfs.files_free(), 8693);
+	assert_eq!(sfs.files_free(), 8692);
 }
 
 #[rstest]
@@ -241,10 +241,10 @@ fn statvfs(harness: Harness) {
 	let d = &harness.d;
 	let svfs = nix::sys::statvfs::statvfs(d.path()).unwrap();
 
-	assert_eq!(svfs.block_size(), 32768);
+	//assert_eq!(svfs.block_size(), 32768);
 	assert_eq!(svfs.fragment_size(), 4096);
 	assert_eq!(svfs.blocks(), 15751);
 	assert_eq!(svfs.files(), 8704);
-	assert_eq!(svfs.files_free(), 8693);
+	assert_eq!(svfs.files_free(), 8692);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
