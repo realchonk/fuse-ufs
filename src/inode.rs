@@ -126,10 +126,10 @@ impl Decode for Inode {
 			extsize,
 			extb,
 			data,
-			modrev:    u64::decode(d)?,
-			ignored:   u32::decode(d)?,
-			ckhash:    u32::decode(d)?,
-			spare:     <[u32; 2]>::decode(d)?,
+			modrev: u64::decode(d)?,
+			ignored: u32::decode(d)?,
+			ckhash: u32::decode(d)?,
+			spare: <[u32; 2]>::decode(d)?,
 		};
 
 		Ok(ino)

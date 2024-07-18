@@ -12,7 +12,11 @@ use fuser::{FileType, Filesystem, KernelConfig, Request};
 
 const MAX_CACHE: Duration = Duration::MAX;
 
-use crate::{blockreader::BlockReader, data::*, decoder::{Config, Decoder}};
+use crate::{
+	blockreader::BlockReader,
+	data::*,
+	decoder::{Config, Decoder},
+};
 
 pub struct Ufs {
 	file:       Decoder<BlockReader>,
