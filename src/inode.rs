@@ -1,7 +1,4 @@
-use std::{
-	io::Cursor,
-	time::{Duration, SystemTime},
-};
+use std::time::{Duration, SystemTime};
 
 use bincode::{de::Decoder, error::DecodeError, Decode};
 use fuser::{FileAttr, FileType};
@@ -81,47 +78,59 @@ impl Inode {
 
 impl Decode for Inode {
 	fn decode<D: Decoder>(d: &mut D) -> Result<Self, DecodeError> {
-		let data;
-		let mut ino = Self {
-			mode:      u16::decode(d)?,
-			nlink:     u16::decode(d)?,
-			uid:       u32::decode(d)?,
-			gid:       u32::decode(d)?,
-			blksize:   u32::decode(d)?,
-			size:      u64::decode(d)?,
-			blocks:    u64::decode(d)?,
-			atime:     UfsTime::decode(d)?,
-			mtime:     UfsTime::decode(d)?,
-			ctime:     UfsTime::decode(d)?,
-			birthtime: UfsTime::decode(d)?,
-			mtimensec: u32::decode(d)?,
-			atimensec: u32::decode(d)?,
-			ctimensec: u32::decode(d)?,
-			birthnsec: u32::decode(d)?,
-			gen:       u32::decode(d)?,
-			kernflags: u32::decode(d)?,
-			flags:     u32::decode(d)?,
-			extsize:   u32::decode(d)?,
-			extb:      <[UfsDaddr; UFS_NXADDR]>::decode(d)?,
-			data:      {
-				data = <[u8; UFS_SLLEN]>::decode(d)?;
-				InodeData::Shortlink([0; UFS_SLLEN])
-			},
+		let mode = u16::decode(d)?;
+		let nlink = u16::decode(d)?;
+		let uid = u32::decode(d)?;
+		let gid = u32::decode(d)?;
+		let blksize = u32::decode(d)?;
+		let size = u64::decode(d)?;
+		let blocks = u64::decode(d)?;
+		let atime = UfsTime::decode(d)?;
+		let mtime = UfsTime::decode(d)?;
+		let ctime = UfsTime::decode(d)?;
+		let birthtime = UfsTime::decode(d)?;
+		let mtimensec = u32::decode(d)?;
+		let atimensec = u32::decode(d)?;
+		let ctimensec = u32::decode(d)?;
+		let birthnsec = u32::decode(d)?;
+		let gen = u32::decode(d)?;
+		let kernflags = u32::decode(d)?;
+		let flags = u32::decode(d)?;
+		let extsize = u32::decode(d)?;
+		let extb = <[UfsDaddr; UFS_NXADDR]>::decode(d)?;
+		let data = if (mode & S_IFMT) == S_IFLNK && blocks == 0 {
+			InodeData::Shortlink(Decode::decode(d)?)
+		} else {
+			InodeData::Blocks(InodeBlocks::decode(d)?)
+		};
+
+		let ino = Self {
+			mode,
+			nlink,
+			uid,
+			gid,
+			blksize,
+			size,
+			blocks,
+			atime,
+			mtime,
+			ctime,
+			birthtime,
+			mtimensec,
+			atimensec,
+			ctimensec,
+			birthnsec,
+			gen,
+			kernflags,
+			flags,
+			extsize,
+			extb,
+			data,
 			modrev:    u64::decode(d)?,
 			ignored:   u32::decode(d)?,
 			ckhash:    u32::decode(d)?,
 			spare:     <[u32; 2]>::decode(d)?,
 		};
-
-		if (ino.mode & S_IFMT) == S_IFLNK && ino.blocks == 0 {
-			ino.data = InodeData::Shortlink(data);
-		} else {
-			let file = Cursor::new(&data);
-			#[allow(unused_variables, unreachable_code)]
-			let mut file = crate::decoder::Decoder::new(file, todo!());
-			let blocks: InodeBlocks = file.decode().unwrap();
-			ino.data = InodeData::Blocks(blocks);
-		}
 
 		Ok(ino)
 	}
