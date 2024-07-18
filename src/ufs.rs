@@ -27,7 +27,7 @@ impl Ufs {
 	pub fn open(path: &Path) -> Result<Self> {
 		let mut file = BlockReader::open(path)?;
 
-		let pos = SBLOCK_UFS2 as u64 + 1372;
+		let pos = SBLOCK_UFS2 as u64 + MAGIC_OFFSET;
 		file.seek(SeekFrom::Start(pos))?;
 		let mut magic = [0u8; 4];
 		file.read_exact(&mut magic)?;

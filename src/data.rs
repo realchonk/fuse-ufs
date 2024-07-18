@@ -8,6 +8,9 @@ use bincode::Decode;
 /// UFS2 fast filesystem magic number
 pub const FS_UFS2_MAGIC: i32 = 0x19540119;
 
+/// Offset of the magic number in the superblock
+pub const MAGIC_OFFSET: u64 = 1372;
+
 /// Magic number of a CylGroup
 pub const CG_MAGIC: i32 = 0x090255;
 
