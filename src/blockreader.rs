@@ -28,10 +28,7 @@ impl BlockReader {
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.file.read(&mut self.block[num..])? {
-				0 => {
-					let pos = self.file.stream_position()?;
-					break;
-				}
+				0 => break,
 				n => num += n,
 			}
 		}
