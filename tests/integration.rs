@@ -232,6 +232,8 @@ fn statfs(harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 15751);
+	assert_eq!(sfs.block_size(), 4096);
+	assert_eq!(sfs.blocks_free(), 15479);
 	assert_eq!(sfs.files(), 8704);
 	assert_eq!(sfs.files_free(), 8692);
 }
