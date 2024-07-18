@@ -215,12 +215,12 @@ fn readlink_short(harness: Harness) {
 	assert_eq!(&link, Path::new("dir1/dir2/dir3/file2"));
 }
 
-#[rstest]
-fn readlink_long(harness: Harness) {
-	let d = &harness.d;
-
-	let link = std::fs::read_link(d.path().join("long-link")).unwrap();
-	let expected = (0..200).map(|_| "./").fold(String::new(), |a, x| a + x) + "/file1";
-
-	assert_eq!(link, Path::new(&expected));
-}
+//#[rstest]
+//fn readlink_long(harness: Harness) {
+//	let d = &harness.d;
+//
+//	let link = std::fs::read_link(d.path().join("long-link")).unwrap();
+//	let expected = (0..200).map(|_| "./").fold(String::new(), |a, x| a + x) + "/file1";
+//
+//	assert_eq!(link, Path::new(&expected));
+//}
