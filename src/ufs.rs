@@ -11,8 +11,10 @@ use anyhow::{bail, Result};
 use fuser::{FileType, Filesystem, KernelConfig, Request};
 
 const MAX_CACHE: Duration = Duration::MAX;
+// TODO: make this static
+const CONFIG: Config = Config::little();
 
-use crate::{blockreader::BlockReader, data::*, decoder::Decoder};
+use crate::{blockreader::BlockReader, data::*, decoder::{Config, Decoder}};
 
 pub struct Ufs {
 	file:       Decoder<BlockReader>,
@@ -22,8 +24,7 @@ pub struct Ufs {
 impl Ufs {
 	pub fn open(path: &Path) -> Result<Self> {
 		let file = BlockReader::open(path)?;
-
-		let mut file = Decoder::new(file);
+		let mut file = Decoder::new(file, CONFIG);
 
 		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
 		if superblock.magic != FS_UFS2_MAGIC {
@@ -191,7 +192,7 @@ fn readdir_block<T>(
 ) -> IoResult<Option<T>> {
 	let mut name = [0u8; UFS_MAXNAMELEN + 1];
 	let file = Cursor::new(block);
-	let mut file = Decoder::new(file);
+	let mut file = Decoder::new(file, CONFIG);
 
 	loop {
 		let Ok(ino) = file.decode::<InodeNum>() else {
