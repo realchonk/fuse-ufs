@@ -17,7 +17,8 @@ use nix::{
 	fcntl::OFlag,
 	sys::{stat::Mode, statvfs::FsFlags},
 };
-use rstest::{fixture, rstest};
+use rstest::rstest;
+use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
 
 fn prepare_image(filename: &str) -> PathBuf {
@@ -49,7 +50,7 @@ fn prepare_image(filename: &str) -> PathBuf {
 lazy_static! {
 	// TODO: GOLDEN_BIG and other configs, like 64K/8K, 4K/4k, etc.
 	pub static ref GOLDEN_LE: PathBuf = prepare_image("ufs-little.img");
-	//pub static ref GOLDEN_BE: PathBuf = prepare_image("ufs-big.img");
+	pub static ref GOLDEN_BE: PathBuf = prepare_image("ufs-big.img");
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -85,12 +86,11 @@ struct Harness {
 	child: Child,
 }
 
-#[fixture]
-fn harness() -> Harness {
+fn harness(img: &Path) -> Harness {
 	let d = tempdir().unwrap();
 	let child = Command::cargo_bin("fuse-ufs")
 		.unwrap()
-		.arg(GOLDEN_LE.as_path())
+		.arg(img)
 		.arg(d.path())
 		.spawn()
 		.unwrap();
@@ -149,15 +149,21 @@ impl Drop for Harness {
 	}
 }
 
-/// Mount and unmount the golden image
+#[template]
 #[rstest]
-fn mount(harness: Harness) {
+#[case::le(harness(GOLDEN_LE.as_path()))]
+#[case::be(harness(GOLDEN_BE.as_path()))]
+fn all_images(harness: Harness) {}
+
+/// Mount and unmount the golden image
+#[apply(all_images)]
+fn mount(#[case] harness: Harness) {
 	drop(harness);
 }
 
 // TODO: find all files recursively
-#[rstest]
-fn contents(harness: Harness) {
+#[apply(all_images)]
+fn contents(#[case] harness: Harness) {
 	let d = &harness.d;
 	let mut dir = nix::dir::Dir::open(
 		d.path(),
@@ -190,16 +196,16 @@ fn contents(harness: Harness) {
 	assert_eq!(entries, expected);
 }
 
-#[rstest]
-fn read_direct(harness: Harness) {
+#[apply(all_images)]
+fn read_direct(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let file = std::fs::read_to_string(d.path().join("file1")).unwrap();
 	assert_eq!(&file, "This is a simple file.\n");
 }
 
-#[rstest]
-fn read_indir1(harness: Harness) {
+#[apply(all_images)]
+fn read_indir1(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let file = std::fs::read_to_string(d.path().join("file3")).unwrap();
@@ -209,16 +215,18 @@ fn read_indir1(harness: Harness) {
 	});
 }
 
-#[rstest]
-fn readlink_short(harness: Harness) {
+// TODO: read_indir{2,3} pending #29
+
+#[apply(all_images)]
+fn readlink_short(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let link = std::fs::read_link(d.path().join("link1")).unwrap();
 	assert_eq!(&link, Path::new("dir1/dir2/dir3/file2"));
 }
 
-#[rstest]
-fn readlink_long(harness: Harness) {
+#[apply(all_images)]
+fn readlink_long(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let link = std::fs::read_link(d.path().join("long-link")).unwrap();
@@ -227,8 +235,8 @@ fn readlink_long(harness: Harness) {
 	assert_eq!(link, Path::new(&expected));
 }
 
-#[rstest]
-fn statfs(harness: Harness) {
+#[apply(all_images)]
+fn statfs(#[case] harness: Harness) {
 	let d = &harness.d;
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
@@ -243,8 +251,8 @@ fn statfs(harness: Harness) {
 	assert_eq!(sfs.block_size(), 4096);
 }
 
-#[rstest]
-fn statvfs(harness: Harness) {
+#[apply(all_images)]
+fn statvfs(#[case] harness: Harness) {
 	let d = &harness.d;
 	let svfs = nix::sys::statvfs::statvfs(d.path()).unwrap();
 
@@ -255,8 +263,8 @@ fn statvfs(harness: Harness) {
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 
-#[rstest]
-fn non_existent(harness: Harness) {
+#[apply(all_images)]
+fn non_existent(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let path = d.path().join("non-existent");
@@ -266,3 +274,13 @@ fn non_existent(harness: Harness) {
 		ErrorKind::NotFound
 	);
 }
+
+//#[apply(#[case] all_images)]
+//fn readlink_long(#[case] harness: Harness) {
+//	let d = &harness.d;
+//
+//	let link = std::fs::read_link(d.path().join("long-link")).unwrap();
+//	let expected = (0..200).map(|_| "./").fold(String::new(), |a, x| a + x) + "/file1";
+//
+//	assert_eq!(link, Path::new(&expected));
+//}
