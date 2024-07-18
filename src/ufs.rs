@@ -48,7 +48,7 @@ impl Ufs {
 		let sb = &self.superblock;
 		let fs = sb.fsize as u64;
 		let nd = UFS_NDADDR as u64;
-		let su64 = size_of::<u64>() as u64;
+		let su64 = size_of::<UfsDaddr>() as u64;
 		let pbp = fs / su64;
 
 		if blkno >= ino.blocks {
