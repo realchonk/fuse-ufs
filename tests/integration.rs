@@ -233,8 +233,10 @@ fn statfs(harness: Harness) {
 
 	assert_eq!(sfs.blocks(), 15751);
 	assert_eq!(sfs.blocks_free(), 15479);
+	assert_eq!(sfs.blocks_available(), 15479);
 	assert_eq!(sfs.files(), 8704);
 	assert_eq!(sfs.files_free(), 8692);
+	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
 	assert_eq!(sfs.block_size(), 4096);
