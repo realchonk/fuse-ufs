@@ -433,8 +433,8 @@ impl Filesystem for Ufs {
 					Ok(link[0..len].to_vec())
 				}
 				InodeData::Blocks { .. } => {
-					// TODO: I'm not sure if symlinks can be longer than a fragment
-					assert_eq!(ino.blocks, 1);
+					// TODO: this has to be tested for other configurations, such as 4K/4K
+					assert!(ino.blocks <= 8);
 
 					let len = ino.size as usize;
 					let mut buf = vec![0u8; self.superblock.bsize as usize];
