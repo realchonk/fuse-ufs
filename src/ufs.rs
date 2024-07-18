@@ -1,6 +1,6 @@
 use std::{
 	ffi::{c_int, OsStr},
-	io::{Cursor, Read, Seek, SeekFrom, Error as IoError, Result as IoResult},
+	io::{Cursor, Error as IoError, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
 	path::Path,
