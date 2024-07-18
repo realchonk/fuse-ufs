@@ -19,6 +19,7 @@ impl Config {
 			.with_little_endian();
 		Self::Little(cfg)
 	}
+
 	#[allow(dead_code)]
 	pub const fn big() -> Self {
 		let cfg = bincode::config::standard()
@@ -26,6 +27,7 @@ impl Config {
 			.with_big_endian();
 		Self::Big(cfg)
 	}
+
 	fn decode<T: Read, X: Decode>(&self, rdr: &mut BufReader<T>) -> Result<X> {
 		match self {
 			Self::Little(cfg) => bincode::decode_from_reader(rdr, *cfg),
@@ -43,7 +45,7 @@ pub struct Decoder<T> {
 impl<T: Read> Decoder<T> {
 	pub fn new(inner: T, config: Config) -> Self {
 		Self {
-			inner:  BufReader::with_capacity(4096, inner),
+			inner: BufReader::with_capacity(4096, inner),
 			config,
 		}
 	}

@@ -14,7 +14,11 @@ const MAX_CACHE: Duration = Duration::MAX;
 // TODO: make this static
 const CONFIG: Config = Config::little();
 
-use crate::{blockreader::BlockReader, data::*, decoder::{Config, Decoder}};
+use crate::{
+	blockreader::BlockReader,
+	data::*,
+	decoder::{Config, Decoder},
+};
 
 pub struct Ufs {
 	file:       Decoder<BlockReader>,
