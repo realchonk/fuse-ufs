@@ -1,7 +1,7 @@
 use std::{
 	ffi::{c_int, OsStr},
 	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
-	mem::{size_of, size_of_val},
+	mem::size_of,
 	num::NonZeroU64,
 	path::Path,
 	time::Duration,

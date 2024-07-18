@@ -117,7 +117,8 @@ impl Decode for Inode {
 			ino.data = InodeData::Shortlink(data);
 		} else {
 			let file = Cursor::new(&data);
-			let mut file = crate::decoder::Decoder::new(file);
+			#[allow(unused_variables, unreachable_code)]
+			let mut file = crate::decoder::Decoder::new(file, todo!());
 			let blocks: InodeBlocks = file.decode().unwrap();
 			ino.data = InodeData::Blocks(blocks);
 		}
