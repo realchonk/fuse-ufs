@@ -12,7 +12,7 @@ use fuser::{FileType, Filesystem, KernelConfig, Request};
 
 const MAX_CACHE: Duration = Duration::MAX;
 
-use crate::{blockreader::BlockReader, data::*, decoder::Decoder};
+use crate::{blockreader::BlockReader, data::*, decoder::{Config, Decoder}};
 
 pub struct Ufs {
 	file:       Decoder<BlockReader>,
@@ -20,9 +20,9 @@ pub struct Ufs {
 }
 
 impl Ufs {
-	pub fn open(path: &Path) -> Result<Self> {
+	pub fn open(path: &Path, config: Config) -> Result<Self> {
 		let file = BlockReader::open(path)?;
-		let mut file = Decoder::new(file, crate::config());
+		let mut file = Decoder::new(file, config);
 
 		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
 		if superblock.magic != FS_UFS2_MAGIC {
@@ -160,7 +160,7 @@ impl Ufs {
 		for blkidx in 0..ino.blocks {
 			let size = self.read_file_block(ino, blkidx, &mut block)?;
 
-			let x = readdir_block(&block[0..size], &mut f)?;
+			let x = readdir_block(&block[0..size], self.file.config(), &mut f)?;
 			if x.is_some() {
 				return Ok(x);
 			}
@@ -186,11 +186,12 @@ fn transino(ino: u64) -> u64 {
 
 fn readdir_block<T>(
 	block: &[u8],
+	config: Config,
 	mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
 ) -> IoResult<Option<T>> {
 	let mut name = [0u8; UFS_MAXNAMELEN + 1];
 	let file = Cursor::new(block);
-	let mut file = Decoder::new(file, crate::config());
+	let mut file = Decoder::new(file, config);
 
 	loop {
 		let Ok(ino) = file.decode::<InodeNum>() else {

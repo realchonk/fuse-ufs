@@ -64,6 +64,10 @@ impl<T: Read> Decoder<T> {
 	pub fn read(&mut self, buf: &mut [u8]) -> Result<()> {
 		self.inner.read_exact(buf)
 	}
+
+	pub fn config(&self) -> Config {
+		self.config
+	}
 }
 
 impl<T: Read + Seek> Decoder<T> {
