@@ -62,8 +62,8 @@ impl Ufs {
 		if blkno < nd {
 			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
 		} else if blkno < (nd + pbp) {
-			let x = blkno - nd;
-			let low = x % pbp;
+			let low = blkno - nd;
+			assert!(low < pbp);
 
 			let first = indirect[0] as u64;
 			let pos = first * fs + low * su64;
