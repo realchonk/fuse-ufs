@@ -12,7 +12,7 @@ use std::{
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
 use lazy_static::lazy_static;
-use nix::{fcntl::OFlag, sys::{stat::Mode, statfs::FUSE_SUPER_MAGIC, statvfs::FsFlags}};
+use nix::{fcntl::OFlag, sys::stat::Mode};
 use rstest::{fixture, rstest};
 use tempfile::{tempdir, TempDir};
 
