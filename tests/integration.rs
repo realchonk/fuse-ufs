@@ -2,6 +2,7 @@ use std::{
 	ffi::OsString,
 	fmt,
 	fs,
+	io::ErrorKind,
 	os::unix::ffi::OsStringExt,
 	path::{Path, PathBuf},
 	process::{Child, Command},
@@ -252,4 +253,16 @@ fn statvfs(harness: Harness) {
 	assert_eq!(svfs.files(), 8704);
 	assert_eq!(svfs.files_free(), 8692);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
+}
+
+#[rstest]
+fn non_existent(harness: Harness) {
+	let d = &harness.d;
+
+	let path = d.path().join("non-existent");
+
+	assert_eq!(
+		std::fs::metadata(&path).unwrap_err().kind(),
+		ErrorKind::NotFound
+	);
 }
