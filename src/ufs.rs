@@ -401,16 +401,17 @@ impl Filesystem for Ufs {
 	}
 
 	fn statfs(&mut self, _req: &Request<'_>, _ino: u64, reply: fuser::ReplyStatfs) {
-		// TODO: scan bitmaps for bfree & ffree
 		let sb = &self.superblock;
-		let bfree = 0;
-		let ffree = 0;
+		let cst = &sb.cstotal;
+		let bfree = cst.nbfree as u64;
+		let ffree = cst.nffree as u64;
+		let free = bfree * sb.frag as u64 + ffree;
 		reply.statfs(
 			sb.dsize as u64,
-			bfree,
-			bfree,
+			free,
+			free,
 			(sb.ipg * sb.ncg) as u64,
-			ffree,
+			cst.nifree as u64,
 			sb.bsize as u32,
 			255,
 			sb.fsize as u32,

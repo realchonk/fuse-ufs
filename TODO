@@ -1,4 +1,10 @@
 - support for specifying multiple `-v`
 - `-f` option (foreground)
-- statfs()
 - long symbolic links
+- indirect block addressing
+- more integration tests
+- more unit tests
+
+Long Term:
+- read-write
+- snapshots

@@ -12,7 +12,10 @@ use std::{
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
 use lazy_static::lazy_static;
-use nix::{fcntl::OFlag, sys::stat::Mode};
+use nix::{
+	fcntl::OFlag,
+	sys::{stat::Mode, statvfs::FsFlags},
+};
 use rstest::{fixture, rstest};
 use tempfile::{tempdir, TempDir};
 
@@ -205,8 +208,6 @@ fn read_indir1(harness: Harness) {
 	});
 }
 
-// TODO: read_indir{2,3} pending #29
-
 #[rstest]
 fn readlink_short(harness: Harness) {
 	let d = &harness.d;
@@ -223,4 +224,32 @@ fn readlink_long(harness: Harness) {
 	let expected = (0..508).map(|_| "./").fold(String::new(), |a, x| a + x) + "//file1";
 
 	assert_eq!(link, Path::new(&expected));
+}
+
+#[rstest]
+fn statfs(harness: Harness) {
+	let d = &harness.d;
+	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
+
+	assert_eq!(sfs.blocks(), 15751);
+	assert_eq!(sfs.blocks_free(), 15479);
+	assert_eq!(sfs.blocks_available(), 15479);
+	assert_eq!(sfs.files(), 8704);
+	assert_eq!(sfs.files_free(), 8692);
+	assert_eq!(sfs.maximum_name_length(), 255);
+
+	#[cfg(target_os = "freebsd")]
+	assert_eq!(sfs.block_size(), 4096);
+}
+
+#[rstest]
+fn statvfs(harness: Harness) {
+	let d = &harness.d;
+	let svfs = nix::sys::statvfs::statvfs(d.path()).unwrap();
+
+	assert_eq!(svfs.fragment_size(), 4096);
+	assert_eq!(svfs.blocks(), 15751);
+	assert_eq!(svfs.files(), 8704);
+	assert_eq!(svfs.files_free(), 8692);
+	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
