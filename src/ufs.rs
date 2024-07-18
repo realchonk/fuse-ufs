@@ -440,7 +440,7 @@ impl Filesystem for Ufs {
 					let mut buf = vec![0u8; self.superblock.bsize as usize];
 					self.read_file_block(&ino, 0, &mut buf)?;
 					Ok(buf[0..len].to_vec())
-				},
+				}
 			}
 		};
 
