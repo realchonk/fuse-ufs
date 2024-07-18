@@ -75,7 +75,10 @@ impl Ufs {
 		let pbp = fs / su64;
 
 		if blkno >= ino.blocks {
-			log::warn!("resolve_file_block(): blkno ({blkno}) >= ino.blocks ({})", ino.blocks);
+			log::warn!(
+				"resolve_file_block(): blkno ({blkno}) >= ino.blocks ({})",
+				ino.blocks
+			);
 			return Err(err!(EIO));
 		}
 
