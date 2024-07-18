@@ -247,7 +247,6 @@ fn statvfs(harness: Harness) {
 	let d = &harness.d;
 	let svfs = nix::sys::statvfs::statvfs(d.path()).unwrap();
 
-	//assert_eq!(svfs.block_size(), 32768);
 	assert_eq!(svfs.fragment_size(), 4096);
 	assert_eq!(svfs.blocks(), 15751);
 	assert_eq!(svfs.files(), 8704);
