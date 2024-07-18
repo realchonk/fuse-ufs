@@ -12,7 +12,7 @@ use std::{
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
 use lazy_static::lazy_static;
-use nix::{fcntl::OFlag, sys::stat::Mode};
+use nix::{fcntl::OFlag, sys::{stat::Mode, statvfs::FsFlags}};
 use rstest::{fixture, rstest};
 use tempfile::{tempdir, TempDir};
 
@@ -229,9 +229,19 @@ fn statfs(harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 15751);
-	//assert_eq!(sfs.block_size(), 32768);
 	assert_eq!(sfs.files(), 8704);
 	assert_eq!(sfs.files_free(), 8693);
-	//assert_eq!(sfs.filesystem_type(), FUSE_SUPER_MAGIC);
-	//assert!(sfs.flags().contains(FsFlags::ST_RDONLY));
+}
+
+#[rstest]
+fn statvfs(harness: Harness) {
+	let d = &harness.d;
+	let svfs = nix::sys::statvfs::statvfs(d.path()).unwrap();
+
+	assert_eq!(svfs.block_size(), 32768);
+	assert_eq!(svfs.fragment_size(), 4096);
+	assert_eq!(svfs.blocks(), 15751);
+	assert_eq!(svfs.files(), 8704);
+	assert_eq!(svfs.files_free(), 8693);
+	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
