@@ -30,8 +30,6 @@ impl BlockReader {
 			match self.file.read(&mut self.block[num..])? {
 				0 => {
 					let pos = self.file.stream_position()?;
-					// TODO: replace with log::warn!() once other PRs are merged
-					eprintln!("Warning: short read at: {pos}");
 					break;
 				}
 				n => num += n,
