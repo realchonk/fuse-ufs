@@ -1,6 +1,6 @@
 use std::{
 	ffi::{c_int, OsStr},
-	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
+	io::{Cursor, Error as IoError, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
 	path::Path,
@@ -17,6 +17,12 @@ use crate::{
 	data::*,
 	decoder::{Config, Decoder},
 };
+
+macro_rules! err {
+	($name:ident) => {
+		IoError::from_raw_os_error(libc::$name)
+	};
+}
 
 pub struct Ufs {
 	file:       Decoder<BlockReader>,
@@ -49,12 +55,13 @@ impl Ufs {
 		Ok(Self { file, superblock })
 	}
 
-	fn read_inode(&mut self, ino: u64) -> IoResult<Inode> {
-		let off = self.superblock.ino_to_fso(ino);
+	fn read_inode(&mut self, inr: u64) -> IoResult<Inode> {
+		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;
 
 		if (ino.mode & S_IFMT) == 0 {
-			return Err(IoError::new(ErrorKind::BrokenPipe, "invalid inode"));
+			log::warn!("invalid inode {inr}");
+			return Err(err!(EINVAL));
 		}
 
 		Ok(ino)
@@ -68,11 +75,16 @@ impl Ufs {
 		let pbp = fs / su64;
 
 		if blkno >= ino.blocks {
-			return Err(IoError::new(ErrorKind::InvalidInput, "out of bounds"));
+			log::warn!(
+				"resolve_file_block(): blkno ({blkno}) >= ino.blocks ({})",
+				ino.blocks
+			);
+			return Err(err!(EIO));
 		}
 
 		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &ino.data else {
-			return Err(IoError::new(ErrorKind::InvalidInput, "doesn't have blocks"));
+			log::warn!("resolve_file_block(): inode doesn't have blocks");
+			return Err(err!(EIO));
 		};
 
 		if blkno < nd {
@@ -363,7 +375,7 @@ impl Filesystem for Ufs {
 					let ino = self.read_inode(inr)?;
 					Ok((ino.as_fileattr(inr), ino.gen))
 				}
-				Ok(None) => Err(IoError::new(ErrorKind::NotFound, "file not found")),
+				Ok(None) => Err(err!(ENOENT)),
 				Err(e) => Err(e),
 			}
 		};
@@ -441,7 +453,7 @@ impl Filesystem for Ufs {
 			let ino = self.read_inode(ino)?;
 
 			if ino.kind() != FileType::Symlink {
-				return Err(IoError::new(ErrorKind::InvalidInput, "not a symlink"));
+				return Err(err!(EINVAL));
 			}
 
 			match &ino.data {
