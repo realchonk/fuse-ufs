@@ -62,16 +62,40 @@ impl Ufs {
 		if blkno < nd {
 			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
 		} else if blkno < (nd + pbp) {
+			let x = blkno - nd;
+			let low = x % pbp;
+
 			let first = indirect[0] as u64;
-			let pos = first * fs + (blkno - nd) * su64;
-			let pos: u64 = self.file.decode_at(pos)?;
-			Ok(NonZeroU64::new(pos))
+			let pos = first * fs + low * su64;
+			let block: u64 = self.file.decode_at(pos)?;
+			Ok(NonZeroU64::new(block))
 		} else if blkno < (nd + pbp * pbp) {
-			log::error!("TODO: second-level indirect block addressing");
-			Ok(None)
+			let x = blkno - nd - pbp;
+			let low = x % pbp;
+			let high = x / pbp;
+			assert!(high < pbp);
+
+			let first = indirect[1] as u64;
+			let pos = first * fs + high * su64;
+			let snd: u64 = self.file.decode_at(pos)?;
+			let pos = snd * fs + low * su64;
+			let block: u64 = self.file.decode_at(pos)?;
+			Ok(NonZeroU64::new(block))
 		} else if blkno < (nd + pbp * pbp * pbp) {
-			log::error!("TODO: third-level indirect block addressing");
-			Ok(None)
+			let x = blkno - nd - pbp * pbp;
+			let low = x % pbp;
+			let mid = x / pbp % pbp;
+			let high = x / pbp / pbp;
+			assert!(high < pbp);
+
+			let first = indirect[2] as u64;
+			let pos = first * fs + high * su64;
+			let second: u64 = self.file.decode_at(pos)?;
+			let pos = second * fs + mid * su64;
+			let third: u64 = self.file.decode_at(pos)?;
+			let pos = third * fs + low * su64;
+			let block: u64 = self.file.decode_at(pos)?;
+			Ok(NonZeroU64::new(block))
 		} else {
 			let max = nd + pbp * pbp * pbp;
 			log::warn!("block number too large: {blkno} >= {max}");
