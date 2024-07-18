@@ -226,7 +226,7 @@ fn readlink_short(#[case] harness: Harness) {
 }
 
 #[apply(all_images)]
-fn readlink_long(harness: Harness) {
+fn readlink_long(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let link = std::fs::read_link(d.path().join("long-link")).unwrap();
@@ -236,7 +236,7 @@ fn readlink_long(harness: Harness) {
 }
 
 #[apply(all_images)]
-fn statfs(harness: Harness) {
+fn statfs(#[case] harness: Harness) {
 	let d = &harness.d;
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
@@ -252,7 +252,7 @@ fn statfs(harness: Harness) {
 }
 
 #[apply(all_images)]
-fn statvfs(harness: Harness) {
+fn statvfs(#[case] harness: Harness) {
 	let d = &harness.d;
 	let svfs = nix::sys::statvfs::statvfs(d.path()).unwrap();
 
@@ -264,7 +264,7 @@ fn statvfs(harness: Harness) {
 }
 
 #[apply(all_images)]
-fn non_existent(harness: Harness) {
+fn non_existent(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let path = d.path().join("non-existent");
@@ -274,8 +274,8 @@ fn non_existent(harness: Harness) {
 		ErrorKind::NotFound
 	);
 }
-//#[rstest]
-//#[apply(all_images)]
+
+//#[apply(#[case] all_images)]
 //fn readlink_long(#[case] harness: Harness) {
 //	let d = &harness.d;
 //
