@@ -17,8 +17,6 @@ use nix::{
 	fcntl::OFlag,
 	sys::{stat::Mode, statvfs::FsFlags},
 };
-use rstest::{fixture, rstest};
-use nix::{fcntl::OFlag, sys::stat::Mode};
 use rstest::rstest;
 use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
