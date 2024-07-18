@@ -1,6 +1,6 @@
 use std::{
 	ffi::{c_int, OsStr},
-	io::{Cursor, Error as IoError, ErrorKind, Result as IoResult},
+	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
 	path::Path,
@@ -12,7 +12,11 @@ use fuser::{FileType, Filesystem, KernelConfig, Request};
 
 const MAX_CACHE: Duration = Duration::MAX;
 
-use crate::{blockreader::BlockReader, data::*, decoder::Decoder};
+use crate::{
+	blockreader::BlockReader,
+	data::*,
+	decoder::{Config, Decoder},
+};
 
 pub struct Ufs {
 	file:       Decoder<BlockReader>,
@@ -21,9 +25,21 @@ pub struct Ufs {
 
 impl Ufs {
 	pub fn open(path: &Path) -> Result<Self> {
-		let file = BlockReader::open(path)?;
+		let mut file = BlockReader::open(path)?;
 
-		let mut file = Decoder::new(file);
+		let pos = SBLOCK_UFS2 as u64 + MAGIC_OFFSET;
+		file.seek(SeekFrom::Start(pos))?;
+		let mut magic = [0u8; 4];
+		file.read_exact(&mut magic)?;
+
+		// magic: 0x19 54 01 19
+		let config = match magic {
+			[0x19, 0x01, 0x54, 0x19] => Config::little(),
+			[0x19, 0x54, 0x01, 0x19] => Config::big(),
+			_ => bail!("invalid superblock magic number: {magic:?}"),
+		};
+
+		let mut file = Decoder::new(file, config);
 
 		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
 		if superblock.magic != FS_UFS2_MAGIC {
@@ -161,7 +177,7 @@ impl Ufs {
 		for blkidx in 0..ino.blocks {
 			let size = self.read_file_block(ino, blkidx, &mut block)?;
 
-			let x = readdir_block(&block[0..size], &mut f)?;
+			let x = readdir_block(&block[0..size], self.file.config(), &mut f)?;
 			if x.is_some() {
 				return Ok(x);
 			}
@@ -187,11 +203,12 @@ fn transino(ino: u64) -> u64 {
 
 fn readdir_block<T>(
 	block: &[u8],
+	config: Config,
 	mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
 ) -> IoResult<Option<T>> {
 	let mut name = [0u8; UFS_MAXNAMELEN + 1];
 	let file = Cursor::new(block);
-	let mut file = Decoder::new(file);
+	let mut file = Decoder::new(file, config);
 
 	loop {
 		let Ok(ino) = file.decode::<InodeNum>() else {

@@ -1,32 +1,63 @@
 use std::io::{BufReader, Error, ErrorKind, Read, Result, Seek, SeekFrom};
 
 use bincode::{
-	config::{Configuration, Fixint, LittleEndian, NoLimit},
+	config::{BigEndian, Configuration, Fixint, LittleEndian, NoLimit},
 	Decode,
 };
 
+#[derive(Clone, Copy)]
+pub enum Config {
+	Little(Configuration<LittleEndian, Fixint, NoLimit>),
+	Big(Configuration<BigEndian, Fixint, NoLimit>),
+}
+
+impl Config {
+	pub const fn little() -> Self {
+		let cfg = bincode::config::standard()
+			.with_fixed_int_encoding()
+			.with_little_endian();
+		Self::Little(cfg)
+	}
+
+	pub const fn big() -> Self {
+		let cfg = bincode::config::standard()
+			.with_fixed_int_encoding()
+			.with_big_endian();
+		Self::Big(cfg)
+	}
+
+	fn decode<T: Read, X: Decode>(&self, rdr: &mut BufReader<T>) -> Result<X> {
+		match self {
+			Self::Little(cfg) => bincode::decode_from_reader(rdr, *cfg),
+			Self::Big(cfg) => bincode::decode_from_reader(rdr, *cfg),
+		}
+		.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to decode"))
+	}
+}
+
 pub struct Decoder<T> {
 	inner:  BufReader<T>,
-	config: Configuration<LittleEndian, Fixint, NoLimit>,
+	config: Config,
 }
 
 impl<T: Read> Decoder<T> {
-	pub fn new(inner: T) -> Self {
+	pub fn new(inner: T, config: Config) -> Self {
 		Self {
-			inner:  BufReader::with_capacity(4096, inner),
-			config: bincode::config::standard()
-				.with_fixed_int_encoding()
-				.with_little_endian(),
+			inner: BufReader::with_capacity(4096, inner),
+			config,
 		}
 	}
 
 	pub fn decode<X: Decode>(&mut self) -> Result<X> {
-		bincode::decode_from_reader(&mut self.inner, self.config)
-			.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to decode"))
+		self.config.decode(&mut self.inner)
 	}
 
 	pub fn read(&mut self, buf: &mut [u8]) -> Result<()> {
 		self.inner.read_exact(buf)
+	}
+
+	pub fn config(&self) -> Config {
+		self.config
 	}
 }
 
