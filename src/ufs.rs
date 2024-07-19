@@ -181,6 +181,7 @@ impl Ufs {
 
 	fn readdir<T>(
 		&mut self,
+		inr: u64,
 		ino: &Inode,
 		mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
 	) -> IoResult<Option<T>> {
@@ -189,7 +190,7 @@ impl Ufs {
 		for blkidx in 0..ino.blocks {
 			let size = self.read_file_block(ino, blkidx, &mut block)?;
 
-			let x = readdir_block(&block[0..size], self.file.config(), &mut f)?;
+			let x = readdir_block(inr, &block[0..size], self.file.config(), &mut f)?;
 			if x.is_some() {
 				return Ok(x);
 			}
@@ -214,6 +215,7 @@ fn transino(ino: u64) -> u64 {
 }
 
 fn readdir_block<T>(
+	inr: u64,
 	block: &[u8],
 	config: Config,
 	mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
@@ -249,7 +251,10 @@ fn readdir_block<T>(
 			DT_REG => FileType::RegularFile,
 			DT_LNK => FileType::Symlink,
 			DT_SOCK => FileType::Socket,
-			DT_WHT => continue,
+			DT_WHT => {
+				log::warn!("readdir_block({inr}): encountered a whiteout entry: {name:?}");
+				continue
+			},
 			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
 			_ => panic!("invalid filetype: {kind}"),
 		};
@@ -325,22 +330,22 @@ impl Filesystem for Ufs {
 	fn readdir(
 		&mut self,
 		_req: &Request<'_>,
-		ino: u64,
+		inr: u64,
 		_fh: u64,
 		offset: i64,
 		mut reply: fuser::ReplyDirectory,
 	) {
-		let ino = transino(ino);
+		let inr = transino(inr);
 		let f = || {
 			if offset != 0 {
 				return Ok(());
 			}
 
-			let ino = self.read_inode(ino)?;
+			let ino = self.read_inode(inr)?;
 
 			let mut i = 0;
 
-			self.readdir(&ino, |name, ino, kind| {
+			self.readdir(inr, &ino, |name, ino, kind| {
 				i += 1;
 				if i > offset && reply.add(ino.into(), i, kind, name) {
 					return Some(());
@@ -356,13 +361,13 @@ impl Filesystem for Ufs {
 		}
 	}
 
-	fn lookup(&mut self, _req: &Request<'_>, pino: u64, name: &OsStr, reply: fuser::ReplyEntry) {
-		let pino = transino(pino);
+	fn lookup(&mut self, _req: &Request<'_>, pinr: u64, name: &OsStr, reply: fuser::ReplyEntry) {
+		let pinr = transino(pinr);
 
 		let f = || {
-			let pino = self.read_inode(pino)?;
+			let pino = self.read_inode(pinr)?;
 
-			let x = self.readdir(&pino, |name2, ino, _| {
+			let x = self.readdir(pinr, &pino, |name2, ino, _| {
 				if name == name2 {
 					Some(ino.into())
 				} else {
