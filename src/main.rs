@@ -19,7 +19,6 @@ fn main() -> Result<()> {
 		log::set_max_level(LevelFilter::Trace);
 	}
 
-	// TODO: set log level to debug, if cli.verbose
 	let fs = Ufs::open(&cli.device)?;
 
 	fuser::mount2(fs, &cli.mountpoint, &cli.options())?;
