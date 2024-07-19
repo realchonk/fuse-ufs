@@ -253,8 +253,8 @@ fn readdir_block<T>(
 			DT_SOCK => FileType::Socket,
 			DT_WHT => {
 				log::warn!("readdir_block({inr}): encountered a whiteout entry: {name:?}");
-				continue
-			},
+				continue;
+			}
 			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
 			_ => panic!("invalid filetype: {kind}"),
 		};
