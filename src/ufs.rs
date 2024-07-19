@@ -249,7 +249,7 @@ fn readdir_block<T>(
 			DT_REG => FileType::RegularFile,
 			DT_LNK => FileType::Symlink,
 			DT_SOCK => FileType::Socket,
-			DT_WHT => todo!("DT_WHT: {ino}"),
+			DT_WHT => continue,
 			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
 			_ => panic!("invalid filetype: {kind}"),
 		};
