@@ -91,7 +91,7 @@ impl Ufs {
 			let low = blkno - nd;
 			assert!(low < pbp);
 
-			log::debug!("resolve_file_block({inr}, {blkno}): 1-indirect: low={low}");
+			log::trace!("resolve_file_block({inr}, {blkno}): 1-indirect: low={low}");
 
 			let first = indirect[0] as u64;
 			if first == 0 {
@@ -100,7 +100,7 @@ impl Ufs {
 
 			let pos = first * fs + low * su64;
 			let block: u64 = self.file.decode_at(pos)?;
-			log::debug!("first={first:#x} *{pos:#x} = {block:#x}");
+			log::trace!("first={first:#x} *{pos:#x} = {block:#x}");
 			Ok(NonZeroU64::new(block))
 		} else if blkno < (nd + pbp * pbp) {
 			let x = blkno - nd - pbp;
@@ -108,7 +108,7 @@ impl Ufs {
 			let high = x / pbp;
 			assert!(high < pbp);
 
-			log::debug!("resolve_file_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
+			log::trace!("resolve_file_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
 
 			let first = indirect[1] as u64;
 			if first == 0 {
@@ -116,14 +116,14 @@ impl Ufs {
 			}
 			let pos = first * fs + high * su64;
 			let snd: u64 = self.file.decode_at(pos)?;
-			log::debug!("first={first:x} pos={pos:x} snd={snd:x}");
+			log::trace!("first={first:x} pos={pos:x} snd={snd:x}");
 			if snd == 0 {
 				return Ok(None);
 			}
 
 			let pos = snd * fs + low * su64;
 			let block: u64 = self.file.decode_at(pos)?;
-			log::debug!("*{pos:x} = {block:x}");
+			log::trace!("*{pos:x} = {block:x}");
 			Ok(NonZeroU64::new(block))
 		} else if blkno < (nd + pbp * pbp * pbp) {
 			let x = blkno - nd - pbp - pbp * pbp;
@@ -132,26 +132,26 @@ impl Ufs {
 			let high = x / pbp / pbp;
 			assert!(high < pbp);
 
-			log::debug!(
+			log::trace!(
 				"resolve_file_block({inr}, {blkno}): 3-indirect: x={x:#x} high={high:#x}, mid={mid:#x}, low={low:#x}"
 			);
 
 			let first = indirect[2] as u64;
-			log::debug!("first = {first:#x}");
+			log::trace!("first = {first:#x}");
 			if first == 0 {
 				return Ok(None);
 			}
 
 			let pos = first * fs + high * su64;
 			let second: u64 = self.file.decode_at(pos)?;
-			log::debug!("second = {second:#x}");
+			log::trace!("second = {second:#x}");
 			if second == 0 {
 				return Ok(None);
 			}
 
 			let pos = second * fs + mid * su64;
 			let third: u64 = self.file.decode_at(pos)?;
-			log::debug!("third = {third:#x}");
+			log::trace!("third = {third:#x}");
 			if third == 0 {
 				return Ok(None);
 			}
@@ -169,7 +169,7 @@ impl Ufs {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
-		log::debug!(
+		log::trace!(
 			"find_file_block({inr}, {offset}): size={}, blocks={blocks}, frags={frags}",
 			ino.size
 		);
@@ -189,7 +189,7 @@ impl Ufs {
 		} else {
 			panic!("out of bounds");
 		};
-		log::debug!("find_file_block({inr}, {offset}) = {x:?}");
+		log::trace!("find_file_block({inr}, {offset}) = {x:?}");
 		x
 	}
 
@@ -215,7 +215,7 @@ impl Ufs {
 		blkidx: u64,
 		buf: &mut [u8],
 	) -> IoResult<usize> {
-		log::debug!("read_file_block({inr}, {blkidx});");
+		log::trace!("read_file_block({inr}, {blkidx});");
 		let fs = self.superblock.fsize as u64;
 		let size = self.inode_get_block_size(ino, blkidx);
 		match self.resolve_file_block(inr, ino, blkidx)? {
