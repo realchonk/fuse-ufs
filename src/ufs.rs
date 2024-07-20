@@ -92,7 +92,7 @@ impl Ufs {
 			let low = blkno - nd;
 			assert!(low < pbp);
 
-			log::info!("resolve_file_block({inr}, {blkno}): 1-indirect: low={low}");
+			log::debug!("resolve_file_block({inr}, {blkno}): 1-indirect: low={low}");
 
 			let first = indirect[0] as u64;
 			if first == 0 {
@@ -109,7 +109,7 @@ impl Ufs {
 			let high = x / pbp / frag;
 			assert!(high < pbp);
 
-			log::info!("resolve_file_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
+			log::debug!("resolve_file_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
 
 			let first = indirect[1] as u64;
 			if first == 0 {
@@ -117,14 +117,14 @@ impl Ufs {
 			}
 			let pos = first * fs + high * su64;
 			let snd: u64 = self.file.decode_at(pos)?;
-			log::info!("first={first:x} pos={pos:x} snd={snd:x}");
+			log::debug!("first={first:x} pos={pos:x} snd={snd:x}");
 			if snd == 0 {
 				return Ok(None);
 			}
 
 			let pos = snd * fs + low * su64;
 			let block: u64 = self.file.decode_at(pos)?;
-			log::info!("*{pos:x} = {block:x}");
+			log::debug!("*{pos:x} = {block:x}");
 			Ok(NonZeroU64::new(block))
 		} else if blkno < (nd + pbp * pbp * pbp) {
 			let x = blkno - nd - pbp * pbp;
@@ -133,7 +133,7 @@ impl Ufs {
 			let high = x / pbp / pbp;
 			assert!(high < pbp);
 
-			log::info!(
+			log::debug!(
 				"resolve_file_block({inr}, {blkno}): 3-indirect: high={high}, mid={mid}, low={low}"
 			);
 
@@ -167,7 +167,7 @@ impl Ufs {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
-		log::info!(
+		log::debug!(
 			"find_file_block({inr}, {offset}): size={}, blocks={blocks}, frags={frags}",
 			ino.size
 		);
@@ -187,7 +187,7 @@ impl Ufs {
 		} else {
 			panic!("out of bounds");
 		};
-		log::info!("find_file_block({inr}, {offset}) = {x:?}");
+		log::debug!("find_file_block({inr}, {offset}) = {x:?}");
 		x
 	}
 
@@ -213,7 +213,7 @@ impl Ufs {
 		blkidx: u64,
 		buf: &mut [u8],
 	) -> IoResult<usize> {
-		log::info!("read_file_block({inr}, {blkidx});");
+		log::debug!("read_file_block({inr}, {blkidx});");
 		let fs = self.superblock.fsize as u64;
 		let size = self.inode_get_block_size(ino, blkidx);
 		match self.resolve_file_block(inr, ino, blkidx)? {
