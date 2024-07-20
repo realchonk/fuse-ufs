@@ -308,7 +308,6 @@ fn sparse_hole(#[case] harness: Harness) {
 	assert_eq!(buf, expected);
 }
 
-
 // A sparse file with only a single fragment of data at the end
 #[apply(all_images)]
 fn sparse2(#[case] harness: Harness) {
