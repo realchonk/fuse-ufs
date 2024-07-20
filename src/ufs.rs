@@ -106,7 +106,7 @@ impl Ufs {
 		} else if blkno < (nd + pbp * pbp) {
 			let x = blkno - nd - pbp;
 			let low = x % pbp;
-			let high = x / pbp / frag;
+			let high = x / pbp;
 			assert!(high < pbp);
 
 			log::debug!("resolve_file_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
@@ -127,29 +127,32 @@ impl Ufs {
 			log::debug!("*{pos:x} = {block:x}");
 			Ok(NonZeroU64::new(block))
 		} else if blkno < (nd + pbp * pbp * pbp) {
-			let x = blkno - nd - pbp * pbp;
+			let x = blkno - nd - pbp - pbp * pbp;
 			let low = x % pbp;
 			let mid = x / pbp % pbp;
 			let high = x / pbp / pbp;
 			assert!(high < pbp);
 
 			log::debug!(
-				"resolve_file_block({inr}, {blkno}): 3-indirect: high={high}, mid={mid}, low={low}"
+				"resolve_file_block({inr}, {blkno}): 3-indirect: x={x:#x} high={high:#x}, mid={mid:#x}, low={low:#x}"
 			);
 
 			let first = indirect[2] as u64;
+			log::debug!("first = {first:#x}");
 			if first == 0 {
 				return Ok(None);
 			}
 
 			let pos = first * fs + high * su64;
 			let second: u64 = self.file.decode_at(pos)?;
+			log::debug!("second = {second:#x}");
 			if second == 0 {
 				return Ok(None);
 			}
 
 			let pos = second * fs + mid * su64;
 			let third: u64 = self.file.decode_at(pos)?;
+			log::debug!("third = {third:#x}");
 			if third == 0 {
 				return Ok(None);
 			}
