@@ -76,7 +76,6 @@ impl Ufs {
 		let sb = &self.superblock;
 		let fs = sb.fsize as u64;
 		let bs = sb.bsize as u64;
-		let frag = sb.frag as u64;
 		let nd = UFS_NDADDR as u64;
 		let su64 = size_of::<UfsDaddr>() as u64;
 		let pbp = bs / su64;
