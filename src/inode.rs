@@ -86,10 +86,8 @@ impl Inode {
 
 	/// The number of blocks and fragments this inode needs.
 	fn inode_size(bs: u64, fs: u64, size: u64) -> (u64, u64) {
-		let mut x = size;
-		let blocks = x / bs;
-		x -= bs * blocks;
-		let frags = (x + fs - 1) / fs;
+		let blocks = size / bs;
+		let frags = (size % bs).div_ceil(fs);
 
 		(blocks, frags)
 	}
