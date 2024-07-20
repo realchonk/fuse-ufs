@@ -188,6 +188,7 @@ fn contents(#[case] harness: Harness) {
 		"file1",
 		"file3",
 		"link1",
+		"sparse",
 		"long-link",
 	];
 
