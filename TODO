@@ -8,3 +8,4 @@ Long Term:
 - read-write
 - snapshots
 - extended attributes
+- replace `run()` with more selective error reporting
