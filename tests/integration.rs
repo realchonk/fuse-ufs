@@ -243,11 +243,11 @@ fn statfs(#[case] harness: Harness) {
 	let d = &harness.d;
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
-	assert_eq!(sfs.blocks(), 439);
-	assert_eq!(sfs.blocks_free(), 31);
-	assert_eq!(sfs.blocks_available(), 31);
-	assert_eq!(sfs.files(), 256);
-	assert_eq!(sfs.files_free(), 241);
+	assert_eq!(sfs.blocks(), 871);
+	assert_eq!(sfs.blocks_free(), 463);
+	assert_eq!(sfs.blocks_available(), 463);
+	assert_eq!(sfs.files(), 1024);
+	assert_eq!(sfs.files_free(), 1009);
 	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
@@ -260,9 +260,9 @@ fn statvfs(#[case] harness: Harness) {
 	let svfs = nix::sys::statvfs::statvfs(d.path()).unwrap();
 
 	assert_eq!(svfs.fragment_size(), 4096);
-	assert_eq!(svfs.blocks(), 439);
-	assert_eq!(svfs.files(), 256);
-	assert_eq!(svfs.files_free(), 241);
+	assert_eq!(svfs.blocks(), 871);
+	assert_eq!(svfs.files(), 1024);
+	assert_eq!(svfs.files_free(), 1009);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 

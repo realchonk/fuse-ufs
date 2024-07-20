@@ -73,7 +73,7 @@ esac
 args=$(getopt 'p:s:' $*) || die "usage: ./scripts/mkimg.sh [-p dir|-s size]"
 set -- $args
 
-SIZE=2m
+SIZE=4m
 
 while true; do
     case "$1" in
