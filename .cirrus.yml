@@ -66,9 +66,24 @@ task:
   fmt_script:
     - rustup component add rustfmt
     - cargo fmt -- --check --color=never
+  before_cache_script: rm -rf $CARGO_HOME/registry/index
+
+task:
+  name: Audit
+  # This task has a low probability of failure, so defer it until after other
+  # tasks have passed, to save compute resources.
+  depends_on:
+    - Linux MSRV
+    - FreeBSD 13.3 MSRV
+    - FreeBSD 14.0 nightly
+    - Lint
+  env:
+    VERSION: nightly
+  freebsd_instance:
+    image: freebsd-14-0-release-amd64-ufs
+  << : *FREEBSD_SETUP
   audit_script:
     # install ca_root_nss due to https://github.com/rustsec/rustsec/issues/1137
-    #- pkg install -y ca_root_nss cargo-audit
-    - cargo install cargo-audit
+    - pkg install -y ca_root_nss cargo-audit
+    - . $HOME/.cargo/env || true
     - cargo audit
-  before_cache_script: rm -rf $CARGO_HOME/registry/index
