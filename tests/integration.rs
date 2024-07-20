@@ -189,6 +189,7 @@ fn contents(#[case] harness: Harness) {
 		"file3",
 		"link1",
 		"sparse",
+		"sparse2",
 		"long-link",
 	];
 
@@ -242,10 +243,10 @@ fn statfs(#[case] harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 439);
-	assert_eq!(sfs.blocks_free(), 127);
-	assert_eq!(sfs.blocks_available(), 127);
+	assert_eq!(sfs.blocks_free(), 87);
+	assert_eq!(sfs.blocks_available(), 87);
 	assert_eq!(sfs.files(), 256);
-	assert_eq!(sfs.files_free(), 243);
+	assert_eq!(sfs.files_free(), 242);
 	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
@@ -260,7 +261,7 @@ fn statvfs(#[case] harness: Harness) {
 	assert_eq!(svfs.fragment_size(), 4096);
 	assert_eq!(svfs.blocks(), 439);
 	assert_eq!(svfs.files(), 256);
-	assert_eq!(svfs.files_free(), 243);
+	assert_eq!(svfs.files_free(), 242);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 
@@ -276,6 +277,7 @@ fn non_existent(#[case] harness: Harness) {
 	);
 }
 
+// This tests both sparse files and 2nd level indirect block addressing
 #[apply(all_images)]
 fn sparse(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -284,14 +286,29 @@ fn sparse(#[case] harness: Harness) {
 	let st = file.metadata().unwrap();
 
 	assert_eq!(st.blocks(), 320);
-
-	// TODO: why is this different from `stat -f %z sparse` (536891392)?
 	assert_eq!(st.size(), 134643712);
 
-	// TODO: sparse files are broken
 	file.seek(SeekFrom::Start((12 + 4096) * 32768)).unwrap();
 	let mut buf = [0u8; 32768];
 	file.read_exact(&mut buf).unwrap();
 	let expected = [b'x'; 32768];
+	assert_eq!(buf[0], expected[0]);
+}
+
+// A sparse file with only a single fragment of data at the end
+#[apply(all_images)]
+fn sparse2(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let mut file = File::open(d.path().join("sparse2")).unwrap();
+	let st = file.metadata().unwrap();
+
+	assert_eq!(st.blocks(), 320);
+	assert_eq!(st.size(), 134615040);
+
+	file.seek(SeekFrom::Start((12 + 4096) * 32768)).unwrap();
+	let mut buf = [0u8; 4096];
+	file.read_exact(&mut buf).unwrap();
+	let expected = [b'x'; 4096];
 	assert_eq!(buf[0], expected[0]);
 }
