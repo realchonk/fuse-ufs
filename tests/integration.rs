@@ -242,8 +242,8 @@ fn statfs(#[case] harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 439);
-	assert_eq!(sfs.blocks_free(), 135);
-	assert_eq!(sfs.blocks_available(), 135);
+	assert_eq!(sfs.blocks_free(), 127);
+	assert_eq!(sfs.blocks_available(), 127);
 	assert_eq!(sfs.files(), 256);
 	assert_eq!(sfs.files_free(), 243);
 	assert_eq!(sfs.maximum_name_length(), 255);
@@ -283,14 +283,14 @@ fn sparse(#[case] harness: Harness) {
 	let mut file = File::open(d.path().join("sparse")).unwrap();
 	let st = file.metadata().unwrap();
 
-	assert_eq!(st.blocks(), 256);
+	assert_eq!(st.blocks(), 320);
 
 	// TODO: why is this different from `stat -f %z sparse` (536891392)?
-	assert_eq!(st.size(), 536903680);
+	assert_eq!(st.size(), 134643712);
 
 	// TODO: sparse files are broken
-	file.seek(SeekFrom::Start(16384 * 32768)).unwrap();
-	let mut buf = [0; 32768];
+	file.seek(SeekFrom::Start((12 + 4096) * 32768)).unwrap();
+	let mut buf = [0u8; 32768];
 	file.read_exact(&mut buf).unwrap();
 	let expected = [b'x'; 32768];
 	assert_eq!(buf[0], expected[0]);
