@@ -325,7 +325,8 @@ fn sparse3(#[case] harness: Harness) {
 	assert_eq!(st.blocks(), 448);
 	assert_eq!(st.size(), 549890457600);
 
-	file.seek(SeekFrom::Start((12 + 4096 + 4096 * 4096) * 32768)).unwrap();
+	file.seek(SeekFrom::Start((12 + 4096 + 4096 * 4096) * 32768))
+		.unwrap();
 	let mut buf = [0u8; 32768];
 	file.read_exact(&mut buf).unwrap();
 	let expected = [b'x'; 32768];
