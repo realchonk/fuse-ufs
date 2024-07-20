@@ -190,6 +190,7 @@ fn contents(#[case] harness: Harness) {
 		"link1",
 		"sparse",
 		"sparse2",
+		"sparse3",
 		"long-link",
 	];
 
@@ -243,10 +244,10 @@ fn statfs(#[case] harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 439);
-	assert_eq!(sfs.blocks_free(), 87);
-	assert_eq!(sfs.blocks_available(), 87);
+	assert_eq!(sfs.blocks_free(), 31);
+	assert_eq!(sfs.blocks_available(), 31);
 	assert_eq!(sfs.files(), 256);
-	assert_eq!(sfs.files_free(), 242);
+	assert_eq!(sfs.files_free(), 241);
 	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
@@ -261,7 +262,7 @@ fn statvfs(#[case] harness: Harness) {
 	assert_eq!(svfs.fragment_size(), 4096);
 	assert_eq!(svfs.blocks(), 439);
 	assert_eq!(svfs.files(), 256);
-	assert_eq!(svfs.files_free(), 242);
+	assert_eq!(svfs.files_free(), 241);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 
@@ -310,5 +311,23 @@ fn sparse2(#[case] harness: Harness) {
 	let mut buf = [0u8; 4096];
 	file.read_exact(&mut buf).unwrap();
 	let expected = [b'x'; 4096];
+	assert_eq!(buf[0], expected[0]);
+}
+
+// A sparse so large, it needs third level indirect block addressing.
+#[apply(all_images)]
+fn sparse3(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let mut file = File::open(d.path().join("sparse3")).unwrap();
+	let st = file.metadata().unwrap();
+
+	assert_eq!(st.blocks(), 448);
+	assert_eq!(st.size(), 549890457600);
+
+	file.seek(SeekFrom::Start((12 + 4096 + 4096 * 4096) * 32768)).unwrap();
+	let mut buf = [0u8; 32768];
+	file.read_exact(&mut buf).unwrap();
+	let expected = [b'x'; 32768];
 	assert_eq!(buf[0], expected[0]);
 }

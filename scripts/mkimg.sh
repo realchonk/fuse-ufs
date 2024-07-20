@@ -26,6 +26,7 @@ populate() {
     ln -sf "$(yes ./ | head -n508 | tr -d '\n')//file1" long-link
     tr '\0' 'x' < /dev/zero | dd of=sparse bs=4096 seek=$(((12 + 4096) * 8)) count=8
     tr '\0' 'x' < /dev/zero | dd of=sparse2 bs=4096 seek=$(((12 + 4096) * 8)) count=1
+    tr '\0' 'x' < /dev/zero | dd of=sparse3 bs=4096 seek=$(((12 + 4096 + 4096 * 4096) * 8)) count=8
 
     cd - || die "failed to cd back"
 }
