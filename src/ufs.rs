@@ -67,7 +67,12 @@ impl Ufs {
 		Ok(ino)
 	}
 
-	fn resolve_file_block(&mut self, inr: u64, ino: &Inode, blkno: u64) -> IoResult<Option<NonZeroU64>> {
+	fn resolve_file_block(
+		&mut self,
+		inr: u64,
+		ino: &Inode,
+		blkno: u64,
+	) -> IoResult<Option<NonZeroU64>> {
 		let sb = &self.superblock;
 		let fs = sb.fsize as u64;
 		let bs = sb.bsize as u64;
@@ -84,7 +89,6 @@ impl Ufs {
 		if blkno < nd {
 			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
 		} else if blkno < (nd + pbp) {
-
 			let low = blkno - nd;
 			assert!(low < pbp);
 
@@ -129,7 +133,9 @@ impl Ufs {
 			let high = x / pbp / pbp;
 			assert!(high < pbp);
 
-			log::info!("resolve_file_block({inr}, {blkno}): 3-indirect: high={high}, mid={mid}, low={low}");
+			log::info!(
+				"resolve_file_block({inr}, {blkno}): 3-indirect: high={high}, mid={mid}, low={low}"
+			);
 
 			let first = indirect[2] as u64;
 			if first == 0 {
@@ -161,7 +167,10 @@ impl Ufs {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
-		log::info!("find_file_block({inr}, {offset}): size={}, blocks={blocks}, frags={frags}", ino.size);
+		log::info!(
+			"find_file_block({inr}, {offset}): size={}, blocks={blocks}, frags={frags}",
+			ino.size
+		);
 
 		let x = if offset < (bs * blocks) {
 			BlockInfo {
@@ -197,7 +206,13 @@ impl Ufs {
 		}
 	}
 
-	fn read_file_block(&mut self, inr: u64, ino: &Inode, blkidx: u64, buf: &mut [u8]) -> IoResult<usize> {
+	fn read_file_block(
+		&mut self,
+		inr: u64,
+		ino: &Inode,
+		blkidx: u64,
+		buf: &mut [u8],
+	) -> IoResult<usize> {
 		log::info!("read_file_block({inr}, {blkidx});");
 		let fs = self.superblock.fsize as u64;
 		let size = self.inode_get_block_size(ino, blkidx);
@@ -451,7 +466,12 @@ impl Filesystem for Ufs {
 				let block = self.find_file_block(inr, &ino, offset);
 				let num = (block.size - block.off).min(end - offset);
 
-				self.read_file_block(inr, &ino, block.blkidx, &mut blockbuf[0..(block.size as usize)])?;
+				self.read_file_block(
+					inr,
+					&ino,
+					block.blkidx,
+					&mut blockbuf[0..(block.size as usize)],
+				)?;
 				buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[0..(num as usize)]);
 
 				offset += num;
