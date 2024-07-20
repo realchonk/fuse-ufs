@@ -74,18 +74,11 @@ impl Ufs {
 		let su64 = size_of::<UfsDaddr>() as u64;
 		let pbp = fs / su64;
 
-		if blkno >= ino.blocks {
-			log::warn!(
-				"resolve_file_block(): blkno ({blkno}) >= ino.blocks ({})",
-				ino.blocks
-			);
-			return Err(err!(EIO));
-		}
-
 		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &ino.data else {
 			log::warn!("resolve_file_block(): inode doesn't have blocks");
 			return Err(err!(EIO));
 		};
+
 
 		if blkno < nd {
 			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
@@ -94,6 +87,10 @@ impl Ufs {
 			assert!(low < pbp);
 
 			let first = indirect[0] as u64;
+			if first == 0 {
+				return Ok(None);
+			}
+
 			let pos = first * fs + low * su64;
 			let block: u64 = self.file.decode_at(pos)?;
 			Ok(NonZeroU64::new(block))
@@ -104,8 +101,16 @@ impl Ufs {
 			assert!(high < pbp);
 
 			let first = indirect[1] as u64;
+			if first == 0 {
+				return Ok(None);
+			}
+
 			let pos = first * fs + high * su64;
 			let snd: u64 = self.file.decode_at(pos)?;
+			if snd == 0 {
+				return Ok(None);
+			}
+			
 			let pos = snd * fs + low * su64;
 			let block: u64 = self.file.decode_at(pos)?;
 			Ok(NonZeroU64::new(block))
@@ -117,10 +122,21 @@ impl Ufs {
 			assert!(high < pbp);
 
 			let first = indirect[2] as u64;
+			if first == 0 {
+				return Ok(None);
+			}
+			
 			let pos = first * fs + high * su64;
 			let second: u64 = self.file.decode_at(pos)?;
+			if second == 0 {
+				return Ok(None);
+			}
+
 			let pos = second * fs + mid * su64;
 			let third: u64 = self.file.decode_at(pos)?;
+			if third == 0 {
+				return Ok(None);
+			}
 			let pos = third * fs + low * su64;
 			let block: u64 = self.file.decode_at(pos)?;
 			Ok(NonZeroU64::new(block))
@@ -134,35 +150,38 @@ impl Ufs {
 	fn find_file_block(&mut self, ino: &Inode, offset: u64) -> BlockInfo {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
-		let nfull = ino.blocks / self.superblock.frag as u64;
-		let fullend = nfull * bs;
+		let (blocks, frags) = ino.size(bs, fs);
 
-		if offset < fullend {
+		if offset < (bs * blocks) {
 			BlockInfo {
 				blkidx: offset / bs,
 				off:    offset % bs,
 				size:   bs,
 			}
-		} else if offset < (ino.blocks * fs) {
+		} else if offset < (bs * blocks + fs * frags) {
 			BlockInfo {
-				blkidx: nfull + (offset - fullend) / fs,
+				blkidx: blocks + (offset - blocks * bs) / fs,
 				off:    offset % fs,
 				size:   fs,
 			}
 		} else {
-			panic!("out of bounds")
+			panic!("out of bounds");
 		}
 	}
 
 	fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> usize {
-		let nfull = ino.blocks / self.superblock.frag as u64;
+		let bs = self.superblock.bsize as u64;
+		let fs = self.superblock.fsize as u64;
+		let frag = self.superblock.frag as u64;
+		let (blocks, frags) = ino.size(bs, fs);
 
-		if blkidx < nfull {
-			self.superblock.bsize as usize
-		} else if blkidx < ino.blocks {
-			self.superblock.fsize as usize
+		if blkidx < blocks * frag {
+			bs as usize
+		} else if blkidx < (blocks * frag) + frags {
+			fs as usize
 		} else {
-			panic!("out of bounds")
+			dbg!(ino);
+			panic!("out of bounds: {blkidx}, blocks: {blocks}, frags: {frags}");
 		}
 	}
 

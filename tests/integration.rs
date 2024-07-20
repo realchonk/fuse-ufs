@@ -2,7 +2,7 @@ use std::{
 	ffi::OsString,
 	fmt,
 	fs::{self, File},
-	io::ErrorKind,
+	io::{Read, Seek, SeekFrom, ErrorKind},
 	os::unix::{ffi::OsStringExt, fs::MetadataExt},
 	path::{Path, PathBuf},
 	process::{Child, Command},
@@ -290,7 +290,7 @@ fn non_existent(#[case] harness: Harness) {
 fn sparse(harness: Harness) {
 	let d = &harness.d;
 
-	let file = File::open(d.path().join("sparse")).unwrap();
+	let mut file = File::open(d.path().join("sparse")).unwrap();
 	let st = file.metadata().unwrap();
 
 	assert_eq!(st.blocks(), 256);
@@ -299,8 +299,8 @@ fn sparse(harness: Harness) {
 	assert_eq!(st.size(), 536903680);
 
 	// TODO: sparse files are broken
-	//file.seek(SeekFrom::Start(16384 * 32768)).unwrap();
-	//let mut buf = [0; 32768];
-	//file.read_exact(&mut buf).unwrap();
-	//assert_eq!(buf, [b'x'; 32768]);
+	file.seek(SeekFrom::Start(16384 * 32768)).unwrap();
+	let mut buf = [0; 32768];
+	file.read_exact(&mut buf).unwrap();
+	assert_eq!(buf, [b'x'; 32768]);
 }
