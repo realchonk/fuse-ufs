@@ -293,7 +293,7 @@ fn sparse(#[case] harness: Harness) {
 	let mut buf = [0u8; 32768];
 	file.read_exact(&mut buf).unwrap();
 	let expected = [b'x'; 32768];
-	assert_eq!(buf[0], expected[0]);
+	assert_eq!(buf, expected);
 }
 
 // A sparse file with only a single fragment of data at the end
