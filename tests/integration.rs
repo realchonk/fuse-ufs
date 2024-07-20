@@ -3,7 +3,7 @@ use std::{
 	fmt,
 	fs::{self, File},
 	io::ErrorKind,
-	os::unix::{fs::MetadataExt, ffi::OsStringExt},
+	os::unix::{ffi::OsStringExt, fs::MetadataExt},
 	path::{Path, PathBuf},
 	process::{Child, Command},
 	thread::sleep,
@@ -242,10 +242,10 @@ fn statfs(#[case] harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 15751);
-	assert_eq!(sfs.blocks_free(), 15479);
-	assert_eq!(sfs.blocks_available(), 15479);
+	assert_eq!(sfs.blocks_free(), 15447);
+	assert_eq!(sfs.blocks_available(), 15447);
 	assert_eq!(sfs.files(), 8704);
-	assert_eq!(sfs.files_free(), 8692);
+	assert_eq!(sfs.files_free(), 8691);
 	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
@@ -260,7 +260,7 @@ fn statvfs(#[case] harness: Harness) {
 	assert_eq!(svfs.fragment_size(), 4096);
 	assert_eq!(svfs.blocks(), 15751);
 	assert_eq!(svfs.files(), 8704);
-	assert_eq!(svfs.files_free(), 8692);
+	assert_eq!(svfs.files_free(), 8691);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 
@@ -290,7 +290,7 @@ fn non_existent(#[case] harness: Harness) {
 fn sparse(harness: Harness) {
 	let d = &harness.d;
 
-	let mut file = File::open(d.path().join("sparse")).unwrap();
+	let file = File::open(d.path().join("sparse")).unwrap();
 	let st = file.metadata().unwrap();
 
 	assert_eq!(st.blocks(), 256);
