@@ -1,9 +1,9 @@
 use std::{
 	ffi::OsString,
 	fmt,
-	fs,
+	fs::{self, File},
 	io::ErrorKind,
-	os::unix::ffi::OsStringExt,
+	os::unix::{fs::MetadataExt, ffi::OsStringExt},
 	path::{Path, PathBuf},
 	process::{Child, Command},
 	thread::sleep,
@@ -285,3 +285,22 @@ fn non_existent(#[case] harness: Harness) {
 //
 //	assert_eq!(link, Path::new(&expected));
 //}
+
+#[rstest]
+fn sparse(harness: Harness) {
+	let d = &harness.d;
+
+	let mut file = File::open(d.path().join("sparse")).unwrap();
+	let st = file.metadata().unwrap();
+
+	assert_eq!(st.blocks(), 256);
+
+	// TODO: why is this different from `stat -f %z sparse` (536891392)?
+	assert_eq!(st.size(), 536903680);
+
+	// TODO: sparse files are broken
+	//file.seek(SeekFrom::Start(16384 * 32768)).unwrap();
+	//let mut buf = [0; 32768];
+	//file.read_exact(&mut buf).unwrap();
+	//assert_eq!(buf, [b'x'; 32768]);
+}
