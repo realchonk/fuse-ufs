@@ -276,18 +276,8 @@ fn non_existent(#[case] harness: Harness) {
 	);
 }
 
-//#[apply(#[case] all_images)]
-//fn readlink_long(#[case] harness: Harness) {
-//	let d = &harness.d;
-//
-//	let link = std::fs::read_link(d.path().join("long-link")).unwrap();
-//	let expected = (0..200).map(|_| "./").fold(String::new(), |a, x| a + x) + "/file1";
-//
-//	assert_eq!(link, Path::new(&expected));
-//}
-
-#[rstest]
-fn sparse(harness: Harness) {
+#[apply(all_images)]
+fn sparse(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let mut file = File::open(d.path().join("sparse")).unwrap();
