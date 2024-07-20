@@ -1,6 +1,6 @@
 use std::{
 	ffi::{c_int, OsStr},
-	io::{Cursor, Error as IoError, Read, Result as IoResult, Seek, SeekFrom},
+	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
 	path::Path,
@@ -413,7 +413,7 @@ impl Filesystem for Ufs {
 	fn lookup(&mut self, _req: &Request<'_>, pinr: u64, name: &OsStr, reply: fuser::ReplyEntry) {
 		let pinr = transino(pinr);
 
-		let f = || {
+		let mut f = || {
 			let pino = self.read_inode(pinr)?;
 
 			let x = self.readdir(pinr, &pino, |name2, inr, _| {
@@ -434,9 +434,14 @@ impl Filesystem for Ufs {
 			}
 		};
 
-		match run(f) {
+		match f() {
 			Ok((attr, gen)) => reply.entry(&Duration::ZERO, &attr, gen.into()),
-			Err(e) => reply.error(e),
+			Err(e) => {
+				if e.kind() != ErrorKind::NotFound {
+					log::error!("Error: {e}");
+				}
+				reply.error(e.raw_os_error().unwrap_or(libc::EIO))
+			}
 		}
 	}
 
