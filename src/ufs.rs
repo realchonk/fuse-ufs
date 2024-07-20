@@ -79,7 +79,6 @@ impl Ufs {
 			return Err(err!(EIO));
 		};
 
-
 		if blkno < nd {
 			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
 		} else if blkno < (nd + pbp) {
@@ -110,7 +109,7 @@ impl Ufs {
 			if snd == 0 {
 				return Ok(None);
 			}
-			
+
 			let pos = snd * fs + low * su64;
 			let block: u64 = self.file.decode_at(pos)?;
 			Ok(NonZeroU64::new(block))
@@ -125,7 +124,7 @@ impl Ufs {
 			if first == 0 {
 				return Ok(None);
 			}
-			
+
 			let pos = first * fs + high * su64;
 			let second: u64 = self.file.decode_at(pos)?;
 			if second == 0 {

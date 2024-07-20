@@ -78,7 +78,7 @@ impl Inode {
 	pub fn size(&self, bs: u64, fs: u64) -> (u64, u64) {
 		let size = match self.kind() {
 			FileType::Directory => self.blocks * fs,
-			FileType::RegularFile | FileType::Symlink  => self.size,
+			FileType::RegularFile | FileType::Symlink => self.size,
 			kind => todo!("Inode::size() is undefined for {kind:?}"),
 		};
 		Self::inode_size(bs, fs, size)
@@ -90,10 +90,9 @@ impl Inode {
 		let blocks = x / bs;
 		x -= bs * blocks;
 		let frags = (x + fs - 1) / fs;
-		
+
 		(blocks, frags)
 	}
-
 }
 
 impl Decode for Inode {

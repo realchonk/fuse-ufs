@@ -2,7 +2,7 @@ use std::{
 	ffi::OsString,
 	fmt,
 	fs::{self, File},
-	io::{Read, Seek, SeekFrom, ErrorKind},
+	io::{ErrorKind, Read, Seek, SeekFrom},
 	os::unix::{ffi::OsStringExt, fs::MetadataExt},
 	path::{Path, PathBuf},
 	process::{Child, Command},
