@@ -203,7 +203,6 @@ impl Ufs {
 		} else if blkidx < blocks + frags {
 			fs as usize
 		} else {
-			dbg!(ino);
 			panic!("out of bounds: {blkidx}, blocks: {blocks}, frags: {frags}");
 		}
 	}
