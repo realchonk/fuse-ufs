@@ -74,6 +74,23 @@ impl Inode {
 			flags: self.flags,
 		}
 	}
+
+	pub fn size(&self, bs: u64, fs: u64) -> (u64, u64) {
+		let size = match self.kind() {
+			FileType::Directory => self.blocks * fs,
+			FileType::RegularFile | FileType::Symlink => self.size,
+			kind => todo!("Inode::size() is undefined for {kind:?}"),
+		};
+		Self::inode_size(bs, fs, size)
+	}
+
+	/// The number of blocks and fragments this inode needs.
+	fn inode_size(bs: u64, fs: u64, size: u64) -> (u64, u64) {
+		let blocks = size / bs;
+		let frags = (size % bs).div_ceil(fs);
+
+		(blocks, frags)
+	}
 }
 
 impl Decode for Inode {
@@ -133,5 +150,22 @@ impl Decode for Inode {
 		};
 
 		Ok(ino)
+	}
+}
+
+mod test {
+	#[test]
+	fn inode_size() {
+		let bs = 32768;
+		let fs = 4096;
+
+		let isz = |sz| super::Inode::inode_size(bs, fs, sz);
+
+		assert_eq!(isz(0), (0, 0));
+		assert_eq!(isz(1), (0, 1));
+		assert_eq!(isz(fs), (0, 1));
+		assert_eq!(isz(bs), (1, 0));
+		assert_eq!(isz(bs + 2 * fs), (1, 2));
+		assert_eq!(isz(100 * bs + 7 * fs), (100, 7));
 	}
 }

@@ -24,6 +24,9 @@ populate() {
     jot $((1 << 16)) 0 | xargs printf '%015x\n' > file3
     ln -sf dir1/dir2/dir3/file2 link1
     ln -sf "$(yes ./ | head -n508 | tr -d '\n')//file1" long-link
+    tr '\0' 'x' < /dev/zero | dd of=sparse bs=4096 seek=$(((12 + 4096) * 8)) count=8
+    tr '\0' 'x' < /dev/zero | dd of=sparse2 bs=4096 seek=$(((12 + 4096) * 8)) count=1
+    tr '\0' 'x' < /dev/zero | dd of=sparse3 bs=4096 seek=$(((12 + 4096 + 4096 * 4096) * 8)) count=8
 
     cd - || die "failed to cd back"
 }
@@ -67,6 +70,26 @@ case "$(echo I | tr -d '[:space:]' | od -to2 | awk 'NR==1 {print substr($2, 6, 1
 	;;
 esac
 
-SIZE=64m
+args=$(getopt 'p:s:' $*) || die "usage: ./scripts/mkimg.sh [-p dir|-s size]"
+set -- $args
+
+SIZE=4m
+
+while true; do
+    case "$1" in
+	-p)
+	    populate "$2"
+	    exit 0
+	    ;;
+	-s)
+	    SIZE=$2
+	    shift 2
+	    ;;
+	--)
+	    shift
+	    break
+	    ;;
+    esac
+done
 
 create "ufs-${ENDIAN}" "${SIZE}"
