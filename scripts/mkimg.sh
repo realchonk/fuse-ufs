@@ -68,6 +68,26 @@ case "$(echo I | tr -d '[:space:]' | od -to2 | awk 'NR==1 {print substr($2, 6, 1
 	;;
 esac
 
+args=$(getopt 'p:s:' $*) || die "usage: ./scripts/mkimg.sh [-p dir|-s size]"
+set -- $args
+
 SIZE=64m
+
+while true; do
+    case "$1" in
+	-p)
+	    populate "$2"
+	    exit 0
+	    ;;
+	-s)
+	    SIZE=$2
+	    shift 2
+	    ;;
+	--)
+	    shift
+	    break
+	    ;;
+    esac
+done
 
 create "ufs-${ENDIAN}" "${SIZE}"
