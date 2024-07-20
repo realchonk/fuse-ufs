@@ -24,6 +24,7 @@ populate() {
     jot $((1 << 16)) 0 | xargs printf '%015x\n' > file3
     ln -sf dir1/dir2/dir3/file2 link1
     ln -sf "$(yes ./ | head -n508 | tr -d '\n')//file1" long-link
+    tr '\0' 'x' < /dev/zero | dd of=sparse bs=32768 seek=16384 count=1
 
     cd - || die "failed to cd back"
 }
