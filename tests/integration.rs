@@ -188,6 +188,7 @@ fn contents(#[case] harness: Harness) {
 		"file1",
 		"file3",
 		"link1",
+		"large",
 		"sparse",
 		"sparse2",
 		"sparse3",
@@ -197,6 +198,11 @@ fn contents(#[case] harness: Harness) {
 	expected.sort();
 
 	assert_eq!(entries, expected);
+}
+
+#[apply(all_images)]
+fn readdir_large(#[case] harness: Harness) {
+
 }
 
 #[apply(all_images)]
@@ -243,11 +249,11 @@ fn statfs(#[case] harness: Harness) {
 	let d = &harness.d;
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
-	assert_eq!(sfs.blocks(), 871);
-	assert_eq!(sfs.blocks_free(), 463);
-	assert_eq!(sfs.blocks_available(), 463);
-	assert_eq!(sfs.files(), 1024);
-	assert_eq!(sfs.files_free(), 1009);
+	assert_eq!(sfs.blocks(), 3847);
+	assert_eq!(sfs.blocks_free(), 1379);
+	assert_eq!(sfs.blocks_available(), 1379);
+	assert_eq!(sfs.files(), 2560);
+	assert_eq!(sfs.files_free(), 495);
 	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
@@ -260,9 +266,9 @@ fn statvfs(#[case] harness: Harness) {
 	let svfs = nix::sys::statvfs::statvfs(d.path()).unwrap();
 
 	assert_eq!(svfs.fragment_size(), 4096);
-	assert_eq!(svfs.blocks(), 871);
-	assert_eq!(svfs.files(), 1024);
-	assert_eq!(svfs.files_free(), 1009);
+	assert_eq!(svfs.blocks(), 3847);
+	assert_eq!(svfs.files(), 2560);
+	assert_eq!(svfs.files_free(), 495);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 

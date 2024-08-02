@@ -19,9 +19,10 @@ populate() {
     cd "$1" || die "failed to cd into '$1'"
 
     echo 'This is a simple file.' > file1
-    mkdir -p dir1/dir2/dir3
+    mkdir -p dir1/dir2/dir3 large
     echo 'Hello World' > dir1/dir2/dir3/file2
     jot $((1 << 16)) 0 | xargs printf '%015x\n' > file3
+    jot 2049 0 | xargs printf '%08x\n' | xargs -I{} mkdir 'large/{}'
     ln -sf dir1/dir2/dir3/file2 link1
     ln -sf "$(yes ./ | head -n508 | tr -d '\n')//file1" long-link
     tr '\0' 'x' < /dev/zero | dd of=sparse bs=4096 seek=$(((12 + 4096) * 8)) count=8
@@ -73,7 +74,7 @@ esac
 args=$(getopt 'p:s:' $*) || die "usage: ./scripts/mkimg.sh [-p dir|-s size]"
 set -- $args
 
-SIZE=4m
+SIZE=16m
 
 while true; do
     case "$1" in
