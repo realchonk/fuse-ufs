@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 exclude = ["doc/*"]
 license = "BSD-2-Clause"
-authors = ["Benjamin Stürz <benni@stuerz.xyz>"]
+authors = ["Benjamin Stürz <benni@stuerz.xyz>", "Alan Somers"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
