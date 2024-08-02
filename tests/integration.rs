@@ -1,5 +1,5 @@
 use std::{
-	ffi::OsString,
+	ffi::{CString, OsStr, OsString},
 	fmt,
 	fs::{self, File},
 	io::{ErrorKind, Read, Seek, SeekFrom},
@@ -202,7 +202,30 @@ fn contents(#[case] harness: Harness) {
 
 #[apply(all_images)]
 fn readdir_large(#[case] harness: Harness) {
+	let d = &harness.d;
 
+	let mut dir = nix::dir::Dir::open(
+		&d.path().join("large"),
+		OFlag::O_DIRECTORY | OFlag::O_RDONLY,
+		Mode::empty(),
+	)
+	.unwrap();
+
+	let mut entries = dir
+		.iter()
+		.map(|x| x.unwrap())
+		.map(|e| e.file_name().to_owned())
+		.filter(|x| x.to_bytes()[0] != b'.')
+		.collect::<Vec<_>>();
+
+	entries.sort();
+
+	let expected = (0..2049)
+		.map(|x| format!("{x:08x}"))
+		.map(|s| CString::new(s).unwrap())
+		.collect::<Vec<_>>();
+
+	assert_eq!(entries, expected);
 }
 
 #[apply(all_images)]
