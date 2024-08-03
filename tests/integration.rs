@@ -213,7 +213,7 @@ fn readdir_large(#[case] harness: Harness) {
 
 	let mut entries = dir
 		.iter()
-		.map(|x| x.unwrap())
+		.map(Result::unwrap)
 		.map(|e| e.file_name().to_owned())
 		.filter(|x| x.to_bytes()[0] != b'.')
 		.collect::<Vec<_>>();
