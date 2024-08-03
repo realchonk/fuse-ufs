@@ -213,16 +213,14 @@ fn readdir_large(#[case] harness: Harness) {
 
 	let mut entries = dir
 		.iter()
-		.map(Result::unwrap)
-		.map(|e| e.file_name().to_owned())
+		.map(|e| e.unwrap().file_name().to_owned())
 		.filter(|x| x.to_bytes()[0] != b'.')
 		.collect::<Vec<_>>();
 
 	entries.sort();
 
 	let expected = (0..2049)
-		.map(|x| format!("{x:08x}"))
-		.map(|s| CString::new(s).unwrap())
+		.map(|x| CString::new(format!("{x:08x}")).unwrap())
 		.collect::<Vec<_>>();
 
 	assert_eq!(entries, expected);
