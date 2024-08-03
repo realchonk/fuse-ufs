@@ -98,7 +98,7 @@ fn harness(img: &Path) -> Harness {
 	waitfor(Duration::from_secs(5), || {
 		let s = nix::sys::statfs::statfs(d.path()).unwrap();
 		cfg_if! {
-			if #[cfg(target_os = "freebsd")] {
+			if #[cfg(any(target_os = "freebsd", target_os = "macos"))] {
 				s.filesystem_type_name() == "fusefs.ufs"
 			} else if #[cfg(target_os = "linux")] {
 				s.filesystem_type() == nix::sys::statfs::FUSE_SUPER_MAGIC
@@ -248,6 +248,7 @@ fn statfs(#[case] harness: Harness) {
 	assert_eq!(sfs.blocks_available(), 463);
 	assert_eq!(sfs.files(), 1024);
 	assert_eq!(sfs.files_free(), 1009);
+	#[cfg(not(target_os = "macos"))]
 	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
