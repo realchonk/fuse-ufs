@@ -3,7 +3,7 @@ use std::{
 	fmt,
 	fs::{self, File},
 	io::{ErrorKind, Read, Seek, SeekFrom},
-	os::unix::{ffi::OsStringExt, fs::MetadataExt},
+	os::{fd::AsRawFd, unix::{ffi::OsStringExt, fs::MetadataExt}},
 	path::{Path, PathBuf},
 	process::{Child, Command},
 	thread::sleep,
@@ -21,6 +21,11 @@ use rstest::rstest;
 use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
 use xattr::FileExt;
+use cstr::cstr;
+
+fn errno() -> i32 {
+	nix::errno::Errno::last_raw()
+}
 
 fn prepare_image(filename: &str) -> PathBuf {
 	let mut zimg = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -356,6 +361,11 @@ fn listxattr(#[case] harness: Harness) {
 	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
 	let expected = [OsStr::new("user.test")];
 	assert_eq!(xattrs, expected);
+
+	if cfg!(target_os = "freebsd") {
+		let num = unsafe { libc::extattr_list_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0) };
+		assert_eq!(num, 5); // strlen("test\0")
+	}
 }
 
 #[apply(all_images)]
@@ -366,4 +376,40 @@ fn getxattr(#[case] harness: Harness) {
 	let data = file.get_xattr("user.test").unwrap().unwrap();
 	let expected = b"testvalue";
 	assert_eq!(data, expected);
+
+	if cfg!(target_os = "freebsd") {
+		// Can't use c"test" syntax, because the apply macro doesn't like it
+		let name = cstr!(b"test");
+		let num = unsafe {
+			libc::extattr_get_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
+		};
+		assert_eq!(num, expected.len() as isize);
+	}
+}
+
+const EXTATTR_NAMESPACE_USER: i32 = 1;
+#[allow(unused)]
+const EXTATTR_NAMESPACE_SYSTEM: i32 = 2;
+
+#[apply(all_images)]
+fn noxattrs(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("file1")).unwrap();
+	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
+	assert_eq!(xattrs.len(), 0);
+
+	if cfg!(target_os = "freebsd") {
+		let num = unsafe {
+			libc::extattr_list_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0)
+		};
+		assert_eq!(num, 0);
+
+		let name = cstr!(b"test");
+		let num = unsafe {
+			libc::extattr_get_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
+		};
+		assert_eq!(num, -1);
+		assert_eq!(errno(), libc::ENOATTR);
+	}
 }

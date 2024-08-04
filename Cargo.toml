@@ -20,6 +20,7 @@ log = "0.4.22"
 [dev-dependencies]
 assert_cmd = "2.0"
 cfg-if = "1.0"
+cstr = "0.2.12"
 lazy_static = "1.4.0"
 nix = { version = "0.28.0", features = ["fs", "dir"] }
 rstest = "0.16.0"
