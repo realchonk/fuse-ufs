@@ -47,7 +47,7 @@ create() {
     newfs "$@" "$dev" || die "$path: failed to newfs $dev"
 
     mnt=$(mktemp -d) || die "$path: failed to create tempdir"
-    mount -t ufs -o acls "/dev/$dev" "$mnt" || die "$path: failed to mount '/dev/$dev' onto '$mnt'"
+    mount -t ufs "/dev/$dev" "$mnt" || die "$path: failed to mount '/dev/$dev' onto '$mnt'"
 
     populate "$mnt"
 
