@@ -27,6 +27,10 @@ populate() {
     tr '\0' 'x' < /dev/zero | dd of=sparse bs=4096 seek=$(((12 + 4096) * 8)) count=8
     tr '\0' 'x' < /dev/zero | dd of=sparse2 bs=4096 seek=$(((12 + 4096) * 8)) count=1
     tr '\0' 'x' < /dev/zero | dd of=sparse3 bs=4096 seek=$(((12 + 4096 + 4096 * 4096) * 8)) count=8
+    touch acls
+    chmod 600 acls
+    setfacl -b acls
+    setfacl -m u:1000:r--,u:1001:r-- acls
 
     cd - || die "failed to cd back"
 }
@@ -45,7 +49,7 @@ create() {
     newfs "$@" "$dev" || die "$path: failed to newfs $dev"
 
     mnt=$(mktemp -d) || die "$path: failed to create tempdir"
-    mount -t ufs "/dev/$dev" "$mnt" || die "$path: failed to mount '/dev/$dev' onto '$mnt'"
+    mount -t ufs -o acls "/dev/$dev" "$mnt" || die "$path: failed to mount '/dev/$dev' onto '$mnt'"
 
     populate "$mnt"
 
