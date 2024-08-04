@@ -3,7 +3,10 @@ use std::{
 	fmt,
 	fs::{self, File},
 	io::{ErrorKind, Read, Seek, SeekFrom},
-	os::{fd::AsRawFd, unix::{ffi::OsStringExt, fs::MetadataExt}},
+	os::{
+		fd::AsRawFd,
+		unix::{ffi::OsStringExt, fs::MetadataExt},
+	},
 	path::{Path, PathBuf},
 	process::{Child, Command},
 	thread::sleep,
@@ -12,6 +15,7 @@ use std::{
 
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
+use cstr::cstr;
 use lazy_static::lazy_static;
 use nix::{
 	fcntl::OFlag,
@@ -21,7 +25,6 @@ use rstest::rstest;
 use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
 use xattr::FileExt;
-use cstr::cstr;
 
 // only compile & run this code on FreeBSD
 macro_rules! freebsd {
@@ -453,11 +456,10 @@ fn big_xattr(#[case] harness: Harness) {
 
 	let file = File::open(d.path().join("xattrs3")).unwrap();
 	let data = file.get_xattr("user.big").unwrap().unwrap();
-	let mut expected = (0..4000)
-		.fold(Vec::new(), |mut s, i| {
-			writeln!(&mut s, "{i:015x}").unwrap();
-			s
-		});
+	let mut expected = (0..4000).fold(Vec::new(), |mut s, i| {
+		writeln!(&mut s, "{i:015x}").unwrap();
+		s
+	});
 	expected.pop(); // remove the trailing '\n'
 
 	// first check for the size, to avoid spamming the output
