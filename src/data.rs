@@ -1,7 +1,10 @@
 // TODO: remove once the driver is complete
 #![allow(dead_code)]
 
-use std::{ffi::{OsStr, OsString}, mem::size_of};
+use std::{
+	ffi::{OsStr, OsString},
+	mem::size_of,
+};
 
 use bincode::Decode;
 

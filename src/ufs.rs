@@ -281,7 +281,9 @@ impl Ufs {
 
 		loop {
 			let begin = file.pos()?;
-			let Ok(hdr) = file.decode::<ExtattrHeader >() else { break };
+			let Ok(hdr) = file.decode::<ExtattrHeader>() else {
+				break;
+			};
 			let namelen = hdr.namelen as usize;
 
 			if namelen == 0 {
@@ -313,14 +315,16 @@ impl Ufs {
 		mut f: impl FnMut(&ExtattrHeader, &[u8]) -> T,
 	) -> IoResult<T> {
 		self.iter_xattr(ino, |hdr, n, data| {
-			let Some(ns) = hdr.namespace() else { return None };
+			let Some(ns) = hdr.namespace() else {
+				return None;
+			};
 			if xname == ns.with_name(n) {
 				Some(f(hdr, data))
 			} else {
 				None
 			}
 		})
-			.and_then(|r| r.ok_or(IoError::from_raw_os_error(libc::ENOATTR)))
+		.and_then(|r| r.ok_or(IoError::from_raw_os_error(libc::ENOATTR)))
 	}
 }
 
@@ -631,7 +635,9 @@ impl Filesystem for Ufs {
 			}
 			let mut data = OsString::new();
 			self.iter_xattr(&ino, |hdr, name, _data| {
-				let Some(ns) = hdr.namespace() else { return None };
+				let Some(ns) = hdr.namespace() else {
+					return None;
+				};
 				let name = ns.with_name(name);
 				data.push(name);
 				data.push("\0");
@@ -650,13 +656,13 @@ impl Filesystem for Ufs {
 	}
 
 	fn getxattr(
-        &mut self,
-        _req: &Request<'_>,
-        inr: u64,
-        name: &OsStr,
-        size: u32,
-        reply: fuser::ReplyXattr,
-    ) {
+		&mut self,
+		_req: &Request<'_>,
+		inr: u64,
+		name: &OsStr,
+		size: u32,
+		reply: fuser::ReplyXattr,
+	) {
 		let inr = transino(inr);
 
 		enum R {
@@ -664,7 +670,6 @@ impl Filesystem for Ufs {
 			TooShort,
 			Len(u32),
 		}
-		
 
 		let f = || {
 			let ino = self.read_inode(inr)?;
