@@ -87,4 +87,8 @@ impl<T: Read + Seek> Decoder<T> {
 		let new_pos = (pos + align - 1) & !(align - 1);
 		self.seek(new_pos)
 	}
+
+	pub fn pos(&mut self) -> Result<u64> {
+		self.inner.stream_position()
+	}
 }
