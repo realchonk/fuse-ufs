@@ -288,7 +288,7 @@ impl Ufs {
 
 			if namelen == 0 {
 				break;
-			} else if namelen > 64 {
+			} else if namelen > UFS_EXTATTR_MAXNAMELEN {
 				log::error!("invalid extattr name length: {namelen}");
 				break;
 			}

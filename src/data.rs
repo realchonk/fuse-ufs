@@ -90,6 +90,9 @@ pub const UFS_SLLEN: usize = (UFS_NDADDR + UFS_NIADDR) * size_of::<UfsDaddr>();
 /// Size of an on-disk inode.
 pub const UFS_INOSZ: usize = 256;
 
+/// Maximum length of an extattr name.
+pub const UFS_EXTATTR_MAXNAMELEN: usize = 64; // excluding null
+
 /// type of file mask
 pub const S_IFMT: u16 = 0o170000;
 
