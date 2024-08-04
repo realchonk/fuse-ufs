@@ -121,6 +121,10 @@ pub const DT_LNK: u8 = 10;
 pub const DT_SOCK: u8 = 12;
 pub const DT_WHT: u8 = 14;
 
+pub const EXTATTR_NAMESPACE_EMPTY: u8 = 0;
+pub const EXTATTR_NAMESPACE_USER: u8 = 1;
+pub const EXTATTR_NAMESPACE_SYSTEM: u8 = 2;
+
 /// Per cylinder group information; summarized in blocks allocated
 /// from first cylinder group data blocks.  These blocks have to be
 /// read in from fs_csaddr (size fs_cssize) in addition to the
@@ -329,6 +333,14 @@ pub struct Inode {
 	pub ignored:   u32, // 240: (SUJ: Next unlinked inode) or (IFDIR: depth from root dir)
 	pub ckhash:    u32, // 244: if CK_INODE, its check-hash
 	pub spare:     [u32; 2], // 248: Reserved; currently unused
+}
+
+#[derive(Debug, Decode)]
+pub struct ExtattrHeader {
+	pub len: u32,
+	pub namespace: u8,
+	pub contentpadlen: u8,
+	pub namelen: u8,
 }
 
 #[derive(Debug)]

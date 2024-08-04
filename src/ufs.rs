@@ -1,5 +1,6 @@
 use std::{
-	ffi::{c_int, OsStr},
+	ffi::{c_int, OsStr, OsString},
+        os::unix::ffi::{OsStrExt, OsStringExt},
 	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
@@ -244,6 +245,62 @@ impl Ufs {
 				return Ok(x);
 			}
 		}
+		Ok(None)
+	}
+
+	fn read_xattr<T>(
+		&mut self,
+		ino: &Inode,
+		mut f: impl FnMut(&ExtattrHeader, &OsStr, &[u8]) -> Option<T>,
+	) -> IoResult<Option<T>> {
+		if ino.extsize == 0 {
+			return Ok(None);
+		}
+
+		let fs = self.superblock.fsize as u64;
+		let bs = self.superblock.bsize as usize;
+		let sz = ino.extsize as usize;
+		assert!(sz < UFS_NXADDR * bs);
+
+		let mut blocks = vec![0u8; ino.extsize as usize];
+		let mut nr = 0;
+		let mut blkidx = 0;
+
+		while nr < blocks.len() {
+			let pos = ino.extb[blkidx] as u64 * fs;
+			let num = bs.min(blocks.len() - nr);
+			self.file.read_at(pos, &mut blocks[nr..(nr + num)])?;
+			blkidx += 1;
+			nr += num;
+		}
+		
+		let file = Cursor::new(blocks);
+		let mut file = Decoder::new(file, self.file.config());
+		let mut name = [0u8; 64];
+		let mut data = Vec::new();
+
+		loop {
+			let hdr: ExtattrHeader = file.decode()?;
+			let namelen = hdr.namelen as usize;
+
+			if namelen == 0 {
+				break;
+			} else if namelen > 64 {
+				log::error!("invalid extattr name length: {namelen}");
+				break;
+			}
+
+			file.read(&mut name[0..namelen])?;
+			file.align_to(4)?;
+			data.resize(hdr.len as usize, 0u8);
+			file.read(&mut data)?;
+
+			let name = OsStr::from_bytes(&name[0..namelen]);
+			if let Some(x) = f(&hdr, name, &data) {
+				return Ok(Some(x));
+			}
+		}
+
 		Ok(None)
 	}
 }
@@ -553,21 +610,26 @@ impl Filesystem for Ufs {
 			if size == 0 {
 				return Ok(Err(ino.extsize));
 			}
+			let mut data = OsString::new();
+			self.read_xattr(&ino, |hdr, name, _data| {
+				let ns = match hdr.namespace {
+					EXTATTR_NAMESPACE_USER => "user",
+					EXTATTR_NAMESPACE_SYSTEM => "system",
+					ns => {
+						log::error!("invalid extattr namespace: {ns}");
+						return None;
+					}
+				};
 
-			let bs = self.superblock.bsize as u32;
-			let fs = self.superblock.fsize as u64;
-			let size = size.min(2 * bs);
+				data.push(ns);
+				data.push(".");
+				data.push(name);
+				data.push("\0");
+				
+				None::<()>
+			})?;
 
-			let mut buf = vec![0u8; size as usize];
-			let mut nr = 0;
-			for i in 0..UFS_NXADDR {
-				let pos = ino.extb[i] as u64 * fs;
-				let num = (bs as usize).min(buf.len() - nr);
-				self.file.read_at(pos, &mut buf[nr..(nr + num)])?;
-				nr += num;
-			}
-
-			Ok(Ok(buf))
+			Ok(Ok(data.into_vec()))
 		};
 
 		match run(f) {
