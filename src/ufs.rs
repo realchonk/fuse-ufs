@@ -1,9 +1,9 @@
 use std::{
 	ffi::{c_int, OsStr, OsString},
-        os::unix::ffi::{OsStrExt, OsStringExt},
 	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
+	os::unix::ffi::{OsStrExt, OsStringExt},
 	path::Path,
 	time::Duration,
 };
@@ -273,7 +273,7 @@ impl Ufs {
 			blkidx += 1;
 			nr += num;
 		}
-		
+
 		let file = Cursor::new(blocks);
 		let mut file = Decoder::new(file, self.file.config());
 		let mut name = [0u8; 64];
@@ -625,7 +625,7 @@ impl Filesystem for Ufs {
 				data.push(".");
 				data.push(name);
 				data.push("\0");
-				
+
 				None::<()>
 			})?;
 

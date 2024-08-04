@@ -337,10 +337,10 @@ pub struct Inode {
 
 #[derive(Debug, Decode)]
 pub struct ExtattrHeader {
-	pub len: u32,
-	pub namespace: u8,
+	pub len:           u32,
+	pub namespace:     u8,
 	pub contentpadlen: u8,
-	pub namelen: u8,
+	pub namelen:       u8,
 }
 
 #[derive(Debug)]
