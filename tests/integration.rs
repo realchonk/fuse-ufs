@@ -23,6 +23,16 @@ use tempfile::{tempdir, TempDir};
 use xattr::FileExt;
 use cstr::cstr;
 
+// only compile & run this code on FreeBSD
+macro_rules! freebsd {
+	{$($tk:tt)*} => {
+		#[cfg(target_os = "freebsd")]
+		{
+			$($tk)*
+		}
+	};
+}
+
 fn errno() -> i32 {
 	nix::errno::Errno::last_raw()
 }
@@ -363,7 +373,7 @@ fn listxattr(#[case] harness: Harness) {
 	let expected = [OsStr::new("user.test")];
 	assert_eq!(xattrs, expected);
 
-	if cfg!(target_os = "freebsd") {
+	freebsd! {
 		let num = unsafe { libc::extattr_list_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0) };
 		assert_eq!(num, 5); // strlen("test\0")
 	}
@@ -378,7 +388,7 @@ fn getxattr(#[case] harness: Harness) {
 	let expected = b"testvalue";
 	assert_eq!(data, expected);
 
-	if cfg!(target_os = "freebsd") {
+	freebsd! {
 		// Can't use c"test" syntax, because the apply macro doesn't like it
 		let name = cstr!(b"test");
 		let num = unsafe {
@@ -400,7 +410,7 @@ fn noxattrs(#[case] harness: Harness) {
 	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
 	assert_eq!(xattrs.len(), 0);
 
-	if cfg!(target_os = "freebsd") {
+	freebsd! {
 		let num = unsafe {
 			libc::extattr_list_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0)
 		};
