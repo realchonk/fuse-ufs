@@ -351,7 +351,7 @@ fn sparse3(#[case] harness: Harness) {
 #[apply(all_images)]
 fn listxattr(#[case] harness: Harness) {
 	let d = &harness.d;
-	
+
 	let file = File::open(d.path().join("xattrs")).unwrap();
 	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
 	let expected = [OsStr::new("user.test")];
@@ -361,7 +361,7 @@ fn listxattr(#[case] harness: Harness) {
 #[apply(all_images)]
 fn getxattr(#[case] harness: Harness) {
 	let d = &harness.d;
-	
+
 	let file = File::open(d.path().join("xattrs")).unwrap();
 	let data = file.get_xattr("user.test").unwrap().unwrap();
 	let expected = b"testvalue";
