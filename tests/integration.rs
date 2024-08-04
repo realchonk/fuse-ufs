@@ -198,6 +198,7 @@ fn contents(#[case] harness: Harness) {
 		"sparse",
 		"sparse2",
 		"sparse3",
+		"xattrs2",
 		"long-link",
 	];
 
@@ -251,10 +252,10 @@ fn statfs(#[case] harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 871);
-	assert_eq!(sfs.blocks_free(), 462);
-	assert_eq!(sfs.blocks_available(), 462);
+	assert_eq!(sfs.blocks_free(), 446);
+	assert_eq!(sfs.blocks_available(), 446);
 	assert_eq!(sfs.files(), 1024);
-	assert_eq!(sfs.files_free(), 1008);
+	assert_eq!(sfs.files_free(), 1007);
 	#[cfg(not(target_os = "macos"))]
 	assert_eq!(sfs.maximum_name_length(), 255);
 
@@ -270,7 +271,7 @@ fn statvfs(#[case] harness: Harness) {
 	assert_eq!(svfs.fragment_size(), 4096);
 	assert_eq!(svfs.blocks(), 871);
 	assert_eq!(svfs.files(), 1024);
-	assert_eq!(svfs.files_free(), 1008);
+	assert_eq!(svfs.files_free(), 1007);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 
