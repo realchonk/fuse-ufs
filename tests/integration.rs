@@ -424,3 +424,23 @@ fn noxattrs(#[case] harness: Harness) {
 		assert_eq!(errno(), libc::ENOATTR);
 	}
 }
+
+#[apply(all_images)]
+fn many_xattrs(#[case] harness: Harness) {
+	let d = &harness.d;
+	let max = 2297;
+
+	let file = File::open(d.path().join("xattrs2")).unwrap();
+	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
+	let expected = (1..=max)
+		.map(|i| OsString::from(format!("user.attr{i}")))
+		.collect::<Vec<_>>();
+	assert_eq!(xattrs, expected);
+
+	for i in 1..=max {
+		let name = format!("user.attr{i}");
+		let data = file.get_xattr(name).unwrap().unwrap();
+		let expected = format!("value{i}");
+		assert_eq!(data, expected.as_bytes());
+	}
+}
