@@ -544,4 +544,36 @@ impl Filesystem for Ufs {
 			Err(e) => reply.error(e),
 		}
 	}
+
+	fn listxattr(&mut self, _req: &Request<'_>, inr: u64, size: u32, reply: fuser::ReplyXattr) {
+		let inr = transino(inr);
+
+		let f = || {
+			let ino = self.read_inode(inr)?;
+			if size == 0 {
+				return Ok(Err(ino.extsize));
+			}
+
+			let bs = self.superblock.bsize as u32;
+			let fs = self.superblock.fsize as u64;
+			let size = size.min(2 * bs);
+
+			let mut buf = vec![0u8; size as usize];
+			let mut nr = 0;
+			for i in 0..UFS_NXADDR {
+				let pos = ino.extb[i] as u64 * fs;
+				let num = (bs as usize).min(buf.len() - nr);
+				self.file.read_at(pos, &mut buf[nr..(nr + num)])?;
+				nr += num;
+			}
+
+			Ok(Ok(buf))
+		};
+
+		match run(f) {
+			Ok(Ok(b)) => reply.data(&b),
+			Ok(Err(sz)) => reply.size(sz),
+			Err(e) => reply.error(e),
+		}
+	}
 }
