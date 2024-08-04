@@ -314,6 +314,10 @@ impl Ufs {
 		xname: &OsStr,
 		mut f: impl FnMut(&ExtattrHeader, &[u8]) -> T,
 	) -> IoResult<T> {
+		#[cfg(target_os = "freebsd")]
+		const ERR: i32 = libc::ENOATTR;
+		#[cfg(target_os = "linux")]
+		const ERR: i32 = libc::ENODATA;
 		self.iter_xattr(ino, |hdr, n, data| {
 			let Some(ns) = hdr.namespace() else {
 				return None;
@@ -324,7 +328,7 @@ impl Ufs {
 				None
 			}
 		})
-		.and_then(|r| r.ok_or(IoError::from_raw_os_error(libc::ENOATTR)))
+		.and_then(|r| r.ok_or(IoError::from_raw_os_error(ERR)))
 	}
 }
 
