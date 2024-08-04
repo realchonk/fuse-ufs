@@ -209,6 +209,7 @@ fn contents(#[case] harness: Harness) {
 		"sparse2",
 		"sparse3",
 		"xattrs2",
+		"xattrs3",
 		"long-link",
 	];
 
@@ -262,10 +263,10 @@ fn statfs(#[case] harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 871);
-	assert_eq!(sfs.blocks_free(), 446);
-	assert_eq!(sfs.blocks_available(), 446);
+	assert_eq!(sfs.blocks_free(), 430);
+	assert_eq!(sfs.blocks_available(), 430);
 	assert_eq!(sfs.files(), 1024);
-	assert_eq!(sfs.files_free(), 1007);
+	assert_eq!(sfs.files_free(), 1006);
 	#[cfg(not(target_os = "macos"))]
 	assert_eq!(sfs.maximum_name_length(), 255);
 
@@ -281,7 +282,7 @@ fn statvfs(#[case] harness: Harness) {
 	assert_eq!(svfs.fragment_size(), 4096);
 	assert_eq!(svfs.blocks(), 871);
 	assert_eq!(svfs.files(), 1024);
-	assert_eq!(svfs.files_free(), 1007);
+	assert_eq!(svfs.files_free(), 1006);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 
@@ -443,4 +444,23 @@ fn many_xattrs(#[case] harness: Harness) {
 		let expected = format!("value{i}");
 		assert_eq!(data, expected.as_bytes());
 	}
+}
+
+#[apply(all_images)]
+fn big_xattr(#[case] harness: Harness) {
+	use std::io::Write;
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("xattrs3")).unwrap();
+	let data = file.get_xattr("user.big").unwrap().unwrap();
+	let mut expected = (0..4000)
+		.fold(Vec::new(), |mut s, i| {
+			writeln!(&mut s, "{i:015x}").unwrap();
+			s
+		});
+	expected.pop(); // remove the trailing '\n'
+
+	// first check for the size, to avoid spamming the output
+	assert_eq!(data.len(), expected.len());
+	assert_eq!(data, expected);
 }

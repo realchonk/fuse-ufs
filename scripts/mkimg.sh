@@ -32,6 +32,9 @@ populate() {
     touch xattrs2
     # 2297 is the maximum number of xattrs that fit in this case
     jot 2297 | xargs -I{} setextattr user 'attr{}' 'value{}' xattrs2
+    touch xattrs3
+    # 4096 would be too much
+    setextattr user 'big' "$(jot 4000 0 | xargs printf '%015x\n')" xattrs3
 
     cd - || die "failed to cd back"
 }
