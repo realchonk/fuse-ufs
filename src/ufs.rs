@@ -298,6 +298,7 @@ impl Ufs {
 			let len = hdr.len as u64 - (file.pos()? - begin);
 			data.resize(len as usize, 0u8);
 			file.read(&mut data)?;
+			data.resize(data.len() - hdr.contentpadlen as usize, 0u8);
 
 			let name = OsStr::from_bytes(&name[0..namelen]);
 			if let Some(x) = f(&hdr, name, &data) {
