@@ -363,6 +363,7 @@ impl Superblock {
 
 	/// Calculate the size of a cylinder group structure.
 	pub fn cgsize_struct(&self) -> usize {
+		// TODO: size_of() is not valid
 		size_of::<CylGroup>() +
 			howmany(self.fpg as usize, 8) +
 			howmany(self.ipg as usize, 8) +
