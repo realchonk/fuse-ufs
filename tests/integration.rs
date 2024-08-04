@@ -1,5 +1,5 @@
 use std::{
-	ffi::OsString,
+	ffi::{OsStr, OsString},
 	fmt,
 	fs::{self, File},
 	io::{ErrorKind, Read, Seek, SeekFrom},
@@ -20,6 +20,7 @@ use nix::{
 use rstest::rstest;
 use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
+use xattr::FileExt;
 
 fn prepare_image(filename: &str) -> PathBuf {
 	let mut zimg = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -345,4 +346,24 @@ fn sparse3(#[case] harness: Harness) {
 	file.read_exact(&mut buf).unwrap();
 	let expected = [b'x'; 32768];
 	assert_eq!(buf, expected);
+}
+
+#[apply(all_images)]
+fn listxattr(#[case] harness: Harness) {
+	let d = &harness.d;
+	
+	let file = File::open(d.path().join("xattrs")).unwrap();
+	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
+	let expected = [OsStr::new("user.test")];
+	assert_eq!(xattrs, expected);
+}
+
+#[apply(all_images)]
+fn getxattr(#[case] harness: Harness) {
+	let d = &harness.d;
+	
+	let file = File::open(d.path().join("xattrs")).unwrap();
+	let data = file.get_xattr("user.test").unwrap().unwrap();
+	let expected = b"testvalue";
+	assert_eq!(data, expected);
 }

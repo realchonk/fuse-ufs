@@ -25,3 +25,4 @@ nix = { version = "0.28.0", features = ["fs", "dir"] }
 rstest = "0.16.0"
 rstest_reuse = "0.7.0"
 tempfile = "3.0"
+xattr = "1.3.1"
