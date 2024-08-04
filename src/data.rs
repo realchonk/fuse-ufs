@@ -1,7 +1,7 @@
 // TODO: remove once the driver is complete
 #![allow(dead_code)]
 
-use std::mem::size_of;
+use std::{ffi::{OsStr, OsString}, mem::size_of};
 
 use bincode::Decode;
 
@@ -120,10 +120,6 @@ pub const DT_REG: u8 = 8;
 pub const DT_LNK: u8 = 10;
 pub const DT_SOCK: u8 = 12;
 pub const DT_WHT: u8 = 14;
-
-pub const EXTATTR_NAMESPACE_EMPTY: u8 = 0;
-pub const EXTATTR_NAMESPACE_USER: u8 = 1;
-pub const EXTATTR_NAMESPACE_SYSTEM: u8 = 2;
 
 /// Per cylinder group information; summarized in blocks allocated
 /// from first cylinder group data blocks.  These blocks have to be
@@ -335,6 +331,14 @@ pub struct Inode {
 	pub spare:     [u32; 2], // 248: Reserved; currently unused
 }
 
+#[derive(Debug, Clone, Copy, Decode, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ExtattrNamespace {
+	Empty = 0,
+	User = 1,
+	System = 2,
+}
+
 #[derive(Debug, Decode)]
 pub struct ExtattrHeader {
 	pub len:           u32,
@@ -409,4 +413,28 @@ impl Superblock {
 
 fn howmany(x: usize, y: usize) -> usize {
 	(x + (y - 1)) / y
+}
+
+impl ExtattrHeader {
+	pub fn namespace(&self) -> Option<ExtattrNamespace> {
+		match self.namespace {
+			0 => Some(ExtattrNamespace::Empty),
+			1 => Some(ExtattrNamespace::User),
+			2 => Some(ExtattrNamespace::System),
+			_ => None,
+		}
+	}
+}
+
+impl ExtattrNamespace {
+	pub fn with_name(self, name: &OsStr) -> OsString {
+		let ns = match self {
+			Self::Empty => "",
+			Self::User => "user.",
+			Self::System => "system.",
+		};
+		let mut out = OsString::from(ns);
+		out.push(name);
+		out
+	}
 }
