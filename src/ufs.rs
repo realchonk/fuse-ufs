@@ -305,6 +305,23 @@ impl Ufs {
 
 		Ok(None)
 	}
+
+	fn read_xattr<T>(
+		&mut self,
+		ino: &Inode,
+		xname: &OsStr,
+		mut f: impl FnMut(&ExtattrHeader, &[u8]) -> T,
+	) -> IoResult<T> {
+		self.iter_xattr(ino, |hdr, n, data| {
+			let Some(ns) = hdr.namespace() else { return None };
+			if xname == ns.with_name(n) {
+				Some(f(hdr, data))
+			} else {
+				None
+			}
+		})
+			.and_then(|r| r.ok_or(IoError::from_raw_os_error(libc::ENOATTR)))
+	}
 }
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
@@ -628,6 +645,48 @@ impl Filesystem for Ufs {
 		match run(f) {
 			Ok(Ok(b)) => reply.data(&b),
 			Ok(Err(sz)) => reply.size(sz),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn getxattr(
+        &mut self,
+        _req: &Request<'_>,
+        inr: u64,
+        name: &OsStr,
+        size: u32,
+        reply: fuser::ReplyXattr,
+    ) {
+		let inr = transino(inr);
+
+		enum R {
+			Data(Vec<u8>),
+			TooShort,
+			Len(u32),
+		}
+		
+
+		let f = || {
+			let ino = self.read_inode(inr)?;
+
+			if size == 0 {
+				let len = self.read_xattr(&ino, name, |_hdr, data| data.len())?;
+				Ok(R::Len(len as u32))
+			} else {
+				self.read_xattr(&ino, name, |_hdr, data| {
+					if (size as usize) >= data.len() {
+						R::Data(data.into())
+					} else {
+						R::TooShort
+					}
+				})
+			}
+		};
+
+		match run(f) {
+			Ok(R::Data(x)) => reply.data(&x),
+			Ok(R::TooShort) => reply.error(libc::ERANGE),
+			Ok(R::Len(l)) => reply.size(l),
 			Err(e) => reply.error(e),
 		}
 	}
