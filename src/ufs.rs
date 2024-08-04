@@ -319,9 +319,7 @@ impl Ufs {
 		#[cfg(target_os = "linux")]
 		const ERR: i32 = libc::ENODATA;
 		self.iter_xattr(ino, |hdr, n, data| {
-			let Some(ns) = hdr.namespace() else {
-				return None;
-			};
+			let ns = hdr.namespace()?;
 			if xname == ns.with_name(n) {
 				Some(f(hdr, data))
 			} else {
@@ -639,9 +637,7 @@ impl Filesystem for Ufs {
 			}
 			let mut data = OsString::new();
 			self.iter_xattr(&ino, |hdr, name, _data| {
-				let Some(ns) = hdr.namespace() else {
-					return None;
-				};
+				let ns = hdr.namespace()?;
 				let name = ns.with_name(name);
 				data.push(name);
 				data.push("\0");
