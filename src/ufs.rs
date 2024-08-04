@@ -248,7 +248,7 @@ impl Ufs {
 		Ok(None)
 	}
 
-	fn read_xattr<T>(
+	fn iter_xattr<T>(
 		&mut self,
 		ino: &Inode,
 		mut f: impl FnMut(&ExtattrHeader, &OsStr, &[u8]) -> Option<T>,
@@ -280,7 +280,8 @@ impl Ufs {
 		let mut data = Vec::new();
 
 		loop {
-			let hdr: ExtattrHeader = file.decode()?;
+			let begin = file.pos()?;
+			let Ok(hdr) = file.decode::<ExtattrHeader >() else { break };
 			let namelen = hdr.namelen as usize;
 
 			if namelen == 0 {
@@ -291,8 +292,9 @@ impl Ufs {
 			}
 
 			file.read(&mut name[0..namelen])?;
-			file.align_to(4)?;
-			data.resize(hdr.len as usize, 0u8);
+			file.align_to(8)?;
+			let len = hdr.len as u64 - (file.pos()? - begin);
+			data.resize(len as usize, 0u8);
 			file.read(&mut data)?;
 
 			let name = OsStr::from_bytes(&name[0..namelen]);
@@ -611,18 +613,9 @@ impl Filesystem for Ufs {
 				return Ok(Err(ino.extsize));
 			}
 			let mut data = OsString::new();
-			self.read_xattr(&ino, |hdr, name, _data| {
-				let ns = match hdr.namespace {
-					EXTATTR_NAMESPACE_USER => "user",
-					EXTATTR_NAMESPACE_SYSTEM => "system",
-					ns => {
-						log::error!("invalid extattr namespace: {ns}");
-						return None;
-					}
-				};
-
-				data.push(ns);
-				data.push(".");
+			self.iter_xattr(&ino, |hdr, name, _data| {
+				let Some(ns) = hdr.namespace() else { return None };
+				let name = ns.with_name(name);
 				data.push(name);
 				data.push("\0");
 
