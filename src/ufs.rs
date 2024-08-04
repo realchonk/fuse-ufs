@@ -386,19 +386,15 @@ impl Filesystem for Ufs {
 	) {
 		let inr = transino(inr);
 		let f = || {
-			if offset != 0 {
-				return Ok(());
-			}
-
 			let ino = self.read_inode(inr)?;
 
 			let mut i = 0;
 
 			self.readdir(inr, &ino, |name, inr, kind| {
-				i += 1;
-				if i > offset && reply.add(inr.into(), i, kind, name) {
+				if i >= offset && reply.add(inr.into(), i, kind, name) {
 					return Some(());
 				}
+				i += 1;
 				None
 			})?;
 
