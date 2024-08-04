@@ -82,9 +82,9 @@ impl<T: Read + Seek> Decoder<T> {
 	}
 
 	pub fn align_to(&mut self, align: u64) -> Result<()> {
-		assert!(align.count_ones() == 1);
+		assert_eq!(align.count_ones(), 1);
 		let pos = self.inner.stream_position()?;
-		let new_pos = (pos + align - 1) & (align - 1);
+		let new_pos = (pos + align - 1) & !(align - 1);
 		self.seek(new_pos)
 	}
 }
