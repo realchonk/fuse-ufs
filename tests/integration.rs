@@ -378,7 +378,7 @@ fn listxattr(#[case] harness: Harness) {
 	assert_eq!(xattrs, expected);
 
 	freebsd! {
-		let num = unsafe { libc::extattr_list_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0) };
+		let num = unsafe { libc::extattr_list_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0) };
 		assert_eq!(num, 5); // strlen("test\0")
 	}
 }
@@ -396,15 +396,11 @@ fn getxattr(#[case] harness: Harness) {
 		// Can't use c"test" syntax, because the apply macro doesn't like it
 		let name = cstr!(b"test");
 		let num = unsafe {
-			libc::extattr_get_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
+			libc::extattr_get_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
 		};
 		assert_eq!(num, expected.len() as isize);
 	}
 }
-
-const EXTATTR_NAMESPACE_USER: i32 = 1;
-#[allow(unused)]
-const EXTATTR_NAMESPACE_SYSTEM: i32 = 2;
 
 #[apply(all_images)]
 fn noxattrs(#[case] harness: Harness) {
@@ -416,13 +412,13 @@ fn noxattrs(#[case] harness: Harness) {
 
 	freebsd! {
 		let num = unsafe {
-			libc::extattr_list_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0)
+			libc::extattr_list_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0)
 		};
 		assert_eq!(num, 0);
 
 		let name = cstr!(b"test");
 		let num = unsafe {
-			libc::extattr_get_fd(file.as_raw_fd(), EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
+			libc::extattr_get_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
 		};
 		assert_eq!(num, -1);
 		assert_eq!(errno(), libc::ENOATTR);
