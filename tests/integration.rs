@@ -26,16 +26,6 @@ use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
 use xattr::FileExt;
 
-// only compile & run this code on FreeBSD
-macro_rules! freebsd {
-	{$($tk:tt)*} => {
-		#[cfg(target_os = "freebsd")]
-		{
-			$($tk)*
-		}
-	};
-}
-
 fn errno() -> i32 {
 	nix::errno::Errno::last_raw()
 }
@@ -376,11 +366,16 @@ fn listxattr(#[case] harness: Harness) {
 	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
 	let expected = [OsStr::new("user.test")];
 	assert_eq!(xattrs, expected);
+}
 
-	freebsd! {
-		let num = unsafe { libc::extattr_list_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0) };
-		assert_eq!(num, 5); // strlen("test\0")
-	}
+#[cfg(target_os = "freebsd")]
+#[apply(all_images)]
+fn listxattr_freebsd(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("xattrs")).unwrap();
+	let num = unsafe { libc::extattr_list_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0) };
+	assert_eq!(num, 5); // strlen("test\0")
 }
 
 #[apply(all_images)]
@@ -391,15 +386,22 @@ fn getxattr(#[case] harness: Harness) {
 	let data = file.get_xattr("user.test").unwrap().unwrap();
 	let expected = b"testvalue";
 	assert_eq!(data, expected);
+}
 
-	freebsd! {
-		// Can't use c"test" syntax, because the apply macro doesn't like it
-		let name = cstr!(b"test");
-		let num = unsafe {
-			libc::extattr_get_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
-		};
-		assert_eq!(num, expected.len() as isize);
-	}
+#[cfg(target_os = "freebsd")]
+#[apply(all_images)]
+fn getxattr_freebsd(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("xattrs")).unwrap();
+	let expected = b"testvalue";
+
+	// Can't use c"test" syntax, because the apply macro doesn't like it
+	let name = cstr!(b"test");
+	let num = unsafe {
+		libc::extattr_get_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
+	};
+	assert_eq!(num, expected.len() as isize);
 }
 
 #[apply(all_images)]
@@ -409,20 +411,25 @@ fn noxattrs(#[case] harness: Harness) {
 	let file = File::open(d.path().join("file1")).unwrap();
 	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
 	assert_eq!(xattrs.len(), 0);
+}
 
-	freebsd! {
-		let num = unsafe {
-			libc::extattr_list_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0)
-		};
-		assert_eq!(num, 0);
+#[cfg(target_os = "freebsd")]
+#[apply(all_images)]
+fn noxattrs_freebsd(#[case] harness: Harness) {
+	let d = &harness.d;
 
-		let name = cstr!(b"test");
-		let num = unsafe {
-			libc::extattr_get_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
-		};
-		assert_eq!(num, -1);
-		assert_eq!(errno(), libc::ENOATTR);
-	}
+	let file = File::open(d.path().join("file1")).unwrap();
+	let num = unsafe {
+		libc::extattr_list_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0)
+	};
+	assert_eq!(num, 0);
+
+	let name = cstr!(b"test");
+	let num = unsafe {
+		libc::extattr_get_fd(file.as_raw_fd(), libc::EXTATTR_NAMESPACE_USER, name.as_ptr(), std::ptr::null_mut(), 0)
+	};
+	assert_eq!(num, -1);
+	assert_eq!(errno(), libc::ENOATTR);
 }
 
 #[apply(all_images)]
