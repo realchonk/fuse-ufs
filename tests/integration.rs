@@ -370,7 +370,7 @@ fn listxattr(#[case] harness: Harness) {
 
 #[cfg(target_os = "freebsd")]
 #[apply(all_images)]
-fn listxattr_freebsd(#[case] harness: Harness) {
+fn listxattr_size(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let file = File::open(d.path().join("xattrs")).unwrap();
