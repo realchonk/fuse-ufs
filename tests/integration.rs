@@ -428,7 +428,7 @@ fn noxattrs(#[case] harness: Harness) {
 
 #[cfg(target_os = "freebsd")]
 #[apply(all_images)]
-fn noxattrs_freebsd(#[case] harness: Harness) {
+fn noxattrs_list(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let file = File::open(d.path().join("file1")).unwrap();
@@ -441,7 +441,14 @@ fn noxattrs_freebsd(#[case] harness: Harness) {
 		)
 	};
 	assert_eq!(num, 0);
+}
 
+#[cfg(target_os = "freebsd")]
+#[apply(all_images)]
+fn noxattrs_get(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("file1")).unwrap();
 	let name = cstr!(b"test");
 	let num = unsafe {
 		libc::extattr_get_fd(
