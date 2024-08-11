@@ -21,7 +21,7 @@ test: &TEST
 
 task:
   env:
-    VERSION: 1.77.0
+    VERSION: 1.74.1
   name: FreeBSD 13.3 MSRV
   freebsd_instance:
     image: freebsd-13-3-release-amd64
