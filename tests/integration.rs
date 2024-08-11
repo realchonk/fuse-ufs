@@ -1,9 +1,12 @@
 use std::{
-	ffi::OsString,
+	ffi::{OsStr, OsString},
 	fmt,
 	fs::{self, File},
 	io::{ErrorKind, Read, Seek, SeekFrom},
-	os::unix::{ffi::OsStringExt, fs::MetadataExt},
+	os::{
+		fd::AsRawFd,
+		unix::{ffi::OsStringExt, fs::MetadataExt},
+	},
 	path::{Path, PathBuf},
 	process::{Child, Command},
 	thread::sleep,
@@ -12,6 +15,7 @@ use std::{
 
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
+use cstr::cstr;
 use lazy_static::lazy_static;
 use nix::{
 	fcntl::OFlag,
@@ -20,6 +24,11 @@ use nix::{
 use rstest::rstest;
 use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
+use xattr::FileExt;
+
+fn errno() -> i32 {
+	nix::errno::Errno::last_raw()
+}
 
 fn prepare_image(filename: &str) -> PathBuf {
 	let mut zimg = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -188,9 +197,12 @@ fn contents(#[case] harness: Harness) {
 		"file1",
 		"file3",
 		"link1",
+		"xattrs",
 		"sparse",
 		"sparse2",
 		"sparse3",
+		"xattrs2",
+		"xattrs3",
 		"long-link",
 	];
 
@@ -244,10 +256,10 @@ fn statfs(#[case] harness: Harness) {
 	let sfs = nix::sys::statfs::statfs(d.path()).unwrap();
 
 	assert_eq!(sfs.blocks(), 871);
-	assert_eq!(sfs.blocks_free(), 463);
-	assert_eq!(sfs.blocks_available(), 463);
+	assert_eq!(sfs.blocks_free(), 430);
+	assert_eq!(sfs.blocks_available(), 430);
 	assert_eq!(sfs.files(), 1024);
-	assert_eq!(sfs.files_free(), 1009);
+	assert_eq!(sfs.files_free(), 1006);
 	#[cfg(not(target_os = "macos"))]
 	assert_eq!(sfs.maximum_name_length(), 255);
 
@@ -263,7 +275,7 @@ fn statvfs(#[case] harness: Harness) {
 	assert_eq!(svfs.fragment_size(), 4096);
 	assert_eq!(svfs.blocks(), 871);
 	assert_eq!(svfs.files(), 1024);
-	assert_eq!(svfs.files_free(), 1009);
+	assert_eq!(svfs.files_free(), 1006);
 	assert!(svfs.flags().contains(FsFlags::ST_RDONLY));
 }
 
@@ -344,4 +356,147 @@ fn sparse3(#[case] harness: Harness) {
 	file.read_exact(&mut buf).unwrap();
 	let expected = [b'x'; 32768];
 	assert_eq!(buf, expected);
+}
+
+#[apply(all_images)]
+fn listxattr(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("xattrs")).unwrap();
+	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
+	let expected = [OsStr::new("user.test")];
+	assert_eq!(xattrs, expected);
+}
+
+#[cfg(target_os = "freebsd")]
+#[apply(all_images)]
+fn listxattr_size(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("xattrs")).unwrap();
+	let num = unsafe {
+		libc::extattr_list_fd(
+			file.as_raw_fd(),
+			libc::EXTATTR_NAMESPACE_USER,
+			std::ptr::null_mut(),
+			0,
+		)
+	};
+	assert_eq!(num, 5); // strlen("test\0")
+}
+
+#[apply(all_images)]
+fn getxattr(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("xattrs")).unwrap();
+	let data = file.get_xattr("user.test").unwrap().unwrap();
+	let expected = b"testvalue";
+	assert_eq!(data, expected);
+}
+
+#[cfg(target_os = "freebsd")]
+#[apply(all_images)]
+fn getxattr_size(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("xattrs")).unwrap();
+	let expected = b"testvalue";
+
+	// Can't use c"test" syntax, because the apply macro doesn't like it
+	let name = cstr!(b"test");
+	let num = unsafe {
+		libc::extattr_get_fd(
+			file.as_raw_fd(),
+			libc::EXTATTR_NAMESPACE_USER,
+			name.as_ptr(),
+			std::ptr::null_mut(),
+			0,
+		)
+	};
+	assert_eq!(num, expected.len() as isize);
+}
+
+#[apply(all_images)]
+fn noxattrs(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("file1")).unwrap();
+	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
+	assert_eq!(xattrs.len(), 0);
+}
+
+#[cfg(target_os = "freebsd")]
+#[apply(all_images)]
+fn noxattrs_list(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("file1")).unwrap();
+	let num = unsafe {
+		libc::extattr_list_fd(
+			file.as_raw_fd(),
+			libc::EXTATTR_NAMESPACE_USER,
+			std::ptr::null_mut(),
+			0,
+		)
+	};
+	assert_eq!(num, 0);
+}
+
+#[cfg(target_os = "freebsd")]
+#[apply(all_images)]
+fn noxattrs_get(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("file1")).unwrap();
+	let name = cstr!(b"test");
+	let num = unsafe {
+		libc::extattr_get_fd(
+			file.as_raw_fd(),
+			libc::EXTATTR_NAMESPACE_USER,
+			name.as_ptr(),
+			std::ptr::null_mut(),
+			0,
+		)
+	};
+	assert_eq!(num, -1);
+	assert_eq!(errno(), libc::ENOATTR);
+}
+
+#[apply(all_images)]
+fn many_xattrs(#[case] harness: Harness) {
+	let d = &harness.d;
+	let max = 2297;
+
+	let file = File::open(d.path().join("xattrs2")).unwrap();
+	let xattrs = file.list_xattr().unwrap().collect::<Vec<_>>();
+	let expected = (1..=max)
+		.map(|i| OsString::from(format!("user.attr{i}")))
+		.collect::<Vec<_>>();
+	assert_eq!(xattrs, expected);
+
+	for i in 1..=max {
+		let name = format!("user.attr{i}");
+		let data = file.get_xattr(name).unwrap().unwrap();
+		let expected = format!("value{i}");
+		assert_eq!(data, expected.as_bytes());
+	}
+}
+
+#[apply(all_images)]
+fn big_xattr(#[case] harness: Harness) {
+	use std::io::Write;
+	let d = &harness.d;
+
+	let file = File::open(d.path().join("xattrs3")).unwrap();
+	let data = file.get_xattr("user.big").unwrap().unwrap();
+	let mut expected = (0..4000).fold(Vec::new(), |mut s, i| {
+		writeln!(&mut s, "{i:015x}").unwrap();
+		s
+	});
+	expected.pop(); // remove the trailing '\n'
+
+	// first check for the size, to avoid spamming the output
+	assert_eq!(data.len(), expected.len());
+	assert_eq!(data, expected);
 }

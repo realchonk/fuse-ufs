@@ -27,6 +27,14 @@ populate() {
     tr '\0' 'x' < /dev/zero | dd of=sparse bs=4096 seek=$(((12 + 4096) * 8)) count=8
     tr '\0' 'x' < /dev/zero | dd of=sparse2 bs=4096 seek=$(((12 + 4096) * 8)) count=1
     tr '\0' 'x' < /dev/zero | dd of=sparse3 bs=4096 seek=$(((12 + 4096 + 4096 * 4096) * 8)) count=8
+    touch xattrs
+    setextattr user test testvalue xattrs
+    touch xattrs2
+    # 2297 is the maximum number of xattrs that fit in this case
+    jot 2297 | xargs -I{} setextattr user 'attr{}' 'value{}' xattrs2
+    touch xattrs3
+    # 4096 would be too much
+    setextattr user 'big' "$(jot 4000 0 | xargs printf '%015x\n')" xattrs3
 
     cd - || die "failed to cd back"
 }

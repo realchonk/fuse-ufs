@@ -1,7 +1,10 @@
 // TODO: remove once the driver is complete
 #![allow(dead_code)]
 
-use std::mem::size_of;
+use std::{
+	ffi::{OsStr, OsString},
+	mem::size_of,
+};
 
 use bincode::Decode;
 
@@ -86,6 +89,9 @@ pub const UFS_SLLEN: usize = (UFS_NDADDR + UFS_NIADDR) * size_of::<UfsDaddr>();
 
 /// Size of an on-disk inode.
 pub const UFS_INOSZ: usize = 256;
+
+/// Maximum length of an extattr name.
+pub const UFS_EXTATTR_MAXNAMELEN: usize = 64; // excluding null
 
 /// type of file mask
 pub const S_IFMT: u16 = 0o170000;
@@ -331,6 +337,22 @@ pub struct Inode {
 	pub spare:     [u32; 2], // 248: Reserved; currently unused
 }
 
+#[derive(Debug, Clone, Copy, Decode, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ExtattrNamespace {
+	Empty = 0,
+	User = 1,
+	System = 2,
+}
+
+#[derive(Debug, Decode)]
+pub struct ExtattrHeader {
+	pub len:           u32,
+	pub namespace:     u8,
+	pub contentpadlen: u8,
+	pub namelen:       u8,
+}
+
 #[derive(Debug)]
 pub struct BlockInfo {
 	/// offset from the start of the block
@@ -351,6 +373,7 @@ impl Superblock {
 
 	/// Calculate the size of a cylinder group structure.
 	pub fn cgsize_struct(&self) -> usize {
+		// TODO: size_of() is not valid
 		size_of::<CylGroup>() +
 			howmany(self.fpg as usize, 8) +
 			howmany(self.ipg as usize, 8) +
@@ -396,4 +419,28 @@ impl Superblock {
 
 fn howmany(x: usize, y: usize) -> usize {
 	(x + (y - 1)) / y
+}
+
+impl ExtattrHeader {
+	pub fn namespace(&self) -> Option<ExtattrNamespace> {
+		match self.namespace {
+			0 => Some(ExtattrNamespace::Empty),
+			1 => Some(ExtattrNamespace::User),
+			2 => Some(ExtattrNamespace::System),
+			_ => None,
+		}
+	}
+}
+
+impl ExtattrNamespace {
+	pub fn with_name(self, name: &OsStr) -> OsString {
+		let ns = match self {
+			Self::Empty => "",
+			Self::User => "user.",
+			Self::System => "system.",
+		};
+		let mut out = OsString::from(ns);
+		out.push(name);
+		out
+	}
 }

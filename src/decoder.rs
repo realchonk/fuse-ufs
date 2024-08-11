@@ -80,4 +80,15 @@ impl<T: Read + Seek> Decoder<T> {
 	pub fn seek_relative(&mut self, off: i64) -> Result<()> {
 		self.inner.seek_relative(off)
 	}
+
+	pub fn align_to(&mut self, align: u64) -> Result<()> {
+		assert_eq!(align.count_ones(), 1);
+		let pos = self.inner.stream_position()?;
+		let new_pos = (pos + align - 1) & !(align - 1);
+		self.seek(new_pos)
+	}
+
+	pub fn pos(&mut self) -> Result<u64> {
+		self.inner.stream_position()
+	}
 }

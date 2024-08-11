@@ -1,8 +1,9 @@
 use std::{
-	ffi::{c_int, OsStr},
+	ffi::{c_int, OsStr, OsString},
 	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
+	os::unix::ffi::{OsStrExt, OsStringExt},
 	path::Path,
 	time::Duration,
 };
@@ -245,6 +246,88 @@ impl Ufs {
 			}
 		}
 		Ok(None)
+	}
+
+	fn iter_xattr<T>(
+		&mut self,
+		ino: &Inode,
+		mut f: impl FnMut(&ExtattrHeader, &OsStr, &[u8]) -> Option<T>,
+	) -> IoResult<Option<T>> {
+		if ino.extsize == 0 {
+			return Ok(None);
+		}
+
+		let fs = self.superblock.fsize as u64;
+		let bs = self.superblock.bsize as usize;
+		let sz = ino.extsize as usize;
+		assert!(sz < UFS_NXADDR * bs);
+
+		let mut blocks = vec![0u8; ino.extsize as usize];
+		let mut nr = 0;
+		let mut blkidx = 0;
+
+		while nr < blocks.len() {
+			let pos = ino.extb[blkidx] as u64 * fs;
+			let num = bs.min(blocks.len() - nr);
+			self.file.read_at(pos, &mut blocks[nr..(nr + num)])?;
+			blkidx += 1;
+			nr += num;
+		}
+
+		let file = Cursor::new(blocks);
+		let mut file = Decoder::new(file, self.file.config());
+		let mut name = [0u8; 64];
+		let mut data = Vec::new();
+
+		loop {
+			let begin = file.pos()?;
+			let Ok(hdr) = file.decode::<ExtattrHeader>() else {
+				break;
+			};
+			let namelen = hdr.namelen as usize;
+
+			if namelen == 0 {
+				break;
+			} else if namelen > UFS_EXTATTR_MAXNAMELEN {
+				log::error!("invalid extattr name length: {namelen}");
+				break;
+			}
+
+			file.read(&mut name[0..namelen])?;
+			file.align_to(8)?;
+			let len = hdr.len as u64 - (file.pos()? - begin);
+			data.resize(len as usize, 0u8);
+			file.read(&mut data)?;
+			data.resize(data.len() - hdr.contentpadlen as usize, 0u8);
+
+			let name = OsStr::from_bytes(&name[0..namelen]);
+			if let Some(x) = f(&hdr, name, &data) {
+				return Ok(Some(x));
+			}
+		}
+
+		Ok(None)
+	}
+
+	fn read_xattr<T>(
+		&mut self,
+		ino: &Inode,
+		xname: &OsStr,
+		mut f: impl FnMut(&ExtattrHeader, &[u8]) -> T,
+	) -> IoResult<T> {
+		#[cfg(target_os = "freebsd")]
+		const ERR: i32 = libc::ENOATTR;
+		#[cfg(target_os = "linux")]
+		const ERR: i32 = libc::ENODATA;
+		self.iter_xattr(ino, |hdr, n, data| {
+			let ns = hdr.namespace()?;
+			if xname == ns.with_name(n) {
+				Some(f(hdr, data))
+			} else {
+				None
+			}
+		})
+		.and_then(|r| r.ok_or(IoError::from_raw_os_error(ERR)))
 	}
 }
 
@@ -541,6 +624,75 @@ impl Filesystem for Ufs {
 
 		match run(f) {
 			Ok(x) => reply.data(&x),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn listxattr(&mut self, _req: &Request<'_>, inr: u64, size: u32, reply: fuser::ReplyXattr) {
+		let inr = transino(inr);
+
+		let f = || {
+			let ino = self.read_inode(inr)?;
+			if size == 0 {
+				return Ok(Err(ino.extsize));
+			}
+			let mut data = OsString::new();
+			self.iter_xattr(&ino, |hdr, name, _data| {
+				let ns = hdr.namespace()?;
+				let name = ns.with_name(name);
+				data.push(name);
+				data.push("\0");
+
+				None::<()>
+			})?;
+
+			Ok(Ok(data.into_vec()))
+		};
+
+		match run(f) {
+			Ok(Ok(b)) => reply.data(&b),
+			Ok(Err(sz)) => reply.size(sz),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn getxattr(
+		&mut self,
+		_req: &Request<'_>,
+		inr: u64,
+		name: &OsStr,
+		size: u32,
+		reply: fuser::ReplyXattr,
+	) {
+		let inr = transino(inr);
+
+		enum R {
+			Data(Vec<u8>),
+			TooShort,
+			Len(u32),
+		}
+
+		let f = || {
+			let ino = self.read_inode(inr)?;
+
+			if size == 0 {
+				let len = self.read_xattr(&ino, name, |_hdr, data| data.len())?;
+				Ok(R::Len(len as u32))
+			} else {
+				self.read_xattr(&ino, name, |_hdr, data| {
+					if (size as usize) >= data.len() {
+						R::Data(data.into())
+					} else {
+						R::TooShort
+					}
+				})
+			}
+		};
+
+		match run(f) {
+			Ok(R::Data(x)) => reply.data(&x),
+			Ok(R::TooShort) => reply.error(libc::ERANGE),
+			Ok(R::Len(l)) => reply.size(l),
 			Err(e) => reply.error(e),
 		}
 	}
