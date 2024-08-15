@@ -1,4 +1,4 @@
-# FUSE UFS driver for FreeBSD
+# FUSE driver for FreeBSD's UFSv2
 
 ## Features
 - Read support for FreeBSD UFSv2
