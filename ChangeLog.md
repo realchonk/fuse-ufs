@@ -6,18 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [0.3.0] - 2024-08-22
 
+This was the final release as part of [Google Summer of Code 2024](https://summerofcode.withgoogle.com/programs/2024/projects/mCAcivuH).
+
 ### Added
 
-- ChangeLog
-- man page
-
-### Changed
-
-- README
+- ChangeLog (#62)
+- man page (#57)
 
 ### Removed
 
-- `-v` option
+- `-v` option (#58)
 
 ### [0.2.1] - 2024-08-15
 
