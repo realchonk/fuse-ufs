@@ -22,6 +22,7 @@ This was the final release as part of [Google Summer of Code 2024](https://summe
 ### Changed
 
 - README
+- Fix Cargo.toml for publishing
 
 ### [0.2.0] - 2024-08-11
 
