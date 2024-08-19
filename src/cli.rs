@@ -36,7 +36,7 @@ impl Cli {
 				"dev" => MountOption::Dev,
 				"dirsync" => MountOption::DirSync,
 				"exec" => MountOption::Exec,
-				"noatim" => MountOption::NoAtime,
+				"noatime" => MountOption::NoAtime,
 				"nodev" => MountOption::NoDev,
 				"noexec" => MountOption::NoExec,
 				"nosuid" => MountOption::NoSuid,
