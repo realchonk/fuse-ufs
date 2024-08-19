@@ -10,12 +10,12 @@ This was the final release as part of [Google Summer of Code 2024](https://summe
 
 ### Added
 
-- ChangeLog (#62)
-- man page (#57)
+- ChangeLog ([#62](https://github.com/realchonk/fuse-ufs/pull/62))
+- man page ([#57](https://github.com/realchonk/fuse-ufs/pull/57))
 
 ### Removed
 
-- `-v` option (#58)
+- `-v` option ([#58](https://github.com/realchonk/fuse-ufs/pull/58))
 
 ### [0.2.1] - 2024-08-15
 
