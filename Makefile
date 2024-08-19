@@ -1,12 +1,14 @@
 PREFIX = /usr/local
+MANPREFIX = ${PREFIX}/share/man
 
 SRC != find src -name '*.rs'
 
 all: fuse-ufs
 
 install: fuse-ufs
-	mkdir -p ${DESTDIR}${PREFIX}/bin
+	mkdir -p ${DESTDIR}${PREFIX}/bin ${DESTDIR}${MANPREFIX}/man8
 	cp -f fuse-ufs ${DESTDIR}${PREFIX}/bin/
+	cp -f docs/fuse-ufs.8 ${DESTDIR}${MANPREFIX}/man8/
 
 prepare: fmt lint
 
