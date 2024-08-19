@@ -1,5 +1,4 @@
 # FUSE driver for FreeBSD's UFSv2
-This project was sponsored as part of [Google Summer of Code 2024](https://summerofcode.withgoogle.com/programs/2024).
 
 ## Features
 - Read support for FreeBSD UFSv2
@@ -26,3 +25,6 @@ $ cd fuse-ufs
 $ make
 # make install
 ```
+
+## Sponsorship
+This project was sponsored as part of [Google Summer of Code 2024](https://summerofcode.withgoogle.com/programs/2024).
