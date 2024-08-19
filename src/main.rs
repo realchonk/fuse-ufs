@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use log::LevelFilter;
 
 use crate::{cli::Cli, ufs::Ufs};
 
