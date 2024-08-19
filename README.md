@@ -27,5 +27,5 @@ $ make
 ```
 
 ## Sponsorship
-This project was sponsored as part of [Google Summer of Code 2024](https://summerofcode.withgoogle.com/programs/2024).
+This project was sponsored as part of [Google Summer of Code 2024]($https://summerofcode.withgoogle.com/programs/2024/projects/mCAcivuH).
 The final release during GSoC was [0.3.0](https://github.com/realchonk/fuse-ufs/releases/tag/0.3.0).
