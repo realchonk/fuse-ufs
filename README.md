@@ -26,3 +26,6 @@ $ cd fuse-ufs
 $ make
 # make install
 ```
+
+## Google Summer of Code 2024
+The goal was to create a read-only FUSE implementation of FreeBSD's UFSv2.
