@@ -18,15 +18,28 @@ allows you to mount a FreeBSD UFSv2 filesystem.
 
 The following options are available:
 .Bl -tag -width indent
-.It Fl o Ar options
-Pass additional mount options to the kernel.
-.\" TODO: more details
+.It Fl o Ar opt,[opt...]
+Mount options, see below for details.
+.It Fl o Ar allow_other
+Allow other users to access the mounted filesystem.
+.It Fl o Ar allow_root
+Allow the root user to access the mounted filesystem.
+.It Fl o Ar default_permissions
+Let the kernel check file permissions.
+This is already the default for this filesystem.
+.It Fl o Ar dev|nodev
+Allow/prohibit using devices on the mounted filesystem.
+.It Fl o Ar exec|noexec
+Allow/prohibit executing programs from the mounted filesystem.
+.It Fl o Ar suid|nosuid
+Allow/prohibit honoring the setuid-bit when running programs from the mounted filesystem.
+.It Fl o Ar async|atime|dirsync|noatime|sync|ro
+These options have no effect on the mounted filesystem,
+as there is no write support yet.
+.It Fl o Ar rw
+As write support is not present, this option causes the program to crash.
 .It Fl h , -help
 Print a help page and exit.
-.It Fl v , -version
-Print the version of
-.Nm
-and exit.
 .El
 .Sh ENVIRONMENT
 .Ev RUST_LOG
@@ -37,29 +50,37 @@ one of: error, warn, info, debug, trace
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
-.\" TODO: how to mount a filesystem
+Mount /dev/sda1 onto /mnt:
+.Pp
+.Dl $ fuse-ufs /dev/sda1 /mnt
+.Pp
+The same, but allow other users to access the mounted filesystem:
+.Pp
+.Dl $ fuse-ufs -o allow_other /dev/sda1 /mnt
 .Sh SEE ALSO
-.\" TODO
+.Xr mount 8
 .Sh HISTORY
 .\" TODO: give credit to Kirk McKusick for UFS
 .Sh AUTHORS
 .An Benjamin Stürz Aq Mt benni@stuerz.xyz
-.An Alan Somers Aq Mt alan@freebsd.org
+.An Alan Somers Aq Mt asomers@freebsd.org
 .Sh CAVEATS
-Only Linux & FreeBSD systems have been tested to work.
+Only 64-bit Linux & FreeBSD systems have been tested to work.
 Support for other systems (like MacOS) will be on a best-effort basis for now.
 
 Missing features:
 .Bl -bullet -compact
 .It
-write support (TODO)
+Write Support (TODO)
 .It
-soft-updates (TODO)
+Soft-Updates (TODO)
 .It
 Sun/Solaris UFS (TODO)
+.It
+Snapshots
 .It
 ACLs
 .El
 .Sh BUGS
-This software is not ready to be used in production,
+This software is not yet ready to be used in production,
 as it contains unfixed bugs that lead to crashes.
