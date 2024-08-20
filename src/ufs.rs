@@ -371,7 +371,7 @@ fn readdir_block<T>(
 		file.read(name)?;
 
 		// skip remaining bytes of record, if any
-		dbg!((reclen, namelen, name));
+		dbg!((reclen, namelen, &name));
 		let off = reclen - (namelen as u16) - 8;
 		file.seek_relative(off as i64)?;
 
