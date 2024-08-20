@@ -86,10 +86,10 @@ impl Ufs {
 			return Err(err!(EIO));
 		};
 
-                let begin_indir1 = nd;
-                let begin_indir2 = nd + pbp;
-                let begin_indir3 = nd + pbp + pbp * pbp;
-                let begin_indir4 = nd + pbp + pbp * pbp + pbp * pbp * pbp; 
+		let begin_indir1 = nd;
+		let begin_indir2 = nd + pbp;
+		let begin_indir3 = nd + pbp + pbp * pbp;
+		let begin_indir4 = nd + pbp + pbp * pbp + pbp * pbp * pbp;
 
 		if blkno < begin_indir1 {
 			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
