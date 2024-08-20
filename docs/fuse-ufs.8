@@ -39,9 +39,13 @@ as there is no write support yet.
 .It Fl o Ar rw
 As write support is not present, this option causes the program to crash.
 .It Fl v
-Increase the verbosity (this flag can be specified multiple times).
+Increase the logging verbosity (this flag can be specified multiple times).
+.It Fl q
+Decrease the logging verbosity.
 .It Fl h , -help
 Print a help page and exit.
+.It Fl V , -version
+Print the version and exit.
 .El
 .Sh ENVIRONMENT
 .Ev RUST_LOG
