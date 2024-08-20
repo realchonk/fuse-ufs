@@ -86,10 +86,15 @@ impl Ufs {
 			return Err(err!(EIO));
 		};
 
-		if blkno < nd {
+                let begin_indir1 = nd;
+                let begin_indir2 = nd + pbp;
+                let begin_indir3 = nd + pbp + pbp * pbp;
+                let begin_indir4 = nd + pbp + pbp * pbp + pbp * pbp * pbp; 
+
+		if blkno < begin_indir1 {
 			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
-		} else if blkno < (nd + pbp) {
-			let low = blkno - nd;
+		} else if blkno < begin_indir2 {
+			let low = blkno - begin_indir1;
 			assert!(low < pbp);
 
 			log::trace!("resolve_file_block({inr}, {blkno}): 1-indirect: low={low}");
@@ -103,8 +108,8 @@ impl Ufs {
 			let block: u64 = self.file.decode_at(pos)?;
 			log::trace!("first={first:#x} *{pos:#x} = {block:#x}");
 			Ok(NonZeroU64::new(block))
-		} else if blkno < (nd + pbp * pbp) {
-			let x = blkno - nd - pbp;
+		} else if blkno < begin_indir3 {
+			let x = blkno - begin_indir2;
 			let low = x % pbp;
 			let high = x / pbp;
 			assert!(high < pbp);
@@ -126,8 +131,8 @@ impl Ufs {
 			let block: u64 = self.file.decode_at(pos)?;
 			log::trace!("*{pos:x} = {block:x}");
 			Ok(NonZeroU64::new(block))
-		} else if blkno < (nd + pbp * pbp * pbp) {
-			let x = blkno - nd - pbp - pbp * pbp;
+		} else if blkno < begin_indir4 {
+			let x = blkno - begin_indir3;
 			let low = x % pbp;
 			let mid = x / pbp % pbp;
 			let high = x / pbp / pbp;
@@ -160,8 +165,7 @@ impl Ufs {
 			let block: u64 = self.file.decode_at(pos)?;
 			Ok(NonZeroU64::new(block))
 		} else {
-			let max = nd + pbp * pbp * pbp;
-			log::warn!("block number too large: {blkno} >= {max}");
+			log::warn!("block number too large: {blkno} >= {begin_indir4}");
 			Ok(None)
 		}
 	}
