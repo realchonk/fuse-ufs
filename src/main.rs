@@ -13,9 +13,9 @@ mod ufs;
 fn main() -> Result<()> {
 	let cli = Cli::parse();
 
-        env_logger::builder()
-            .filter_level(cli.verbose.log_level_filter())
-            .init();
+	env_logger::builder()
+		.filter_level(cli.verbose.log_level_filter())
+		.init();
 
 	let fs = Ufs::open(&cli.device)?;
 
