@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use clap_verbosity_flag::{Verbosity, WarnLevel};
 use fuser::MountOption;
 
 #[derive(Parser)]
@@ -10,6 +11,9 @@ pub struct Cli {
 
 	pub device:     PathBuf,
 	pub mountpoint: PathBuf,
+
+	#[command(flatten)]
+	pub verbose: Verbosity<WarnLevel>,
 }
 
 impl Cli {
