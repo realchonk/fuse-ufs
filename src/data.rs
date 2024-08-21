@@ -365,6 +365,14 @@ pub struct BlockInfo {
 	pub size: u64,
 }
 
+#[derive(Debug, Decode)]
+pub struct DirentHeader {
+	pub inr:     u32,
+	pub reclen:  u16,
+	pub kind:    u8,
+	pub namelen: u8,
+}
+
 impl Superblock {
 	/// Calculate the size of a cylinder group.
 	pub fn cgsize(&self) -> u64 {

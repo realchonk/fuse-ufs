@@ -357,34 +357,25 @@ fn readdir_block<T>(
 	let mut file = Decoder::new(file, config);
 
 	loop {
-		let Ok(ino) = file.decode::<InodeNum>() else {
+		let Ok(ent) = file.decode::<DirentHeader>() else {
 			break;
 		};
-		if ino == 0 {
+		if ent.inr == 0 {
 			break;
 		}
 
-		let reclen: u16 = file.decode()?;
-		if reclen == 0 {
-			log::warn!("readdir_block({inr}): directory entry for inode {ino} has an invalid reclen of {reclen}");
-			break;
-		}
-		let kind: u8 = file.decode()?;
-		let namelen: u8 = file.decode()?;
-		if namelen == 0 {
-			log::warn!("readdir_block({inr}): directory entry for inode {ino} has an invalid namelen of {namelen}");
-			break;
-		}
-		let name = &mut name[0..namelen.into()];
+		let namelen = ent.namelen as usize;
+		let name = &mut name[0..ent.namelen.into()];
 		file.read(name)?;
 
+		let nread = size_of_val(&ent) + namelen;
+
 		// skip remaining bytes of record, if any
-		dbg!((reclen, namelen, &name));
-		let off = reclen - (namelen as u16) - 8;
+		let off = ent.reclen as usize - nread;
 		file.seek_relative(off as i64)?;
 
 		let name = unsafe { OsStr::from_encoded_bytes_unchecked(name) };
-		let kind = match kind {
+		let kind = match ent.kind {
 			DT_FIFO => FileType::NamedPipe,
 			DT_CHR => FileType::CharDevice,
 			DT_DIR => FileType::Directory,
@@ -396,10 +387,10 @@ fn readdir_block<T>(
 				log::warn!("readdir_block({inr}): encountered a whiteout entry: {name:?}");
 				continue;
 			}
-			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
-			_ => panic!("invalid filetype: {kind}"),
+			DT_UNKNOWN => todo!("DT_UNKNOWN: {}", ent.inr),
+			kind => panic!("invalid filetype: {kind}"),
 		};
-		let res = f(name, ino, kind);
+		let res = f(name, ent.inr, kind);
 		if res.is_some() {
 			return Ok(res);
 		}
