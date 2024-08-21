@@ -10,6 +10,8 @@
 - Softupdates
 
 ## Packages
+[![Packaging status](https://repology.org/badge/vertical-allrepos/fusefs:ufs.svg)](https://repology.org/project/fusefs:ufs/versions)
+
 - [Arch Linux AUR](https://aur.archlinux.org/packages/fuse-ufs)
 - FreeBSD (TODO)
 - [crates.io](https://crates.io/crates/fuse-ufs)
