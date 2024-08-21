@@ -363,7 +363,13 @@ fn readdir_block<T>(
 		if ent.inr == 0 {
 			break;
 		}
-
+		if ent.namelen < 1 {
+			log::error!(
+				"readdir_block({inr}): invalid namelen for inode {}",
+				ent.inr
+			);
+			break;
+		}
 		let namelen = ent.namelen as usize;
 		let name = &mut name[0..ent.namelen.into()];
 		file.read(name)?;
@@ -371,8 +377,15 @@ fn readdir_block<T>(
 		let nread = size_of_val(&ent) + namelen;
 
 		// skip remaining bytes of record, if any
-		let off = ent.reclen as usize - nread;
-		file.seek_relative(off as i64)?;
+		let off = ent.reclen as i64 - nread as i64;
+		if off < 0 {
+			log::error!(
+				"readdir_block({inr}): invalid dirent for inode {}, reclen={}, namelen={namelen}, name={name:?}",
+				ent.inr, ent.reclen
+			);
+			break;
+		}
+		file.seek_relative(off)?;
 
 		let name = unsafe { OsStr::from_encoded_bytes_unchecked(name) };
 		let kind = match ent.kind {
