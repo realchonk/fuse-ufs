@@ -365,8 +365,16 @@ fn readdir_block<T>(
 		}
 
 		let reclen: u16 = file.decode()?;
+		if reclen == 0 {
+			log::warn!("readdir_block({inr}): directory entry for inode {ino} has an invalid reclen of {reclen}");
+			break;
+		}
 		let kind: u8 = file.decode()?;
 		let namelen: u8 = file.decode()?;
+		if namelen == 0 {
+			log::warn!("readdir_block({inr}): directory entry for inode {ino} has an invalid namelen of {namelen}");
+			break;
+		}
 		let name = &mut name[0..namelen.into()];
 		file.read(name)?;
 
