@@ -11,8 +11,11 @@ mod inode;
 mod ufs;
 
 fn main() -> Result<()> {
-	env_logger::init();
 	let cli = Cli::parse();
+
+	env_logger::builder()
+		.filter_level(cli.verbose.log_level_filter())
+		.init();
 
 	let fs = Ufs::open(&cli.device)?;
 

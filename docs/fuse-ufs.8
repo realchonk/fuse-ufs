@@ -1,5 +1,5 @@
 .\" Copyright (c) 2024 Benjamin Stürz <benni@stuerz.xyz>
-.Dd August 19, 2024
+.Dd August 21, 2024
 .Dt FUSE-UFS 8
 .Os
 .Sh NAME
@@ -38,13 +38,15 @@ These options have no effect on the mounted filesystem,
 as there is no write support yet.
 .It Fl o Ar rw
 As write support is not present, this option causes the program to crash.
+.It Fl v
+Increase the logging verbosity (this flag can be specified multiple times).
+.It Fl q
+Decrease the logging verbosity.
 .It Fl h , -help
 Print a help page and exit.
+.It Fl V , -version
+Print the version and exit.
 .El
-.Sh ENVIRONMENT
-.Ev RUST_LOG
-one of: error, warn, info, debug, trace
-.\" TODO: this looks ugly
 .\" .Sh FILES TODO: mention `special` and `mountpoint`
 .Sh EXIT STATUS
 .Ex -std
