@@ -13,6 +13,9 @@ This was the final release as part of [Google Summer of Code 2024](https://summe
 - ChangeLog ([#62](https://github.com/realchonk/fuse-ufs/pull/62))
 - man page ([#57](https://github.com/realchonk/fuse-ufs/pull/57))
 
+### Fixed
+- indirect block addressing ([#63](https://github.com/realchonk/fuse-ufs/pull/63))
+
 ### Removed
 
 - `-v` option ([#58](https://github.com/realchonk/fuse-ufs/pull/58))
