@@ -8,7 +8,7 @@ use std::{
 		unix::{ffi::OsStringExt, fs::MetadataExt},
 	},
 	path::{Path, PathBuf},
-	process::{Child, Command},
+	process::{Child, Command, Stdio},
 	thread::sleep,
 	time::{Duration, Instant},
 };
@@ -356,6 +356,21 @@ fn sparse3(#[case] harness: Harness) {
 	file.read_exact(&mut buf).unwrap();
 	let expected = [b'x'; 32768];
 	assert_eq!(buf, expected);
+}
+
+#[apply(all_images)]
+fn sparse3_file(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let st = Command::new("file")
+		.arg(d.path().join("sparse3"))
+		.stdin(Stdio::null())
+		.stdout(Stdio::null())
+		.stderr(Stdio::null())
+		.status()
+		.unwrap();
+
+	assert!(st.success());
 }
 
 #[apply(all_images)]
