@@ -358,6 +358,7 @@ fn sparse3(#[case] harness: Harness) {
 	assert_eq!(buf, expected);
 }
 
+/// This test checks, if the `file` utility crashes the filesystem or not.
 #[apply(all_images)]
 fn sparse3_file(#[case] harness: Harness) {
 	let d = &harness.d;
