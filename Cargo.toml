@@ -5,7 +5,6 @@ edition = "2021"
 exclude = ["doc/*"]
 license = "BSD-2-Clause"
 authors = ["Benjamin Stürz <benni@stuerz.xyz>", "Alan Somers <asomers@gmail.com>"]
-homepage = "https://github.com/realchonk/fuse-ufs"
 description = "FUSE implementation of FreeBSD's UFSv2"
 repository = "https://github.com/realchonk/fuse-ufs"
 rust-version = "1.74.0"
