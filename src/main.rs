@@ -19,6 +19,11 @@ fn main() -> Result<()> {
 
 	let fs = Ufs::open(&cli.device)?;
 
-	fuser::mount2(fs, &cli.mountpoint, &cli.options())?;
+	if cli.foreground {
+		fuser::mount2(fs, &cli.mountpoint, &cli.options())?;
+	} else {
+		fuser::spawn_mount2(fs, &cli.mountpoint, &cli.options())?;
+	}
+
 	Ok(())
 }
