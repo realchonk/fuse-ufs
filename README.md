@@ -39,11 +39,11 @@ mount -t ufs -o ro /dev/sdb1 /mnt
 
 ### Mounting via fstab
 ```fstab
-/dev/sdb1	/mnt	fuse.fuse-ufs	ro 0 0
+/dev/sdb1   /mnt    fuse.fuse-ufs   ro 0 0
 ```
 or
 ```fstab
-/dev/sdb1	/mnt	ufs				ro 0 0
+/dev/sdb1   /mnt    ufs             ro 0 0
 ```
 
 ## Sponsorship
