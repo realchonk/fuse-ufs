@@ -8,7 +8,7 @@ use std::{
 		unix::{ffi::OsStringExt, fs::MetadataExt},
 	},
 	path::{Path, PathBuf},
-	process::{Child, Command, Stdio},
+	process::{Child, Command},
 	thread::sleep,
 	time::{Duration, Instant},
 };
