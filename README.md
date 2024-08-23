@@ -27,7 +27,7 @@ $ make
 ```
 
 ## Example Usage
-Note: replace sdb1 with your FreeBSD's UFS partition.
+Note: replace `sdb1` with your FreeBSD's UFS partition.
 
 ```sh
 fuse-ufs /dev/sdb1 /mnt
