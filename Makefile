@@ -9,6 +9,7 @@ install: fuse-ufs
 	mkdir -p ${DESTDIR}${PREFIX}/bin ${DESTDIR}${MANPREFIX}/man8
 	cp -f fuse-ufs ${DESTDIR}${PREFIX}/bin/
 	cp -f docs/fuse-ufs.8 ${DESTDIR}${MANPREFIX}/man8/
+	ln -sf fuse-ufs ${DESTDIR}${PREFIX}/bin/mount.ufs
 
 prepare: fmt lint
 
