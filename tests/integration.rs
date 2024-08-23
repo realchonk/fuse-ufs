@@ -358,20 +358,17 @@ fn sparse3(#[case] harness: Harness) {
 	assert_eq!(buf, expected);
 }
 
-/// This test checks, if the `file` utility crashes the filesystem or not.
+// This checks, that issue #54 doesn't happen.
 #[apply(all_images)]
-fn sparse3_file(#[case] harness: Harness) {
+fn sparse3_issue54(#[case] harness: Harness) {
 	let d = &harness.d;
 
-	let st = Command::new("file")
-		.arg(d.path().join("sparse3"))
-		.stdin(Stdio::null())
-		.stdout(Stdio::null())
-		.stderr(Stdio::null())
-		.status()
-		.unwrap();
-
-	assert!(st.success());
+	let mut file = File::open(d.path().join("sparse3")).unwrap();
+	file.seek(SeekFrom::Start(549883084800)).unwrap();
+	let mut buf = [0u8; 128 * 1024];
+	file.read_exact(&mut buf).unwrap();
+	let expected = [0; 128 * 1024];
+	assert_eq!(buf, expected);
 }
 
 #[apply(all_images)]
