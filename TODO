@@ -1,5 +1,4 @@
 Short Term:
-- support for specifying multiple `-v`
 - `-f` option (foreground)
 - more integration tests
 - more unit tests
@@ -7,5 +6,4 @@ Short Term:
 Long Term:
 - read-write
 - snapshots
-- extended attributes
 - replace `run()` with more selective error reporting
