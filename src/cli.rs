@@ -18,6 +18,10 @@ pub struct Cli {
 
 	#[command(flatten)]
 	pub verbose: Verbosity<WarnLevel>,
+
+	/// Wait until the filesystem is unmounted.
+	#[arg(short)]
+	pub foreground: bool,
 }
 
 impl Cli {

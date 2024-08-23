@@ -99,6 +99,7 @@ fn harness(img: &Path) -> Harness {
 	let d = tempdir().unwrap();
 	let child = Command::cargo_bin("fuse-ufs")
 		.unwrap()
+		.arg("-f")
 		.arg(img)
 		.arg(d.path())
 		.spawn()
