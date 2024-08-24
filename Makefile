@@ -15,6 +15,7 @@ prepare: fmt lint
 
 fmt:
 	cargo +nightly fmt
+	./scripts/fmt-changelog.sh
 
 lint:
 	cargo clippy --all-targets
