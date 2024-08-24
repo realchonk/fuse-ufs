@@ -14,7 +14,7 @@ This was the final release as part of [Google Summer of Code 2024](https://summe
 - man page ([#57](https://github.com/realchonk/fuse-ufs/pull/57))
 - `-v` and `-q` flags ([#66](https://github.com/realchonk/fuse-ufs/pull/66))
 - `-f` option ([#68](https://github.com/realchonk/fuse-ufs/pull/68))
-- the ability to mount via `/etc/fstab` ([#69](https://github.com/realchonk/fuse-ufs/pull/69))
+- the ability to mount via `/etc/fstab` on Linux ([#69](https://github.com/realchonk/fuse-ufs/pull/69))
 
 ### Changed
 
