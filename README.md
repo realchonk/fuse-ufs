@@ -26,5 +26,21 @@ $ make
 # make install
 ```
 
+## Example Usage
+Note: replace `sdb1` with your FreeBSD's UFS partition.
+
+```sh
+$ fuse-ufs /dev/sdb1 /mnt
+```
+
+### Mounting via fstab (on Linux)
+```fstab
+/dev/sdb1   /mnt    fuse.fuse-ufs   ro 0 0
+```
+or
+```fstab
+/dev/sdb1   /mnt    ufs             ro 0 0
+```
+
 ## Sponsorship
 This project was sponsored as part of [Google Summer of Code 2024](https://summerofcode.withgoogle.com/programs/2024).
