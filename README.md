@@ -30,14 +30,10 @@ $ make
 Note: replace `sdb1` with your FreeBSD's UFS partition.
 
 ```sh
-fuse-ufs /dev/sdb1 /mnt
-```
-or
-```sh
-mount -t ufs -o ro /dev/sdb1 /mnt
+$ fuse-ufs /dev/sdb1 /mnt
 ```
 
-### Mounting via fstab
+### Mounting via fstab (on Linux)
 ```fstab
 /dev/sdb1   /mnt    fuse.fuse-ufs   ro 0 0
 ```
