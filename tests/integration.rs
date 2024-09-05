@@ -97,7 +97,7 @@ struct Harness {
 
 fn harness(img: &Path) -> Harness {
 	let d = tempdir().unwrap();
-	let child = Command::cargo_bin("fuse-ufs")
+	let child = Command::cargo_bin("fuse-ufs-fuser")
 		.unwrap()
 		.arg("-f")
 		.arg(img)
