@@ -1,14 +1,10 @@
 use anyhow::Result;
 use clap::Parser;
 
-use crate::{cli::Cli, ufs::Ufs};
+use fuse_ufs::Ufs;
+use crate::cli::Cli;
 
-mod blockreader;
 mod cli;
-mod data;
-mod decoder;
-mod inode;
-mod ufs;
 
 fn main() -> Result<()> {
 	let cli = Cli::parse();
