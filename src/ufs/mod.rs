@@ -6,14 +6,14 @@ use std::{
 	os::unix::ffi::{OsStrExt, OsStringExt},
 	path::Path,
 };
-use fuser::FileType;
 
 use anyhow::{bail, Result};
+use fuser::FileType;
 
-mod xattr;
-mod symlink;
-mod inode;
 mod dir;
+mod inode;
+mod symlink;
+mod xattr;
 
 use crate::{
 	blockreader::BlockReader,
@@ -31,11 +31,11 @@ macro_rules! err {
 #[derive(Debug, Clone)]
 pub struct Info {
 	pub blocks: u64,
-	pub bfree: u64,
-	pub files: u64,
-	pub ffree: u64,
-	pub bsize: u32,
-	pub fsize: u32,
+	pub bfree:  u64,
+	pub files:  u64,
+	pub ffree:  u64,
+	pub bsize:  u32,
+	pub fsize:  u32,
 }
 
 pub struct Ufs {
@@ -67,10 +67,7 @@ impl Ufs {
 		}
 		//assert_eq!(superblock.cgsize, CGSIZE as i32);
 
-		let mut s = Self {
-			file,
-			superblock,
-		};
+		let mut s = Self { file, superblock };
 		s.check()?;
 		Ok(s)
 	}
@@ -80,11 +77,11 @@ impl Ufs {
 		let cst = &sb.cstotal;
 		Info {
 			blocks: sb.dsize as u64,
-			bfree: (cst.nbfree * sb.frag as i64 + cst.nffree) as u64,
-			files: (sb.ipg * sb.ncg) as u64,
-			ffree: cst.nifree as u64,
-			bsize: sb.bsize as u32,
-			fsize: sb.fsize as u32,
+			bfree:  (cst.nbfree * sb.frag as i64 + cst.nffree) as u64,
+			files:  (sb.ipg * sb.ncg) as u64,
+			ffree:  cst.nifree as u64,
+			bsize:  sb.bsize as u32,
+			fsize:  sb.fsize as u32,
 		}
 	}
 
@@ -127,4 +124,3 @@ impl Ufs {
 		Ok(())
 	}
 }
-

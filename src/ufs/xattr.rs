@@ -84,7 +84,6 @@ impl Ufs {
 		.and_then(|r| r.ok_or(IoError::from_raw_os_error(ERR)))
 	}
 
-
 	pub fn xattr_list_len(&mut self, inr: u64) -> IoResult<u32> {
 		let ino = self.read_inode(inr)?;
 		Ok(ino.extsize)

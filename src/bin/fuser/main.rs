@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 
-use crate::{fs::Fs, cli::Cli};
+use crate::{cli::Cli, fs::Fs};
 
 mod cli;
 mod fs;

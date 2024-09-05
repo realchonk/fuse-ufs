@@ -54,7 +54,6 @@ fn readdir_block<T>(
 	Ok(None)
 }
 
-
 impl Ufs {
 	pub fn dir_lookup(&mut self, pinr: u64, name: &OsStr) -> IoResult<u64> {
 		self.dir_iter(pinr, |name2, inr, _kind| {
@@ -64,8 +63,9 @@ impl Ufs {
 				None
 			}
 		})?
-			.ok_or(err!(ENOENT))
+		.ok_or(err!(ENOENT))
 	}
+
 	pub fn dir_iter<T>(
 		&mut self,
 		inr: u64,
@@ -85,5 +85,4 @@ impl Ufs {
 		}
 		Ok(None)
 	}
-
 }
