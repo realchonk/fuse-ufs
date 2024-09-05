@@ -31,12 +31,66 @@ macro_rules! err {
 	};
 }
 
+#[derive(Debug, Clone)]
+pub struct Info {
+	pub blocks: u64,
+	pub bfree: u64,
+	pub files: u64,
+	pub ffree: u64,
+	pub bsize: u32,
+	pub fsize: u32,
+}
+
 pub struct Ufs {
 	file:       Decoder<BlockReader>,
 	superblock: Superblock,
 }
 
 impl Ufs {
+	pub fn open(path: &Path) -> Result<Self> {
+		let mut file = BlockReader::open(path)?;
+
+		let pos = SBLOCK_UFS2 as u64 + MAGIC_OFFSET;
+		file.seek(SeekFrom::Start(pos))?;
+		let mut magic = [0u8; 4];
+		file.read_exact(&mut magic)?;
+
+		// magic: 0x19 54 01 19
+		let config = match magic {
+			[0x19, 0x01, 0x54, 0x19] => Config::little(),
+			[0x19, 0x54, 0x01, 0x19] => Config::big(),
+			_ => bail!("invalid superblock magic number: {magic:?}"),
+		};
+
+		let mut file = Decoder::new(file, config);
+
+		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
+		if superblock.magic != FS_UFS2_MAGIC {
+			bail!("invalid superblock magic number: {}", superblock.magic);
+		}
+		//assert_eq!(superblock.cgsize, CGSIZE as i32);
+
+		let mut s = Self {
+			file,
+			superblock,
+		};
+		s.check()?;
+		Ok(s)
+	}
+
+	pub fn info(&self) -> Info {
+		let sb = &self.superblock;
+		let cst = &sb.cstotal;
+		Info {
+			blocks: sb.dsize as u64,
+			bfree: (cst.nbfree * sb.frag as i64 + cst.nffree) as u64,
+			files: (sb.ipg * sb.ncg) as u64,
+			ffree: cst.nifree as u64,
+			bsize: sb.bsize as u32,
+			fsize: sb.fsize as u32,
+		}
+	}
+
 	fn check(&mut self) -> IoResult<()> {
 		let sb = &self.superblock;
 		log::debug!("Superblock: {sb:#?}");
@@ -75,37 +129,6 @@ impl Ufs {
 		log::info!("OK");
 		Ok(())
 	}
-	pub fn open(path: &Path) -> Result<Self> {
-		let mut file = BlockReader::open(path)?;
-
-		let pos = SBLOCK_UFS2 as u64 + MAGIC_OFFSET;
-		file.seek(SeekFrom::Start(pos))?;
-		let mut magic = [0u8; 4];
-		file.read_exact(&mut magic)?;
-
-		// magic: 0x19 54 01 19
-		let config = match magic {
-			[0x19, 0x01, 0x54, 0x19] => Config::little(),
-			[0x19, 0x54, 0x01, 0x19] => Config::big(),
-			_ => bail!("invalid superblock magic number: {magic:?}"),
-		};
-
-		let mut file = Decoder::new(file, config);
-
-		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
-		if superblock.magic != FS_UFS2_MAGIC {
-			bail!("invalid superblock magic number: {}", superblock.magic);
-		}
-		//assert_eq!(superblock.cgsize, CGSIZE as i32);
-
-		let mut s = Self {
-			file,
-			superblock,
-		};
-		s.check()?;
-		Ok(s)
-	}
-
 }
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
@@ -228,20 +251,16 @@ impl Filesystem for Ufs {
 	}
 
 	fn statfs(&mut self, _req: &Request<'_>, _ino: u64, reply: fuser::ReplyStatfs) {
-		let sb = &self.superblock;
-		let cst = &sb.cstotal;
-		let bfree = cst.nbfree as u64;
-		let ffree = cst.nffree as u64;
-		let free = bfree * sb.frag as u64 + ffree;
+		let info = self.info();
 		reply.statfs(
-			sb.dsize as u64,
-			free,
-			free,
-			(sb.ipg * sb.ncg) as u64,
-			cst.nifree as u64,
-			sb.bsize as u32,
+			info.blocks,
+			info.bfree,
+			info.bfree,
+			info.files,
+			info.ffree,
+			info.bsize,
 			255,
-			sb.fsize as u32,
+			info.fsize,
 		)
 	}
 
