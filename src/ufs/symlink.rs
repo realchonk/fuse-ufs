@@ -20,7 +20,7 @@ impl Ufs {
 
 				let len = ino.size as usize;
 				let mut buf = vec![0u8; self.superblock.bsize as usize];
-				self.read_file_block(inr, &ino, 0, &mut buf)?;
+				self.inode_read_block(inr, &ino, 0, &mut buf)?;
 				buf.resize(len, 0u8);
 				Ok(buf)
 			}
