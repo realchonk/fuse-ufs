@@ -2,11 +2,10 @@ use super::*;
 use crate::err;
 
 impl Ufs {
-	pub fn inode_read(&mut self, inr: u64, offset: u64, buffer: &mut [u8]) -> IoResult<usize> {
+	pub fn inode_read(&mut self, inr: u64, mut offset: u64, buffer: &mut [u8]) -> IoResult<usize> {
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
 		let ino = self.read_inode(inr)?;
 
-		let mut offset = offset as u64;
 		let mut boff = 0;
 		let len = buffer.len() as u64;
 		let end = offset + len;

@@ -287,7 +287,7 @@ fn non_existent(#[case] harness: Harness) {
 	let path = d.path().join("non-existent");
 
 	assert_eq!(
-		std::fs::metadata(&path).unwrap_err().kind(),
+		std::fs::metadata(path).unwrap_err().kind(),
 		ErrorKind::NotFound
 	);
 }
