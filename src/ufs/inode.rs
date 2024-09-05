@@ -2,6 +2,34 @@ use super::*;
 use crate::err;
 
 impl Ufs {
+	pub fn inode_read(&mut self, inr: u64, offset: u64, buffer: &mut [u8]) -> IoResult<usize> {
+		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
+		let ino = self.read_inode(inr)?;
+
+		let mut offset = offset as u64;
+		let mut boff = 0;
+		let len = buffer.len() as u64;
+		let end = offset + len;
+
+		while offset < end {
+			let block = self.inode_find_block(inr, &ino, offset);
+			let num = (block.size - block.off).min(end - offset);
+
+			self.inode_read_block(
+				inr,
+				&ino,
+				block.blkidx,
+				&mut blockbuf[0..(block.size as usize)],
+			)?;
+			buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[0..(num as usize)]);
+
+			offset += num;
+			boff += num as usize;
+		}
+
+		Ok(boff)
+	}
+
 	pub(super) fn read_inode(&mut self, inr: u64) -> IoResult<Inode> {
 		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;

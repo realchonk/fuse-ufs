@@ -206,30 +206,8 @@ impl Filesystem for Ufs {
 
 		let f = || {
 			let mut buffer = vec![0u8; size as usize];
-			let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
-			let ino = self.read_inode(inr)?;
-
-			let mut offset = offset as u64;
-			let mut boff = 0;
-			let len = size as u64;
-			let end = offset + len;
-
-			while offset < end {
-				let block = self.inode_find_block(inr, &ino, offset);
-				let num = (block.size - block.off).min(end - offset);
-
-				self.inode_read_block(
-					inr,
-					&ino,
-					block.blkidx,
-					&mut blockbuf[0..(block.size as usize)],
-				)?;
-				buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[0..(num as usize)]);
-
-				offset += num;
-				boff += num as usize;
-			}
-
+			let n = self.inode_read(inr, offset as u64, &mut buffer)?;
+			buffer.shrink_to(n);
 			Ok(buffer)
 		};
 
