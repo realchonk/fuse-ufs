@@ -37,6 +37,44 @@ pub struct Ufs {
 }
 
 impl Ufs {
+	fn check(&mut self) -> IoResult<()> {
+		let sb = &self.superblock;
+		log::debug!("Superblock: {sb:#?}");
+
+		log::info!("Summary:");
+		log::info!("Block Size: {}", sb.bsize);
+		log::info!("# Blocks: {}", sb.size);
+		log::info!("# Data Blocks: {}", sb.dsize);
+		log::info!("Fragment Size: {}", sb.fsize);
+		log::info!("Fragments per Block: {}", sb.frag);
+		log::info!("# Cylinder Groups: {}", sb.ncg);
+		log::info!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
+		assert!(sb.cgsize_struct() < sb.bsize as usize);
+
+		// check that all superblocks are ok.
+		for i in 0..sb.ncg {
+			let sb = &self.superblock;
+			let addr = ((sb.fpg + sb.sblkno) * sb.fsize) as u64;
+			let csb: Superblock = self.file.decode_at(addr).unwrap();
+			if csb.magic != FS_UFS2_MAGIC {
+				log::error!("CG{i} has invalid superblock magic: {:x}", csb.magic);
+				return Err(err!(EIO));
+			}
+		}
+
+		// check that all cylgroups are ok.
+		for i in 0..self.superblock.ncg {
+			let sb = &self.superblock;
+			let addr = ((sb.fpg + sb.cblkno) * sb.fsize) as u64;
+			let cg: CylGroup = self.file.decode_at(addr).unwrap();
+			if cg.magic != CG_MAGIC {
+				log::error!("CG{i} has invalid cg magic: {:x}", cg.magic);
+				return Err(err!(EIO));
+			}
+		}
+		log::info!("OK");
+		Ok(())
+	}
 	pub fn open(path: &Path) -> Result<Self> {
 		let mut file = BlockReader::open(path)?;
 
@@ -59,7 +97,13 @@ impl Ufs {
 			bail!("invalid superblock magic number: {}", superblock.magic);
 		}
 		//assert_eq!(superblock.cgsize, CGSIZE as i32);
-		Ok(Self { file, superblock })
+
+		let mut s = Self {
+			file,
+			superblock,
+		};
+		s.check()?;
+		Ok(s)
 	}
 
 }
@@ -81,40 +125,6 @@ fn transino(ino: u64) -> u64 {
 
 impl Filesystem for Ufs {
 	fn init(&mut self, _req: &Request<'_>, _config: &mut KernelConfig) -> Result<(), c_int> {
-		let sb = &self.superblock;
-		log::debug!("Superblock: {sb:#?}");
-
-		log::info!("Summary:");
-		log::info!("Block Size: {}", sb.bsize);
-		log::info!("# Blocks: {}", sb.size);
-		log::info!("# Data Blocks: {}", sb.dsize);
-		log::info!("Fragment Size: {}", sb.fsize);
-		log::info!("Fragments per Block: {}", sb.frag);
-		log::info!("# Cylinder Groups: {}", sb.ncg);
-		log::info!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
-		assert!(sb.cgsize_struct() < sb.bsize as usize);
-
-		// check that all superblocks are ok.
-		for i in 0..sb.ncg {
-			let sb = &self.superblock;
-			let addr = ((sb.fpg + sb.sblkno) * sb.fsize) as u64;
-			let csb: Superblock = self.file.decode_at(addr).unwrap();
-			if csb.magic != FS_UFS2_MAGIC {
-				log::error!("CG{i} has invalid superblock magic: {:x}", csb.magic);
-			}
-		}
-
-		// check that all cylgroups are ok.
-		for i in 0..self.superblock.ncg {
-			let sb = &self.superblock;
-			let addr = ((sb.fpg + sb.cblkno) * sb.fsize) as u64;
-			let cg: CylGroup = self.file.decode_at(addr).unwrap();
-			if cg.magic != CG_MAGIC {
-				log::error!("CG{i} has invalid cg magic: {:x}", cg.magic);
-			}
-		}
-		log::info!("OK");
-
 		Ok(())
 	}
 
