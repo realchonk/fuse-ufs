@@ -68,7 +68,12 @@ impl<R: Read + Seek> Ufs<R> {
 		let config = match magic {
 			[0x19, 0x01, 0x54, 0x19] => Config::little(),
 			[0x19, 0x54, 0x01, 0x19] => Config::big(),
-			_ => iobail!(ErrorKind::InvalidInput, "invalid superblock magic number: {magic:?}"),
+			_ => {
+				iobail!(
+					ErrorKind::InvalidInput,
+					"invalid superblock magic number: {magic:?}"
+				)
+			}
 		};
 		// FIXME: Choose based on hash of input or so, to excercise BE as well with introducing non-determinism
 		#[cfg(fuzzing)]
@@ -79,7 +84,11 @@ impl<R: Read + Seek> Ufs<R> {
 		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
 		#[cfg(not(fuzzing))]
 		if superblock.magic != FS_UFS2_MAGIC {
-			iobail!(ErrorKind::InvalidInput, "invalid superblock magic number: {}", superblock.magic);
+			iobail!(
+				ErrorKind::InvalidInput,
+				"invalid superblock magic number: {}",
+				superblock.magic
+			);
 		}
 		let mut s = Self { file, superblock };
 		#[cfg(not(fuzzing))]

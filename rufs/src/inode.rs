@@ -41,44 +41,31 @@ impl Inode {
 		self.mode & 0o7777
 	}
 
-	pub fn kind(&self) -> FileType {
-		let mode = self.mode & S_IFMT;
-		match mode {
-			S_IFIFO => FileType::NamedPipe,
-			S_IFCHR => FileType::CharDevice,
-			S_IFDIR => FileType::Directory,
-			S_IFBLK => FileType::BlockDevice,
-			S_IFREG => FileType::RegularFile,
-			S_IFLNK => FileType::Symlink,
-			S_IFSOCK => FileType::Socket,
-			_ => unreachable!("invalid file mode: {mode:o}"),
-		}
-	}
-
-	pub fn as_fileattr(&self, ino: InodeNum) -> FileAttr {
-		FileAttr {
-			ino:     ino.get64(),
-			size:    self.size,
-			blocks:  self.blocks,
-			atime:   self.atime(),
-			mtime:   self.mtime(),
-			ctime:   self.ctime(),
-			crtime:  self.btime(),
-			kind:    self.kind(),
-			perm:    self.perm(),
-			nlink:   self.nlink.into(),
-			uid:     self.uid,
-			gid:     self.gid,
-			rdev:    0,
+	pub fn as_attr(&self, inr: InodeNum) -> InodeAttr {
+		InodeAttr {
+			inr,
+			mode: self.mode,
+			size: self.size,
+			blocks: self.blocks,
+			atime: self.atime(),
+			mtime: self.mtime(),
+			ctime: self.ctime(),
+			btime: self.btime(),
+			nlink: self.nlink,
+			uid: self.uid,
+			gid: self.gid,
+			gen: self.gen,
 			blksize: self.blksize,
-			flags:   self.flags,
+			flags: self.flags,
+			kernflags: self.kernflags,
+			extsize: self.extsize,
 		}
 	}
 
 	pub fn size(&self, bs: u64, fs: u64) -> (u64, u64) {
-		let size = match self.kind() {
-			FileType::Directory => self.blocks * fs,
-			FileType::RegularFile | FileType::Symlink => self.size,
+		let size = match self.mode & S_IFMT {
+			S_IFDIR => self.blocks * fs,
+			S_IFREG | S_IFLNK => self.size,
 			kind => todo!("Inode::size() is undefined for {kind:?}"),
 		};
 		Self::inode_size(bs, fs, size)
@@ -167,5 +154,38 @@ mod test {
 		assert_eq!(isz(bs), (1, 0));
 		assert_eq!(isz(bs + 2 * fs), (1, 2));
 		assert_eq!(isz(100 * bs + 7 * fs), (100, 7));
+	}
+}
+
+impl Into<FileAttr> for InodeAttr {
+	fn into(self) -> FileAttr {
+		let mode = self.mode & S_IFMT;
+		let kind = match mode {
+			S_IFIFO => FileType::NamedPipe,
+			S_IFCHR => FileType::CharDevice,
+			S_IFDIR => FileType::Directory,
+			S_IFBLK => FileType::BlockDevice,
+			S_IFREG => FileType::RegularFile,
+			S_IFLNK => FileType::Symlink,
+			S_IFSOCK => FileType::Socket,
+			_ => unreachable!("invalid file mode: {mode:o}"),
+		};
+		FileAttr {
+			ino: self.inr.get64(),
+			size: self.size,
+			blocks: self.blocks,
+			atime: self.atime,
+			mtime: self.mtime,
+			ctime: self.ctime,
+			crtime: self.atime,
+			kind,
+			perm: self.mode & 0o7777,
+			nlink: self.nlink.into(),
+			uid: self.uid,
+			gid: self.gid,
+			rdev: 0,
+			blksize: self.blksize,
+			flags: self.flags,
+		}
 	}
 }

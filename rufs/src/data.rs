@@ -5,6 +5,7 @@ use std::{
 	ffi::{OsStr, OsString},
 	fmt::{self, Display, Formatter},
 	mem::size_of,
+	time::SystemTime,
 };
 
 use bincode::Decode;
@@ -354,6 +355,26 @@ pub struct Inode {
 	pub ignored:   u32, // 240: (SUJ: Next unlinked inode) or (IFDIR: depth from root dir)
 	pub ckhash:    u32, // 244: if CK_INODE, its check-hash
 	pub spare:     [u32; 2], // 248: Reserved; currently unused
+}
+
+#[derive(Debug)]
+pub struct InodeAttr {
+	pub inr:       InodeNum,
+	pub mode:      u16,
+	pub size:      u64,
+	pub blocks:    u64,
+	pub atime:     SystemTime,
+	pub mtime:     SystemTime,
+	pub ctime:     SystemTime,
+	pub btime:     SystemTime,
+	pub nlink:     u16,
+	pub uid:       u32,
+	pub gid:       u32,
+	pub gen:       u32,
+	pub blksize:   u32,
+	pub flags:     u32,
+	pub kernflags: u32,
+	pub extsize:   u32,
 }
 
 #[derive(Debug, Clone, Copy, Decode, PartialEq, Eq)]

@@ -6,7 +6,7 @@ use std::{
 	time::Duration,
 };
 
-use fuser::{Filesystem, KernelConfig, Request};
+use fuser::{FileAttr, Filesystem, KernelConfig, Request};
 use rufs::{InodeNum, Ufs};
 
 const MAX_CACHE: Duration = Duration::MAX;
@@ -52,8 +52,8 @@ impl Filesystem for Fs {
 		// TODO: don't use read_inode()
 		let f = || {
 			let inr = transino(ino)?;
-			let ino = self.ufs.read_inode(inr)?;
-			Ok(ino.as_fileattr(inr))
+			let st: FileAttr = self.ufs.inode_attr(inr)?.into();
+			Ok(st)
 		};
 		match run(f) {
 			Ok(x) => reply.attr(&MAX_CACHE, &x),
@@ -108,12 +108,12 @@ impl Filesystem for Fs {
 		let mut f = || {
 			let pinr = transino(pinr)?;
 			let inr = self.ufs.dir_lookup(pinr, name)?;
-			let ino = self.ufs.read_inode(inr)?;
-			Ok::<_, IoError>((ino.as_fileattr(inr), ino.gen))
+			let st = self.ufs.inode_attr(inr)?;
+			Ok::<_, IoError>((st.gen, st.into()))
 		};
 
 		match f() {
-			Ok((attr, gen)) => reply.entry(&Duration::ZERO, &attr, gen.into()),
+			Ok((gen, st)) => reply.entry(&Duration::ZERO, &st, gen.into()),
 			Err(e) => {
 				if e.kind() != ErrorKind::NotFound {
 					log::error!("Error: {e}");
