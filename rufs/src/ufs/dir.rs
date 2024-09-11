@@ -54,15 +54,18 @@ fn readdir_block<T>(
 	Ok(None)
 }
 
-impl Ufs {
+impl<R: Read + Seek> Ufs<R> {
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
-		self.dir_iter(pinr, |name2, inr, _kind| {
-			if name == name2 {
-				Some(inr)
-			} else {
-				None
-			}
-		})?
+		self.dir_iter(
+			pinr,
+			|name2, inr, _kind| {
+				if name == name2 {
+					Some(inr)
+				} else {
+					None
+				}
+			},
+		)?
 		.ok_or(err!(ENOENT))
 	}
 

@@ -20,6 +20,13 @@ fmt:
 lint:
 	cargo clippy --all-targets
 
+fuz:
+	mkdir -p fuzz/corpus/ufs/
+	unzstd -o fuzz/corpus/ufs/ufs-big.img -kf resources/ufs-big.img.zst
+	unzstd -o fuzz/corpus/ufs/ufs-little.img -kf resources/ufs-little.img.zst
+	# NOTE: Add -j if you want more fuzz jobs
+	cargo +nightly fuzz run ufs
+
 clean:
 	rm -f fuse-ufs-bin
 	cargo clean

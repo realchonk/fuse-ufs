@@ -1,0 +1,19 @@
+[package]
+name = "fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys.workspace = true
+rufs = { path = "../rufs" }
+
+[[bin]]
+name = "ufs"
+path = "fuzz_targets/ufs.rs"
+test = false
+doc = false
+bench = false

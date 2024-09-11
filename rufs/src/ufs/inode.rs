@@ -1,8 +1,13 @@
 use super::*;
 use crate::{err, InodeNum};
 
-impl Ufs {
-	pub fn inode_read(&mut self, inr: InodeNum, mut offset: u64, buffer: &mut [u8]) -> IoResult<usize> {
+impl<R: Read + Seek> Ufs<R> {
+	pub fn inode_read(
+		&mut self,
+		inr: InodeNum,
+		mut offset: u64,
+		buffer: &mut [u8],
+	) -> IoResult<usize> {
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
 		let ino = self.read_inode(inr)?;
 
@@ -61,7 +66,12 @@ impl Ufs {
 		Ok(size)
 	}
 
-	pub(super) fn inode_find_block(&mut self, inr: InodeNum, ino: &Inode, offset: u64) -> BlockInfo {
+	pub(super) fn inode_find_block(
+		&mut self,
+		inr: InodeNum,
+		ino: &Inode,
+		offset: u64,
+	) -> BlockInfo {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
@@ -91,73 +101,73 @@ impl Ufs {
 
 	fn inode_resolve_block(
 		&mut self,
-			inr: InodeNum,
-			ino: &Inode,
-			blkno: u64,
-		) -> IoResult<Option<NonZeroU64>> {
-			let sb = &self.superblock;
-			let fs = sb.fsize as u64;
-			let bs = sb.bsize as u64;
-			let nd = UFS_NDADDR as u64;
-			let su64 = size_of::<UfsDaddr>() as u64;
-			let pbp = bs / su64;
+		inr: InodeNum,
+		ino: &Inode,
+		blkno: u64,
+	) -> IoResult<Option<NonZeroU64>> {
+		let sb = &self.superblock;
+		let fs = sb.fsize as u64;
+		let bs = sb.bsize as u64;
+		let nd = UFS_NDADDR as u64;
+		let su64 = size_of::<UfsDaddr>() as u64;
+		let pbp = bs / su64;
 
-			let InodeData::Blocks(InodeBlocks { direct, indirect }) = &ino.data else {
-				log::warn!("resolve_file_block({inr}, {blkno}): inode doesn't have blocks");
-				return Err(err!(EIO));
-			};
+		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &ino.data else {
+			log::warn!("resolve_file_block({inr}, {blkno}): inode doesn't have blocks");
+			return Err(err!(EIO));
+		};
 
-			let begin_indir1 = nd;
-			let begin_indir2 = nd + pbp;
-			let begin_indir3 = nd + pbp + pbp * pbp;
-			let begin_indir4 = nd + pbp + pbp * pbp + pbp * pbp * pbp;
+		let begin_indir1 = nd;
+		let begin_indir2 = nd + pbp;
+		let begin_indir3 = nd + pbp + pbp * pbp;
+		let begin_indir4 = nd + pbp + pbp * pbp + pbp * pbp * pbp;
 
-			if blkno < begin_indir1 {
-				Ok(NonZeroU64::new(direct[blkno as usize] as u64))
-			} else if blkno < begin_indir2 {
-				let low = blkno - begin_indir1;
-				assert!(low < pbp);
+		if blkno < begin_indir1 {
+			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
+		} else if blkno < begin_indir2 {
+			let low = blkno - begin_indir1;
+			assert!(low < pbp);
 
-				log::trace!("resolve_file_block({inr}, {blkno}): 1-indirect: low={low}");
+			log::trace!("resolve_file_block({inr}, {blkno}): 1-indirect: low={low}");
 
-				let first = indirect[0] as u64;
-				if first == 0 {
-					return Ok(None);
-				}
+			let first = indirect[0] as u64;
+			if first == 0 {
+				return Ok(None);
+			}
 
-				let pos = first * fs + low * su64;
-				let block: u64 = self.file.decode_at(pos)?;
-				log::trace!("first={first:#x} *{pos:#x} = {block:#x}");
-				Ok(NonZeroU64::new(block))
-			} else if blkno < begin_indir3 {
-				let x = blkno - begin_indir2;
-				let low = x % pbp;
-				let high = x / pbp;
-				assert!(high < pbp);
+			let pos = first * fs + low * su64;
+			let block: u64 = self.file.decode_at(pos)?;
+			log::trace!("first={first:#x} *{pos:#x} = {block:#x}");
+			Ok(NonZeroU64::new(block))
+		} else if blkno < begin_indir3 {
+			let x = blkno - begin_indir2;
+			let low = x % pbp;
+			let high = x / pbp;
+			assert!(high < pbp);
 
-				log::trace!("resolve_file_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
+			log::trace!("resolve_file_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
 
-				let first = indirect[1] as u64;
-				if first == 0 {
-					return Ok(None);
-				}
-				let pos = first * fs + high * su64;
-				let snd: u64 = self.file.decode_at(pos)?;
-				log::trace!("first={first:x} pos={pos:x} snd={snd:x}");
-				if snd == 0 {
-					return Ok(None);
-				}
+			let first = indirect[1] as u64;
+			if first == 0 {
+				return Ok(None);
+			}
+			let pos = first * fs + high * su64;
+			let snd: u64 = self.file.decode_at(pos)?;
+			log::trace!("first={first:x} pos={pos:x} snd={snd:x}");
+			if snd == 0 {
+				return Ok(None);
+			}
 
-				let pos = snd * fs + low * su64;
-				let block: u64 = self.file.decode_at(pos)?;
-				log::trace!("*{pos:x} = {block:x}");
-				Ok(NonZeroU64::new(block))
-			} else if blkno < begin_indir4 {
-				let x = blkno - begin_indir3;
-				let low = x % pbp;
-				let mid = x / pbp % pbp;
-				let high = x / pbp / pbp;
-				assert!(high < pbp);
+			let pos = snd * fs + low * su64;
+			let block: u64 = self.file.decode_at(pos)?;
+			log::trace!("*{pos:x} = {block:x}");
+			Ok(NonZeroU64::new(block))
+		} else if blkno < begin_indir4 {
+			let x = blkno - begin_indir3;
+			let low = x % pbp;
+			let mid = x / pbp % pbp;
+			let high = x / pbp / pbp;
+			assert!(high < pbp);
 
 			log::trace!(
 				"resolve_file_block({inr}, {blkno}): 3-indirect: x={x:#x} high={high:#x}, mid={mid:#x}, low={low:#x}"
