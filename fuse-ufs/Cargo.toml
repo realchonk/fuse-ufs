@@ -19,7 +19,7 @@ env_logger.workspace = true
 fuser.workspace = true
 libc.workspace = true
 log.workspace = true
-rufs = { path = "../rufs" }
+rufs = { path = "../rufs", features = ["fuser"] }
 
 [dev-dependencies]
 assert_cmd.workspace = true

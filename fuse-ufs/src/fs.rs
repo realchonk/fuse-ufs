@@ -90,7 +90,7 @@ impl Filesystem for Fs {
 
 			self.ufs.dir_iter(inr, |name, inr, kind| {
 				i += 1;
-				if i > offset && reply.add(inr.get64(), i, kind, name) {
+				if i > offset && reply.add(inr.get64(), i, kind.into(), name) {
 					return Some(());
 				}
 				None

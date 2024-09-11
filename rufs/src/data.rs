@@ -357,10 +357,23 @@ pub struct Inode {
 	pub spare:     [u32; 2], // 248: Reserved; currently unused
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InodeType {
+	RegularFile,
+	Directory,
+	Symlink,
+	CharDevice,
+	BlockDevice,
+	Socket,
+	NamedPipe,
+	//Whiteout,
+}
+
 #[derive(Debug)]
 pub struct InodeAttr {
 	pub inr:       InodeNum,
-	pub mode:      u16,
+	pub perm:      u16,
+	pub kind:      InodeType,
 	pub size:      u64,
 	pub blocks:    u64,
 	pub atime:     SystemTime,

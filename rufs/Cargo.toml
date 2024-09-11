@@ -11,9 +11,12 @@ documentation = "https://docs.rs/rufs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+fuser = ["dep:fuser"]
+
 [dependencies]
 bincode.workspace = true
-fuser.workspace = true
+fuser = { workspace = true, optional = true }
 libc.workspace = true
 log.workspace = true
 

@@ -1,7 +1,6 @@
 use std::time::{Duration, SystemTime};
 
 use bincode::{de::Decoder, error::DecodeError, Decode};
-use fuser::{FileAttr, FileType};
 
 use crate::data::*;
 
@@ -41,10 +40,25 @@ impl Inode {
 		self.mode & 0o7777
 	}
 
+	pub fn kind(&self) -> InodeType {
+		let mode = self.mode & S_IFMT;
+		match mode {
+			S_IFIFO => InodeType::NamedPipe,
+			S_IFCHR => InodeType::CharDevice,
+			S_IFDIR => InodeType::Directory,
+			S_IFBLK => InodeType::BlockDevice,
+			S_IFREG => InodeType::RegularFile,
+			S_IFLNK => InodeType::Symlink,
+			S_IFSOCK => InodeType::Socket,
+			_ => unreachable!("invalid file mode: {mode:o}"),
+		}
+	}
+
 	pub fn as_attr(&self, inr: InodeNum) -> InodeAttr {
 		InodeAttr {
 			inr,
-			mode: self.mode,
+			perm: self.mode & 0o7777,
+			kind: self.kind(),
 			size: self.size,
 			blocks: self.blocks,
 			atime: self.atime(),
@@ -63,9 +77,9 @@ impl Inode {
 	}
 
 	pub fn size(&self, bs: u64, fs: u64) -> (u64, u64) {
-		let size = match self.mode & S_IFMT {
-			S_IFDIR => self.blocks * fs,
-			S_IFREG | S_IFLNK => self.size,
+		let size = match self.kind() {
+			InodeType::Directory => self.blocks * fs,
+			InodeType::RegularFile | InodeType::Symlink => self.size,
 			kind => todo!("Inode::size() is undefined for {kind:?}"),
 		};
 		Self::inode_size(bs, fs, size)
@@ -157,35 +171,45 @@ mod test {
 	}
 }
 
-impl Into<FileAttr> for InodeAttr {
-	fn into(self) -> FileAttr {
-		let mode = self.mode & S_IFMT;
-		let kind = match mode {
-			S_IFIFO => FileType::NamedPipe,
-			S_IFCHR => FileType::CharDevice,
-			S_IFDIR => FileType::Directory,
-			S_IFBLK => FileType::BlockDevice,
-			S_IFREG => FileType::RegularFile,
-			S_IFLNK => FileType::Symlink,
-			S_IFSOCK => FileType::Socket,
-			_ => unreachable!("invalid file mode: {mode:o}"),
-		};
-		FileAttr {
-			ino: self.inr.get64(),
-			size: self.size,
-			blocks: self.blocks,
-			atime: self.atime,
-			mtime: self.mtime,
-			ctime: self.ctime,
-			crtime: self.atime,
-			kind,
-			perm: self.mode & 0o7777,
-			nlink: self.nlink.into(),
-			uid: self.uid,
-			gid: self.gid,
-			rdev: 0,
-			blksize: self.blksize,
-			flags: self.flags,
+#[cfg(feature = "fuser")]
+mod f {
+	use fuser::{FileAttr, FileType};
+
+	use super::*;
+
+	impl Into<FileType> for InodeType {
+		fn into(self) -> FileType {
+			match self {
+				Self::RegularFile => FileType::RegularFile,
+				Self::Directory => FileType::Directory,
+				Self::Symlink => FileType::Symlink,
+				Self::Socket => FileType::Socket,
+				Self::CharDevice => FileType::CharDevice,
+				Self::BlockDevice => FileType::BlockDevice,
+				Self::NamedPipe => FileType::NamedPipe,
+			}
+		}
+	}
+	
+	impl Into<FileAttr> for InodeAttr {
+		fn into(self) -> FileAttr {
+			FileAttr {
+				ino: self.inr.get64(),
+				size: self.size,
+				blocks: self.blocks,
+				atime: self.atime,
+				mtime: self.mtime,
+				ctime: self.ctime,
+				crtime: self.atime,
+				kind: self.kind.into(),
+				perm: self.perm,
+				nlink: self.nlink.into(),
+				uid: self.uid,
+				gid: self.gid,
+				rdev: 0,
+				blksize: self.blksize,
+				flags: self.flags,
+			}
 		}
 	}
 }
