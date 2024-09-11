@@ -1,14 +1,13 @@
 use std::{
 	ffi::{OsStr, OsString},
 	fs::File,
-	io::{Cursor, Error as IoError, Read, Result as IoResult, Seek, SeekFrom},
+	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
 	os::unix::ffi::{OsStrExt, OsStringExt},
 	path::Path,
 };
 
-use anyhow::{bail, Result};
 use fuser::FileType;
 
 mod dir;
@@ -29,6 +28,12 @@ macro_rules! err {
 	};
 }
 
+macro_rules! iobail {
+	($kind:expr, $($tk:tt)+) => {
+		return Err(IoError::new($kind, format!($($tk)+)))
+	};
+}
+
 #[derive(Debug, Clone)]
 pub struct Info {
 	pub blocks: u64,
@@ -45,14 +50,14 @@ pub struct Ufs<R: Read + Seek> {
 }
 
 impl Ufs<File> {
-	pub fn open(path: &Path) -> Result<Self> {
+	pub fn open(path: &Path) -> IoResult<Self> {
 		let file = BlockReader::open(path)?;
 		Self::new(file)
 	}
 }
 
 impl<R: Read + Seek> Ufs<R> {
-	pub fn new(mut file: BlockReader<R>) -> Result<Self> {
+	pub fn new(mut file: BlockReader<R>) -> IoResult<Self> {
 		let pos = SBLOCK_UFS2 as u64 + MAGIC_OFFSET;
 		file.seek(SeekFrom::Start(pos))?;
 		let mut magic = [0u8; 4];
@@ -63,7 +68,7 @@ impl<R: Read + Seek> Ufs<R> {
 		let config = match magic {
 			[0x19, 0x01, 0x54, 0x19] => Config::little(),
 			[0x19, 0x54, 0x01, 0x19] => Config::big(),
-			_ => bail!("invalid superblock magic number: {magic:?}"),
+			_ => iobail!(ErrorKind::InvalidInput, "invalid superblock magic number: {magic:?}"),
 		};
 		// FIXME: Choose based on hash of input or so, to excercise BE as well with introducing non-determinism
 		#[cfg(fuzzing)]
@@ -74,7 +79,7 @@ impl<R: Read + Seek> Ufs<R> {
 		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
 		#[cfg(not(fuzzing))]
 		if superblock.magic != FS_UFS2_MAGIC {
-			bail!("invalid superblock magic number: {}", superblock.magic);
+			iobail!(ErrorKind::InvalidInput, "invalid superblock magic number: {}", superblock.magic);
 		}
 		let mut s = Self { file, superblock };
 		#[cfg(not(fuzzing))]
