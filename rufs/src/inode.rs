@@ -177,38 +177,38 @@ mod f {
 
 	use super::*;
 
-	impl Into<FileType> for InodeType {
-		fn into(self) -> FileType {
-			match self {
-				Self::RegularFile => FileType::RegularFile,
-				Self::Directory => FileType::Directory,
-				Self::Symlink => FileType::Symlink,
-				Self::Socket => FileType::Socket,
-				Self::CharDevice => FileType::CharDevice,
-				Self::BlockDevice => FileType::BlockDevice,
-				Self::NamedPipe => FileType::NamedPipe,
+	impl From<InodeType> for FileType {
+		fn from(t: InodeType) -> Self {
+			match t {
+				InodeType::RegularFile => Self::RegularFile,
+				InodeType::Directory => Self::Directory,
+				InodeType::Symlink => Self::Symlink,
+				InodeType::Socket => Self::Socket,
+				InodeType::CharDevice => Self::CharDevice,
+				InodeType::BlockDevice => Self::BlockDevice,
+				InodeType::NamedPipe => Self::NamedPipe,
 			}
 		}
 	}
 
-	impl Into<FileAttr> for InodeAttr {
-		fn into(self) -> FileAttr {
-			FileAttr {
-				ino:     self.inr.get64(),
-				size:    self.size,
-				blocks:  self.blocks,
-				atime:   self.atime,
-				mtime:   self.mtime,
-				ctime:   self.ctime,
-				crtime:  self.atime,
-				kind:    self.kind.into(),
-				perm:    self.perm,
-				nlink:   self.nlink.into(),
-				uid:     self.uid,
-				gid:     self.gid,
+	impl From<InodeAttr> for FileAttr {
+		fn from(a: InodeAttr) -> Self {
+			Self {
+				ino:     a.inr.get64(),
+				size:    a.size,
+				blocks:  a.blocks,
+				atime:   a.atime,
+				mtime:   a.mtime,
+				ctime:   a.ctime,
+				crtime:  a.atime,
+				kind:    a.kind.into(),
+				perm:    a.perm,
+				nlink:   a.nlink.into(),
+				uid:     a.uid,
+				gid:     a.gid,
 				rdev:    0,
-				blksize: self.blksize,
-				flags:   self.flags,
+				blksize: a.blksize,
+				flags:   a.flags,
 			}
 		}
 	}
