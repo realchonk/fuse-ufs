@@ -5,8 +5,8 @@ use std::{
 	time::Duration,
 };
 
-use fuse_ufs::Ufs;
 use fuser::{Filesystem, KernelConfig, Request};
+use rufs::Ufs;
 
 const MAX_CACHE: Duration = Duration::MAX;
 
