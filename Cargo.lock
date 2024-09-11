@@ -248,9 +248,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fc0510504f03c51ada170672ac806f1f105a88aa97a5281117e1ddc3368e51a"
+checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 
 [[package]]
 name = "fuse-ufs"
@@ -258,7 +258,6 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
- "bincode",
  "cfg-if",
  "clap",
  "clap-verbosity-flag",
@@ -271,6 +270,7 @@ dependencies = [
  "nix",
  "rstest",
  "rstest_reuse",
+ "rufs",
  "tempfile",
  "xattr",
 ]
@@ -547,10 +547,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rufs"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "fuser",
+ "libc",
+ "log",
+ "tempfile",
+]
+
+[[package]]
 name = "rustc_version"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
+checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
  "semver",
 ]

@@ -1,13 +1,13 @@
 PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 
-SRC != find src -name '*.rs'
+SRC != find rufs/src fuse-ufs/src -name '*.rs'
 
-all: fuse-ufs
+all: fuse-ufs-bin
 
-install: fuse-ufs
+install: fuse-ufs-bin
 	mkdir -p ${DESTDIR}${PREFIX}/bin ${DESTDIR}${MANPREFIX}/man8
-	cp -f fuse-ufs ${DESTDIR}${PREFIX}/bin/
+	cp -f fuse-ufs-bin ${DESTDIR}${PREFIX}/bin/fuse-ufs
 	cp -f docs/fuse-ufs.8 ${DESTDIR}${MANPREFIX}/man8/
 	ln -sf fuse-ufs ${DESTDIR}${PREFIX}/bin/mount.ufs
 
@@ -21,11 +21,10 @@ lint:
 	cargo clippy --all-targets
 
 clean:
-	rm -f fuse-ufs
+	rm -f fuse-ufs-bin
 	cargo clean
 
-# TODO: select correct program
-fuse-ufs: Cargo.lock ${SRC}
+fuse-ufs-bin: Cargo.lock ${SRC}
 	cargo build --release
-	cp -f target/release/fuse-ufs-fuser fuse-ufs
+	cp -f target/release/fuse-ufs fuse-ufs-bin
 
