@@ -3,6 +3,7 @@
 
 use std::{
 	ffi::{OsStr, OsString},
+	fmt::{self, Display, Formatter},
 	mem::size_of,
 };
 
@@ -36,7 +37,22 @@ pub type UfsTime = i64;
 pub type UfsDaddr = i64;
 
 /// UFS-native inode number type
-pub type InodeNum = u32;
+#[derive(Debug, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct InodeNum(u32);
+impl InodeNum {
+	pub const ROOT: Self = Self(2);
+
+	pub fn get(&self) -> u32 {
+		self.0
+	}
+	pub fn get64(&self) -> u64 {
+		self.0.into()
+	}
+
+	pub unsafe fn new(inr: u32) -> Self {
+		Self(inr)
+	}
+}
 
 /// The path name on which the filesystem is mounted is maintained
 /// in fs_fsmnt. MAXMNTLEN defines the amount of space allocated in
@@ -387,8 +403,8 @@ impl Superblock {
 	}
 
 	/// inode number to cylinder group number.
-	pub fn ino_to_cg(&self, ino: u64) -> u64 {
-		ino / self.ipg as u64
+	pub fn ino_to_cg(&self, inr: InodeNum) -> u64 {
+		inr.get64() / self.ipg as u64
 	}
 
 	pub fn blocks_to_frags(&self, blocks: u64) -> u64 {
@@ -396,23 +412,23 @@ impl Superblock {
 	}
 
 	/// inode number to filesystem block adddress.
-	pub fn ino_to_fsba(&self, ino: u64) -> u64 {
-		let cg = self.ino_to_cg(ino);
+	pub fn ino_to_fsba(&self, inr: InodeNum) -> u64 {
+		let cg = self.ino_to_cg(inr);
 		let cgstart = cg * self.fpg as u64;
 		let cgimin = cgstart + self.iblkno as u64;
-		let frags = self.blocks_to_frags(ino % self.ipg as u64) / self.inopb as u64;
+		let frags = self.blocks_to_frags(inr.get64() % self.ipg as u64) / self.inopb as u64;
 		cgimin + frags
 	}
 
 	/// inode number to filesystem block offset.
-	pub fn ino_to_fsbo(&self, ino: u64) -> u64 {
-		ino % self.inopb as u64
+	pub fn ino_to_fsbo(&self, inr: InodeNum) -> u64 {
+		inr.get64() % self.inopb as u64
 	}
 
 	/// inode number to filesystem offset.
-	pub fn ino_to_fso(&self, ino: u64) -> u64 {
-		let addr = self.ino_to_fsba(ino) * self.fsize as u64;
-		let off = self.ino_to_fsbo(ino) * UFS_INOSZ as u64;
+	pub fn ino_to_fso(&self, inr: InodeNum) -> u64 {
+		let addr = self.ino_to_fsba(inr) * self.fsize as u64;
+		let off = self.ino_to_fsbo(inr) * UFS_INOSZ as u64;
 		addr + off
 	}
 }
@@ -442,5 +458,11 @@ impl ExtattrNamespace {
 		let mut out = OsString::from(ns);
 		out.push(name);
 		out
+	}
+}
+
+impl Display for InodeNum {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.0)
 	}
 }

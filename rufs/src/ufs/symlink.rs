@@ -1,7 +1,9 @@
+use crate::InodeNum;
+
 use super::*;
 
 impl Ufs {
-	pub fn symlink_read(&mut self, inr: u64) -> IoResult<Vec<u8>> {
+	pub fn symlink_read(&mut self, inr: InodeNum) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
 
 		if ino.kind() != FileType::Symlink {

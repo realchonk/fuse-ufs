@@ -1,3 +1,5 @@
+use crate::InodeNum;
+
 use super::*;
 
 impl Ufs {
@@ -84,12 +86,12 @@ impl Ufs {
 		.and_then(|r| r.ok_or(IoError::from_raw_os_error(ERR)))
 	}
 
-	pub fn xattr_list_len(&mut self, inr: u64) -> IoResult<u32> {
+	pub fn xattr_list_len(&mut self, inr: InodeNum) -> IoResult<u32> {
 		let ino = self.read_inode(inr)?;
 		Ok(ino.extsize)
 	}
 
-	pub fn xattr_list(&mut self, inr: u64) -> IoResult<Vec<u8>> {
+	pub fn xattr_list(&mut self, inr: InodeNum) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
 		let mut data = OsString::new();
 		self.iter_xattr(&ino, |hdr, name, _data| {
@@ -102,13 +104,13 @@ impl Ufs {
 		Ok(data.into_vec())
 	}
 
-	pub fn xattr_len(&mut self, inr: u64, name: &OsStr) -> IoResult<u32> {
+	pub fn xattr_len(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<u32> {
 		let ino = self.read_inode(inr)?;
 		let len = self.read_xattr(&ino, name, |_hdr, data| data.len())?;
 		Ok(len as u32)
 	}
 
-	pub fn xattr_read(&mut self, inr: u64, name: &OsStr) -> IoResult<Vec<u8>> {
+	pub fn xattr_read(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
 		let data = self.read_xattr(&ino, name, |_hdr, data| data.into())?;
 		Ok(data)

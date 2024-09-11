@@ -55,9 +55,9 @@ impl Inode {
 		}
 	}
 
-	pub fn as_fileattr(&self, ino: u64) -> FileAttr {
+	pub fn as_fileattr(&self, ino: InodeNum) -> FileAttr {
 		FileAttr {
-			ino,
+			ino: ino.get64(),
 			size: self.size,
 			blocks: self.blocks,
 			atime: self.atime(),
