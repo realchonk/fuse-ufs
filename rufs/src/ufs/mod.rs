@@ -121,7 +121,32 @@ impl<R: Read + Seek> Ufs<R> {
 		log::info!("Fragments per Block: {}", sb.frag);
 		log::info!("# Cylinder Groups: {}", sb.ncg);
 		log::info!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
-		assert!(sb.cgsize_struct() < sb.bsize as usize);
+		
+		macro_rules! sbassert {
+			($e:expr) => {
+				if !($e) {
+					log::error!("superblock corrupted: {}", stringify!($e));
+					return Err(IoError::from_raw_os_error(libc::EIO));
+				}
+			};
+		}
+
+		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
+		sbassert!(sb.sblkno == 24);
+		sbassert!(sb.cblkno == 32);
+		sbassert!(sb.iblkno == 40);
+		sbassert!(sb.ncg > 0);
+		sbassert!(sb.fsize == (sb.bsize / sb.frag));
+		sbassert!(sb.bsize == (1 << sb.bshift));
+		sbassert!(sb.fsize == (1 << sb.fshift));
+		sbassert!(sb.frag == (1 << sb.fragshift));
+		sbassert!(sb.bsize == (!sb.bmask + 1));
+		sbassert!(sb.fsize == (!sb.fmask + 1));
+		sbassert!(sb.sbsize == 4096);
+
+		// TODO: support other block/frag sizes
+		sbassert!(sb.bsize == 32768);
+		sbassert!(sb.fsize == 4096); 
 
 		// check that all superblocks are ok.
 		for i in 0..sb.ncg {
