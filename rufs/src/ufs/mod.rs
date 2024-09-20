@@ -125,18 +125,20 @@ impl<R: Read + Seek> Ufs<R> {
 			};
 		}
 
-		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
 		sbassert!(sb.sblkno == 24);
 		sbassert!(sb.cblkno == 32);
 		sbassert!(sb.iblkno == 40);
 		sbassert!(sb.ncg > 0);
+		sbassert!(sb.frag > 0 && sb.frag <= 8);
 		sbassert!(sb.fsize == (sb.bsize / sb.frag));
-		sbassert!(sb.bsize == (1 << sb.bshift));
-		sbassert!(sb.fsize == (1 << sb.fshift));
-		sbassert!(sb.frag == (1 << sb.fragshift));
+		// TODO: this looks ugly:
+		sbassert!(Some(sb.bsize) == 1i32.checked_shl(sb.bshift as u32));
+		sbassert!(Some(sb.fsize) == 1i32.checked_shl(sb.fshift as u32));
+		sbassert!(Some(sb.frag) == 1i32.checked_shl(sb.fragshift as u32));
 		sbassert!(sb.bsize == (!sb.bmask + 1));
 		sbassert!(sb.fsize == (!sb.fmask + 1));
 		sbassert!(sb.sbsize == 4096);
+		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
 
 		// TODO: support other block/frag sizes
 		sbassert!(sb.bsize == 32768);
