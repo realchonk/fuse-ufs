@@ -77,7 +77,6 @@ impl<R: Read + Seek> Ufs<R> {
 		let mut file = Decoder::new(file, config);
 
 		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
-		#[cfg(not(fuzzing))]
 		if superblock.magic != FS_UFS2_MAGIC {
 			iobail!(
 				ErrorKind::InvalidInput,
