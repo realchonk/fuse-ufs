@@ -89,5 +89,24 @@ impl Filesystem for Fs {
 
 		Ok(())
 	}
+
+	fn statfs(
+		&mut self,
+		_req: &Request,
+		_path: &Path,
+	) -> Result<Statfs> {
+		let info = self.ufs.info();
+
+		Ok(Statfs {
+			bsize: info.bsize,
+			frsize: info.bsize,
+			blocks: info.blocks,
+			bfree: info.bfree,
+			bavail: info.bfree,
+			files: info.files,
+			ffree: info.ffree,
+			favail: info.ffree,
+		})
+	}
 }
 
