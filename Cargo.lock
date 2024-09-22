@@ -698,6 +698,7 @@ name = "rufs"
 version = "0.3.0"
 dependencies = [
  "bincode",
+ "fuse2rs",
  "fuser",
  "libc",
  "log",
