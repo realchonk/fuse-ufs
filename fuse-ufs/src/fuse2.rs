@@ -74,19 +74,20 @@ impl Filesystem for Fs {
 		_req: &Request,
 		path: &Path,
 		buf: &mut [u8],
-	) -> Result<usize> {
+	) -> Result<()> {
 		let inr = self.lookup(path)?;
 		let link = self.ufs.symlink_read(inr)?;
 
 		let len = link.len();
 
-		if len > buf.len() {
+		if len >= buf.len() {
 			return Err(Error::from_raw_os_error(libc::ENAMETOOLONG));
 		}
 
 		buf[0..len].copy_from_slice(&link[0..len]);
+		buf[len] = b'\0';
 
-		Ok(len)
+		Ok(())
 	}
 }
 
