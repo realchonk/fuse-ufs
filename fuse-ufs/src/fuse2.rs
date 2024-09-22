@@ -44,17 +44,8 @@ impl Filesystem for Fs {
 			return Ok(());
 		}
 
-		let mut i = 0;
-
 		self.ufs.dir_iter(pinr, |name, _inr, _kind| {
-			i += 1;
-
-			if i <= off {
-				return None;
-			}
-
 			let name = CString::new(name.as_bytes().to_vec()).unwrap();
-
 			if filler.push(&name) {
 				None
 			} else {
@@ -62,7 +53,7 @@ impl Filesystem for Fs {
 			}
 		})?;
 		
-		Err(Error::from_raw_os_error(libc::ENOSYS))
+		Ok(())
 	}
 
 	fn read(
