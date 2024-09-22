@@ -68,5 +68,25 @@ impl Filesystem for Fs {
 		let num = self.ufs.inode_read(inr, off, buf)?;
 		Ok(num)
 	}
+
+	fn readlink(
+		&mut self,
+		_req: &Request,
+		path: &Path,
+		buf: &mut [u8],
+	) -> Result<usize> {
+		let inr = self.lookup(path)?;
+		let link = self.ufs.symlink_read(inr)?;
+
+		let len = link.len();
+
+		if len > buf.len() {
+			return Err(Error::from_raw_os_error(libc::ENAMETOOLONG));
+		}
+
+		buf[0..len].copy_from_slice(&link[0..len]);
+
+		Ok(len)
+	}
 }
 
