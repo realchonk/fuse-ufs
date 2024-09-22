@@ -60,4 +60,44 @@ impl Cli {
 
 		opts
 	}
+	#[cfg(feature = "fuse2")]
+	pub fn options(&self) -> anyhow::Result<Vec<fuse2rs::MountOption>> {
+		use std::ffi::CString;
+		use fuse2rs::MountOption;
+
+		let mut opts = vec![
+			MountOption::DefaultPermissions,
+			MountOption::Ro,
+		];
+
+		if self.foreground {
+			opts.push(MountOption::Foreground);
+		}
+
+		// TODO: handle -v
+
+		for opt in &self.options {
+			let opt = match opt.as_str() {
+				"debug" => MountOption::Debug,
+				"allow_other" => MountOption::AllowOther,
+				"async" => MountOption::Async,
+				"atime" => MountOption::Atime,
+				"default_permissions" => continue,
+				"dev" => MountOption::Dev,
+				"exec" => MountOption::Exec,
+				"noatime" => MountOption::NoAtime,
+				"nodev" => MountOption::NoDev,
+				"noexec" => MountOption::NoExec,
+				"nosuid" => MountOption::NoSuid,
+				"ro" => continue,
+				"rw" => panic!("rw is not yet supported"),
+				"suid" => MountOption::Suid,
+				"sync" => MountOption::Sync,
+				custom => MountOption::Custom(CString::new(custom)?),
+			};
+			opts.push(opt);
+		}
+
+		Ok(opts)
+	}
 }
