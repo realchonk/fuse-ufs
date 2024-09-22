@@ -74,7 +74,9 @@ impl Cli {
 			opts.push(MountOption::Foreground);
 		}
 
-		// TODO: handle -v
+		if self.verbose.log_level().map_or(false, |l| l >= clap_verbosity_flag::Level::Debug) {
+			opts.push(MountOption::Debug);
+		}
 
 		for opt in &self.options {
 			let opt = match opt.as_str() {
