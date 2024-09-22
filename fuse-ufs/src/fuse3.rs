@@ -8,6 +8,7 @@ use std::{
 
 use fuser::{FileAttr, Filesystem, KernelConfig, Request};
 use rufs::{InodeNum, Ufs};
+
 use crate::Fs;
 
 const MAX_CACHE: Duration = Duration::MAX;
@@ -223,7 +224,6 @@ impl Filesystem for Fs {
 		}
 	}
 }
-
 
 pub fn mount(fs: Fs, mp: &Path, opts: &[MountOption], foreground: bool) -> anyhow::Result<()> {
 	if foreground {

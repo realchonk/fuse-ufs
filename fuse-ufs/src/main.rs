@@ -1,8 +1,8 @@
 use std::fs::File;
 use anyhow::Result;
+use cfg_if::cfg_if;
 use clap::Parser;
 use rufs::Ufs;
-use cfg_if::cfg_if;
 
 use crate::cli::Cli;
 
@@ -23,7 +23,7 @@ fn main() -> Result<()> {
 		.init();
 
 	let fs = Fs {
-		ufs: Ufs::open(&cli.device)?
+		ufs: Ufs::open(&cli.device)?,
 	};
 
 	cfg_if! {
