@@ -11,15 +11,20 @@ documentation = "https://docs.rs/fuse-ufs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["fuse3"]
+fuse3 = ["dep:fuser", "rufs/fuser"]
+
 [dependencies]
 anyhow.workspace = true
+cfg-if = "1.0.0"
 clap.workspace = true
 clap-verbosity-flag.workspace = true
 env_logger.workspace = true
-fuser.workspace = true
+fuser = { workspace = true, optional = true }
 libc.workspace = true
 log.workspace = true
-rufs = { path = "../rufs", features = ["fuser"] }
+rufs = { path = "../rufs" }
 
 [dev-dependencies]
 assert_cmd.workspace = true

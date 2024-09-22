@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use clap_verbosity_flag::{Verbosity, WarnLevel};
-use fuser::MountOption;
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -25,7 +24,9 @@ pub struct Cli {
 }
 
 impl Cli {
-	pub fn options(&self) -> Vec<MountOption> {
+	#[cfg(feature = "fuse3")]
+	pub fn options(&self) -> Vec<fuser::MountOption> {
+		use fuser::MountOption;
 		let mut opts = vec![
 			MountOption::FSName("fusefs".into()),
 			MountOption::Subtype("ufs".into()),

@@ -1,10 +1,19 @@
+use std::fs::File;
 use anyhow::Result;
 use clap::Parser;
+use rufs::Ufs;
+use cfg_if::cfg_if;
 
-use crate::{cli::Cli, fs::Fs};
+use crate::cli::Cli;
 
 mod cli;
-mod fs;
+
+#[cfg(feature = "fuse3")]
+mod fuse3;
+
+struct Fs {
+	ufs: Ufs<File>,
+}
 
 fn main() -> Result<()> {
 	let cli = Cli::parse();
@@ -13,12 +22,16 @@ fn main() -> Result<()> {
 		.filter_level(cli.verbose.log_level_filter())
 		.init();
 
-	let fs = Fs::open(&cli.device)?;
+	let fs = Fs {
+		ufs: Ufs::open(&cli.device)?
+	};
 
-	if cli.foreground {
-		fuser::mount2(fs, &cli.mountpoint, &cli.options())?;
-	} else {
-		fuser::spawn_mount2(fs, &cli.mountpoint, &cli.options())?;
+	cfg_if! {
+		if #[cfg(feature = "fuse3")] {
+			fuse3::mount(fs, &cli.mountpoint, &cli.options(), cli.foreground)?;
+		} else {
+			compile_error!("no FUSE backend selected");
+		}
 	}
 
 	Ok(())

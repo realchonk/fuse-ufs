@@ -8,6 +8,7 @@ use std::{
 
 use fuser::{FileAttr, Filesystem, KernelConfig, Request};
 use rufs::{InodeNum, Ufs};
+use crate::Fs;
 
 const MAX_CACHE: Duration = Duration::MAX;
 
@@ -26,18 +27,6 @@ fn transino(inr: u64) -> IoResult<InodeNum> {
 			.try_into()
 			.map_err(|_| IoError::from_raw_os_error(libc::EINVAL))?;
 		Ok(unsafe { InodeNum::new(inr) })
-	}
-}
-
-pub struct Fs {
-	ufs: Ufs<File>,
-}
-
-impl Fs {
-	pub fn open(path: &Path) -> anyhow::Result<Self> {
-		Ok(Self {
-			ufs: Ufs::open(path)?,
-		})
 	}
 }
 
@@ -232,5 +221,14 @@ impl Filesystem for Fs {
 			Ok(R::Len(l)) => reply.size(l),
 			Err(e) => reply.error(e),
 		}
+	}
+}
+
+
+pub fn mount(fs: Fs, mp: &Path, opts: &[MountOption], foreground: bool) -> anyhow::Result<()> {
+	if foreground {
+		fuser::mount2(fs, mp, opts)
+	} else {
+		fuser::spawn_mount2(fs, mp, opts)
 	}
 }
