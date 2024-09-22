@@ -200,7 +200,7 @@ mod f {
 				atime:   a.atime,
 				mtime:   a.mtime,
 				ctime:   a.ctime,
-				crtime:  a.atime,
+				crtime:  a.btime,
 				kind:    a.kind.into(),
 				perm:    a.perm,
 				nlink:   a.nlink.into(),
