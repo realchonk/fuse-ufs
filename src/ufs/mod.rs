@@ -14,6 +14,7 @@ use fuser::{FileType, Filesystem, KernelConfig, Request};
 const MAX_CACHE: Duration = Duration::MAX;
 
 mod xattr;
+mod symlink;
 
 use crate::{
 	blockreader::BlockReader,
@@ -521,33 +522,7 @@ impl Filesystem for Ufs {
 
 	fn readlink(&mut self, _req: &Request<'_>, inr: u64, reply: fuser::ReplyData) {
 		let inr = transino(inr);
-		let f = || {
-			let ino = self.read_inode(inr)?;
-
-			if ino.kind() != FileType::Symlink {
-				return Err(err!(EINVAL));
-			}
-
-			match &ino.data {
-				InodeData::Shortlink(link) => {
-					assert_eq!(ino.blocks, 0);
-					let len = ino.size as usize;
-					Ok(link[0..len].to_vec())
-				}
-				InodeData::Blocks { .. } => {
-					// TODO: this has to be tested for other configurations, such as 4K/4K
-					assert!(ino.blocks <= 8);
-
-					let len = ino.size as usize;
-					let mut buf = vec![0u8; self.superblock.bsize as usize];
-					self.read_file_block(inr, &ino, 0, &mut buf)?;
-					buf.resize(len, 0u8);
-					Ok(buf)
-				}
-			}
-		};
-
-		match run(f) {
+		match run(|| self.symlink_read(inr)) {
 			Ok(x) => reply.data(&x),
 			Err(e) => reply.error(e),
 		}
