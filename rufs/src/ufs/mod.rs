@@ -62,7 +62,6 @@ impl<R: Read + Seek> Ufs<R> {
 		file.read_exact(&mut magic)?;
 
 		// magic: 0x19 54 01 19
-		#[cfg(not(fuzzing))]
 		let config = match magic {
 			[0x19, 0x01, 0x54, 0x19] => Config::little(),
 			[0x19, 0x54, 0x01, 0x19] => Config::big(),
@@ -74,8 +73,6 @@ impl<R: Read + Seek> Ufs<R> {
 			}
 		};
 		// FIXME: Choose based on hash of input or so, to excercise BE as well with introducing non-determinism
-		#[cfg(fuzzing)]
-		let config = Config::little();
 
 		let mut file = Decoder::new(file, config);
 
@@ -89,9 +86,6 @@ impl<R: Read + Seek> Ufs<R> {
 			);
 		}
 		let mut s = Self { file, superblock };
-		#[cfg(fuzzing)]
-		let _ = s.check();
-		#[cfg(not(fuzzing))]
 		s.check()?;
 		Ok(s)
 	}
