@@ -49,6 +49,8 @@ impl InodeNum {
 		self.0.into()
 	}
 
+	/// # Safety
+	/// `inr` must be a valid inode number
 	pub unsafe fn new(inr: u32) -> Self {
 		Self(inr)
 	}
