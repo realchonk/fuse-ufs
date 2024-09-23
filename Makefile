@@ -24,7 +24,8 @@ clean:
 	rm -f fuse-ufs
 	cargo clean
 
+# TODO: select correct program
 fuse-ufs: Cargo.lock ${SRC}
 	cargo build --release
-	cp -f target/release/fuse-ufs .
+	cp -f target/release/fuse-ufs-fuser fuse-ufs
 
