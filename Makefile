@@ -32,6 +32,6 @@ clean:
 	cargo clean
 
 fuse-ufs-bin: Cargo.lock ${SRC}
-	cargo build --release
+	cargo build --release -p fuse-ufs
 	cp -f target/release/fuse-ufs fuse-ufs-bin
 

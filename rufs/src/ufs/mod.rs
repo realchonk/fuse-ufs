@@ -8,8 +8,6 @@ use std::{
 	path::Path,
 };
 
-use fuser::FileType;
-
 mod dir;
 mod inode;
 mod symlink;

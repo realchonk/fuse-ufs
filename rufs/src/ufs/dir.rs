@@ -5,7 +5,7 @@ fn readdir_block<T>(
 	inr: InodeNum,
 	block: &[u8],
 	config: Config,
-	mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
+	mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 ) -> IoResult<Option<T>> {
 	let mut name = [0u8; UFS_MAXNAMELEN + 1];
 	let file = Cursor::new(block);
@@ -31,13 +31,13 @@ fn readdir_block<T>(
 
 		let name = unsafe { OsStr::from_encoded_bytes_unchecked(name) };
 		let kind = match kind {
-			DT_FIFO => FileType::NamedPipe,
-			DT_CHR => FileType::CharDevice,
-			DT_DIR => FileType::Directory,
-			DT_BLK => FileType::BlockDevice,
-			DT_REG => FileType::RegularFile,
-			DT_LNK => FileType::Symlink,
-			DT_SOCK => FileType::Socket,
+			DT_FIFO => InodeType::NamedPipe,
+			DT_CHR => InodeType::CharDevice,
+			DT_DIR => InodeType::Directory,
+			DT_BLK => InodeType::BlockDevice,
+			DT_REG => InodeType::RegularFile,
+			DT_LNK => InodeType::Symlink,
+			DT_SOCK => InodeType::Socket,
 			DT_WHT => {
 				log::warn!("readdir_block({inr}): encountered a whiteout entry: {name:?}");
 				continue;
@@ -72,7 +72,7 @@ impl<R: Read + Seek> Ufs<R> {
 	pub fn dir_iter<T>(
 		&mut self,
 		inr: InodeNum,
-		mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
+		mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 	) -> IoResult<Option<T>> {
 		let ino = self.read_inode(inr)?;
 		let mut block = vec![0u8; self.superblock.bsize as usize];
