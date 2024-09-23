@@ -2,6 +2,11 @@ use super::*;
 use crate::{err, InodeNum};
 
 impl<R: Read + Seek> Ufs<R> {
+	pub fn inode_attr(&mut self, inr: InodeNum) -> IoResult<InodeAttr> {
+		let ino = self.read_inode(inr)?;
+		Ok(ino.as_attr(inr))
+	}
+
 	pub fn inode_read(
 		&mut self,
 		inr: InodeNum,
@@ -34,7 +39,7 @@ impl<R: Read + Seek> Ufs<R> {
 		Ok(boff)
 	}
 
-	pub fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
+	pub(super) fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
 		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;
 

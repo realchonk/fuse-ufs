@@ -5,7 +5,7 @@ impl<R: Read + Seek> Ufs<R> {
 	pub fn symlink_read(&mut self, inr: InodeNum) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
 
-		if ino.kind() != FileType::Symlink {
+		if ino.mode & S_IFMT != S_IFLNK {
 			return Err(IoError::from_raw_os_error(libc::EINVAL));
 		}
 
