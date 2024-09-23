@@ -18,6 +18,7 @@ fuse2rs = ["dep:fuse2rs"]
 [dependencies]
 bincode.workspace = true
 fuse2rs = { workspace = true, optional = true }
+
 fuser = { workspace = true, optional = true }
 libc.workspace = true
 log.workspace = true
