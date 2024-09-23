@@ -1,10 +1,10 @@
 use anyhow::Result;
 use clap::Parser;
 
-use fuse_ufs::Ufs;
-use crate::cli::Cli;
+use crate::{fs::Fs, cli::Cli};
 
 mod cli;
+mod fs;
 
 fn main() -> Result<()> {
 	let cli = Cli::parse();
@@ -13,7 +13,7 @@ fn main() -> Result<()> {
 		.filter_level(cli.verbose.log_level_filter())
 		.init();
 
-	let fs = Ufs::open(&cli.device)?;
+	let fs = Fs::open(&cli.device)?;
 
 	if cli.foreground {
 		fuser::mount2(fs, &cli.mountpoint, &cli.options())?;
