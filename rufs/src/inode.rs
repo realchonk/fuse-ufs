@@ -190,25 +190,25 @@ mod f {
 			}
 		}
 	}
-	
+
 	impl Into<FileAttr> for InodeAttr {
 		fn into(self) -> FileAttr {
 			FileAttr {
-				ino: self.inr.get64(),
-				size: self.size,
-				blocks: self.blocks,
-				atime: self.atime,
-				mtime: self.mtime,
-				ctime: self.ctime,
-				crtime: self.atime,
-				kind: self.kind.into(),
-				perm: self.perm,
-				nlink: self.nlink.into(),
-				uid: self.uid,
-				gid: self.gid,
-				rdev: 0,
+				ino:     self.inr.get64(),
+				size:    self.size,
+				blocks:  self.blocks,
+				atime:   self.atime,
+				mtime:   self.mtime,
+				ctime:   self.ctime,
+				crtime:  self.atime,
+				kind:    self.kind.into(),
+				perm:    self.perm,
+				nlink:   self.nlink.into(),
+				uid:     self.uid,
+				gid:     self.gid,
+				rdev:    0,
 				blksize: self.blksize,
-				flags: self.flags,
+				flags:   self.flags,
 			}
 		}
 	}
