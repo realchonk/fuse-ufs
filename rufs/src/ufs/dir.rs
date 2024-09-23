@@ -1,8 +1,8 @@
 use super::*;
-use crate::err;
+use crate::{err, InodeNum};
 
 fn readdir_block<T>(
-	inr: u64,
+	inr: InodeNum,
 	block: &[u8],
 	config: Config,
 	mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
@@ -15,7 +15,7 @@ fn readdir_block<T>(
 		let Ok(ino) = file.decode::<InodeNum>() else {
 			break;
 		};
-		if ino == 0 {
+		if ino.get() == 0 {
 			break;
 		}
 
@@ -55,10 +55,10 @@ fn readdir_block<T>(
 }
 
 impl Ufs {
-	pub fn dir_lookup(&mut self, pinr: u64, name: &OsStr) -> IoResult<u64> {
+	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
 		self.dir_iter(pinr, |name2, inr, _kind| {
 			if name == name2 {
-				Some(inr as u64)
+				Some(inr)
 			} else {
 				None
 			}
@@ -68,7 +68,7 @@ impl Ufs {
 
 	pub fn dir_iter<T>(
 		&mut self,
-		inr: u64,
+		inr: InodeNum,
 		mut f: impl FnMut(&OsStr, InodeNum, FileType) -> Option<T>,
 	) -> IoResult<Option<T>> {
 		let ino = self.read_inode(inr)?;

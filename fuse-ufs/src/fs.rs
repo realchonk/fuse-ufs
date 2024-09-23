@@ -6,7 +6,7 @@ use std::{
 };
 
 use fuser::{Filesystem, KernelConfig, Request};
-use rufs::Ufs;
+use rufs::{InodeNum, Ufs};
 
 const MAX_CACHE: Duration = Duration::MAX;
 
@@ -17,11 +17,12 @@ fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
 	})
 }
 
-fn transino(ino: u64) -> u64 {
-	if ino == fuser::FUSE_ROOT_ID {
-		2
+fn transino(inr: u64) -> IoResult<InodeNum> {
+	if inr == fuser::FUSE_ROOT_ID {
+		Ok(InodeNum::ROOT)
 	} else {
-		ino
+		let inr = inr.try_into().map_err(|_| IoError::from_raw_os_error(libc::EINVAL))?;
+		Ok(unsafe { InodeNum::new(inr) })
 	}
 }
 
@@ -45,9 +46,14 @@ impl Filesystem for Fs {
 	fn destroy(&mut self) {}
 
 	fn getattr(&mut self, _req: &Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
-		let ino = transino(ino);
-		match run(|| self.ufs.read_inode(ino)) {
-			Ok(x) => reply.attr(&MAX_CACHE, &x.as_fileattr(ino)),
+		// TODO: don't use read_inode()
+		let f = || {
+			let inr = transino(ino)?;
+			let ino = self.ufs.read_inode(inr)?;
+			Ok(ino.as_fileattr(inr))
+		};
+		match run(f) {
+			Ok(x) => reply.attr(&MAX_CACHE, &x),
 			Err(e) => reply.error(e),
 		}
 	}
@@ -71,8 +77,8 @@ impl Filesystem for Fs {
 		offset: i64,
 		mut reply: fuser::ReplyDirectory,
 	) {
-		let inr = transino(inr);
 		let f = || {
+			let inr = transino(inr)?;
 			if offset != 0 {
 				return Ok(());
 			}
@@ -81,7 +87,7 @@ impl Filesystem for Fs {
 
 			self.ufs.dir_iter(inr, |name, inr, kind| {
 				i += 1;
-				if i > offset && reply.add(inr.into(), i, kind, name) {
+				if i > offset && reply.add(inr.get64(), i, kind, name) {
 					return Some(());
 				}
 				None
@@ -96,9 +102,8 @@ impl Filesystem for Fs {
 	}
 
 	fn lookup(&mut self, _req: &Request<'_>, pinr: u64, name: &OsStr, reply: fuser::ReplyEntry) {
-		let pinr = transino(pinr);
-
 		let mut f = || {
+			let pinr = transino(pinr)?;
 			let inr = self.ufs.dir_lookup(pinr, name)?;
 			let ino = self.ufs.read_inode(inr)?;
 			Ok::<_, IoError>((ino.as_fileattr(inr), ino.gen))
@@ -126,9 +131,8 @@ impl Filesystem for Fs {
 		_lock_owner: Option<u64>,
 		reply: fuser::ReplyData,
 	) {
-		let inr = transino(inr);
-
 		let f = || {
+			let inr = transino(inr)?;
 			let mut buffer = vec![0u8; size as usize];
 			let n = self.ufs.inode_read(inr, offset as u64, &mut buffer)?;
 			buffer.shrink_to(n);
@@ -156,22 +160,24 @@ impl Filesystem for Fs {
 	}
 
 	fn readlink(&mut self, _req: &Request<'_>, inr: u64, reply: fuser::ReplyData) {
-		let inr = transino(inr);
-		match run(|| self.ufs.symlink_read(inr)) {
+		let f = || {
+			let inr = transino(inr)?;
+			self.ufs.symlink_read(inr)
+		};
+		match run(f) {
 			Ok(x) => reply.data(&x),
 			Err(e) => reply.error(e),
 		}
 	}
 
 	fn listxattr(&mut self, _req: &Request<'_>, inr: u64, size: u32, reply: fuser::ReplyXattr) {
-		let inr = transino(inr);
-
 		enum R {
 			Len(u32),
 			Data(Vec<u8>),
 		}
 
 		let f = || {
+			let inr = transino(inr)?;
 			if size == 0 {
 				let len = self.ufs.xattr_list_len(inr)?;
 				Ok(R::Len(len))
@@ -196,8 +202,6 @@ impl Filesystem for Fs {
 		size: u32,
 		reply: fuser::ReplyXattr,
 	) {
-		let inr = transino(inr);
-
 		enum R {
 			Data(Vec<u8>),
 			TooShort,
@@ -205,6 +209,7 @@ impl Filesystem for Fs {
 		}
 
 		let f = || {
+			let inr = transino(inr)?;
 			if size == 0 {
 				let len = self.ufs.xattr_len(inr, name)?;
 				Ok(R::Len(len))
