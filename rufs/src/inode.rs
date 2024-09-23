@@ -57,21 +57,21 @@ impl Inode {
 
 	pub fn as_fileattr(&self, ino: InodeNum) -> FileAttr {
 		FileAttr {
-			ino: ino.get64(),
-			size: self.size,
-			blocks: self.blocks,
-			atime: self.atime(),
-			mtime: self.mtime(),
-			ctime: self.ctime(),
-			crtime: self.btime(),
-			kind: self.kind(),
-			perm: self.perm(),
-			nlink: self.nlink.into(),
-			uid: self.uid,
-			gid: self.gid,
-			rdev: 0,
+			ino:     ino.get64(),
+			size:    self.size,
+			blocks:  self.blocks,
+			atime:   self.atime(),
+			mtime:   self.mtime(),
+			ctime:   self.ctime(),
+			crtime:  self.btime(),
+			kind:    self.kind(),
+			perm:    self.perm(),
+			nlink:   self.nlink.into(),
+			uid:     self.uid,
+			gid:     self.gid,
+			rdev:    0,
 			blksize: self.blksize,
-			flags: self.flags,
+			flags:   self.flags,
 		}
 	}
 

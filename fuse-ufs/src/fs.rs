@@ -1,5 +1,6 @@
 use std::{
 	ffi::{c_int, OsStr},
+	fs::File,
 	io::{Error as IoError, ErrorKind, Result as IoResult},
 	path::Path,
 	time::Duration,
@@ -21,13 +22,15 @@ fn transino(inr: u64) -> IoResult<InodeNum> {
 	if inr == fuser::FUSE_ROOT_ID {
 		Ok(InodeNum::ROOT)
 	} else {
-		let inr = inr.try_into().map_err(|_| IoError::from_raw_os_error(libc::EINVAL))?;
+		let inr = inr
+			.try_into()
+			.map_err(|_| IoError::from_raw_os_error(libc::EINVAL))?;
 		Ok(unsafe { InodeNum::new(inr) })
 	}
 }
 
 pub struct Fs {
-	ufs: Ufs,
+	ufs: Ufs<File>,
 }
 
 impl Fs {

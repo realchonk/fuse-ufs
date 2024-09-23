@@ -1,5 +1,6 @@
 use std::{
 	ffi::{OsStr, OsString},
+	fs::File,
 	io::{Cursor, Error as IoError, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
@@ -38,36 +39,45 @@ pub struct Info {
 	pub fsize:  u32,
 }
 
-pub struct Ufs {
-	file:       Decoder<BlockReader>,
+pub struct Ufs<R: Read + Seek> {
+	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
 }
 
-impl Ufs {
+impl Ufs<File> {
 	pub fn open(path: &Path) -> Result<Self> {
-		let mut file = BlockReader::open(path)?;
+		let file = BlockReader::open(path)?;
+		Self::new(file)
+	}
+}
 
+impl<R: Read + Seek> Ufs<R> {
+	pub fn new(mut file: BlockReader<R>) -> Result<Self> {
 		let pos = SBLOCK_UFS2 as u64 + MAGIC_OFFSET;
 		file.seek(SeekFrom::Start(pos))?;
 		let mut magic = [0u8; 4];
 		file.read_exact(&mut magic)?;
 
 		// magic: 0x19 54 01 19
+		#[cfg(not(fuzzing))]
 		let config = match magic {
 			[0x19, 0x01, 0x54, 0x19] => Config::little(),
 			[0x19, 0x54, 0x01, 0x19] => Config::big(),
 			_ => bail!("invalid superblock magic number: {magic:?}"),
 		};
+		// FIXME: Choose based on hash of input or so, to excercise BE as well with introducing non-determinism
+		#[cfg(fuzzing)]
+		let config = Config::little();
 
 		let mut file = Decoder::new(file, config);
 
 		let superblock: Superblock = file.decode_at(SBLOCK_UFS2 as u64)?;
+		#[cfg(not(fuzzing))]
 		if superblock.magic != FS_UFS2_MAGIC {
 			bail!("invalid superblock magic number: {}", superblock.magic);
 		}
-		//assert_eq!(superblock.cgsize, CGSIZE as i32);
-
 		let mut s = Self { file, superblock };
+		#[cfg(not(fuzzing))]
 		s.check()?;
 		Ok(s)
 	}

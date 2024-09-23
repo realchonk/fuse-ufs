@@ -45,6 +45,7 @@ impl InodeNum {
 	pub fn get(&self) -> u32 {
 		self.0
 	}
+
 	pub fn get64(&self) -> u64 {
 		self.0.into()
 	}
