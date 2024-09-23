@@ -121,7 +121,7 @@ impl<R: Read + Seek> Ufs<R> {
 		log::info!("Fragments per Block: {}", sb.frag);
 		log::info!("# Cylinder Groups: {}", sb.ncg);
 		log::info!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
-		
+
 		macro_rules! sbassert {
 			($e:expr) => {
 				if !($e) {
@@ -146,7 +146,7 @@ impl<R: Read + Seek> Ufs<R> {
 
 		// TODO: support other block/frag sizes
 		sbassert!(sb.bsize == 32768);
-		sbassert!(sb.fsize == 4096); 
+		sbassert!(sb.fsize == 4096);
 
 		// check that all superblocks are ok.
 		for i in 0..sb.ncg {
