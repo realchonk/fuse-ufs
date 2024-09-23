@@ -89,6 +89,8 @@ impl<R: Read + Seek> Ufs<R> {
 			);
 		}
 		let mut s = Self { file, superblock };
+		#[cfg(fuzzing)]
+		let _ = s.check();
 		#[cfg(not(fuzzing))]
 		s.check()?;
 		Ok(s)
