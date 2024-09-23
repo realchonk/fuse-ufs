@@ -19,7 +19,6 @@ struct Fs {
 	ufs: Ufs<File>,
 }
 
-
 fn main() -> Result<()> {
 	let cli = Cli::parse();
 

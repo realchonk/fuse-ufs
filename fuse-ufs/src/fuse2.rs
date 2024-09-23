@@ -1,4 +1,10 @@
-use std::{ffi::CString, io::{Error, Result}, os::unix::ffi::OsStrExt, path::Path};
+use std::{
+	ffi::CString,
+	io::{Error, Result},
+	os::unix::ffi::OsStrExt,
+	path::Path,
+};
+
 use fuse2rs::*;
 use rufs::InodeNum;
 
@@ -19,11 +25,7 @@ impl Fs {
 }
 
 impl Filesystem for Fs {
-	fn getattr(
-		&mut self,
-		_req: &Request,
-		path: &Path,
-	) -> Result<FileAttr> {
+	fn getattr(&mut self, _req: &Request, path: &Path) -> Result<FileAttr> {
 		let inr = self.lookup(path)?;
 		let ino = self.ufs.inode_attr(inr)?;
 		Ok(ino.into())
@@ -52,7 +54,7 @@ impl Filesystem for Fs {
 				Some(())
 			}
 		})?;
-		
+
 		Ok(())
 	}
 
@@ -69,12 +71,7 @@ impl Filesystem for Fs {
 		Ok(num)
 	}
 
-	fn readlink(
-		&mut self,
-		_req: &Request,
-		path: &Path,
-		buf: &mut [u8],
-	) -> Result<()> {
+	fn readlink(&mut self, _req: &Request, path: &Path, buf: &mut [u8]) -> Result<()> {
 		let inr = self.lookup(path)?;
 		let link = self.ufs.symlink_read(inr)?;
 
@@ -90,23 +87,18 @@ impl Filesystem for Fs {
 		Ok(())
 	}
 
-	fn statfs(
-		&mut self,
-		_req: &Request,
-		_path: &Path,
-	) -> Result<Statfs> {
+	fn statfs(&mut self, _req: &Request, _path: &Path) -> Result<Statfs> {
 		let info = self.ufs.info();
 
 		Ok(Statfs {
-			bsize: info.bsize,
+			bsize:  info.bsize,
 			frsize: info.fsize,
 			blocks: info.blocks,
-			bfree: info.bfree,
+			bfree:  info.bfree,
 			bavail: info.bfree,
-			files: info.files,
-			ffree: info.ffree,
+			files:  info.files,
+			ffree:  info.ffree,
 			favail: info.ffree,
 		})
 	}
 }
-

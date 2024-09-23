@@ -60,21 +60,24 @@ impl Cli {
 
 		opts
 	}
+
 	#[cfg(feature = "fuse2")]
 	pub fn options(&self) -> anyhow::Result<Vec<fuse2rs::MountOption>> {
 		use std::ffi::CString;
+
 		use fuse2rs::MountOption;
 
-		let mut opts = vec![
-			MountOption::DefaultPermissions,
-			MountOption::Ro,
-		];
+		let mut opts = vec![MountOption::DefaultPermissions, MountOption::Ro];
 
 		if self.foreground {
 			opts.push(MountOption::Foreground);
 		}
 
-		if self.verbose.log_level().map_or(false, |l| l >= clap_verbosity_flag::Level::Debug) {
+		if self
+			.verbose
+			.log_level()
+			.map_or(false, |l| l >= clap_verbosity_flag::Level::Debug)
+		{
 			opts.push(MountOption::Debug);
 		}
 
