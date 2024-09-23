@@ -32,7 +32,7 @@ fn errno() -> i32 {
 
 fn prepare_image(filename: &str) -> PathBuf {
 	let mut zimg = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-	zimg.push("resources");
+	zimg.push("../resources");
 	zimg.push(filename);
 	zimg.set_extension("img.zst");
 	let mut img = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
@@ -97,7 +97,7 @@ struct Harness {
 
 fn harness(img: &Path) -> Harness {
 	let d = tempdir().unwrap();
-	let child = Command::cargo_bin("fuse-ufs-fuser")
+	let child = Command::cargo_bin("fuse-ufs")
 		.unwrap()
 		.arg("-f")
 		.arg(img)
