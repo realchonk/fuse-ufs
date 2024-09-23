@@ -4,4 +4,4 @@ mod decoder;
 mod inode;
 mod ufs;
 
-pub use crate::ufs::Ufs;
+pub use crate::ufs::{Ufs, Info};
