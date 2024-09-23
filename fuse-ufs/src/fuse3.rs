@@ -1,13 +1,11 @@
 use std::{
 	ffi::{c_int, OsStr},
-	fs::File,
 	io::{Error as IoError, ErrorKind, Result as IoResult},
-	path::Path,
 	time::Duration,
 };
 
 use fuser::{FileAttr, Filesystem, KernelConfig, Request};
-use rufs::{InodeNum, Ufs};
+use rufs::InodeNum;
 
 use crate::Fs;
 
@@ -222,13 +220,5 @@ impl Filesystem for Fs {
 			Ok(R::Len(l)) => reply.size(l),
 			Err(e) => reply.error(e),
 		}
-	}
-}
-
-pub fn mount(fs: Fs, mp: &Path, opts: &[MountOption], foreground: bool) -> anyhow::Result<()> {
-	if foreground {
-		fuser::mount2(fs, mp, opts)
-	} else {
-		fuser::spawn_mount2(fs, mp, opts)
 	}
 }

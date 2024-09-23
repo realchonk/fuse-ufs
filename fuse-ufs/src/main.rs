@@ -31,13 +31,19 @@ fn main() -> Result<()> {
 		ufs: Ufs::open(&cli.device)?,
 	};
 
+	let mp = &cli.mountpoint;
 	cfg_if! {
 		if #[cfg(all(feature = "fuse3", feature = "fuse2"))] {
 			compile_error!("more than one FUSE backend selected")
 		} else if #[cfg(feature = "fuse3")] {
-			fuse3::mount(fs, &cli.mountpoint, &cli.options(), cli.foreground)?;
+			let opts = cli.options();
+			if cli.foreground {
+				fuser::mount2(fs, mp, &opts)?;
+			} else {
+				fuser::spawn_mount2(fs, mp, &opts)?;
+			}
 		} else if #[cfg(feature = "fuse2")] {
-			fuse2rs::mount(&cli.mountpoint, fs, cli.options()?)?;
+			fuse2rs::mount(mp, fs, cli.options()?)?;
 		} else {
 			compile_error!("no FUSE backend selected");
 		}
