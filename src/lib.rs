@@ -5,6 +5,6 @@ mod inode;
 mod ufs;
 
 pub use crate::{
-	ufs::{Ufs, Info},
 	data::Inode,
+	ufs::{Info, Ufs},
 };

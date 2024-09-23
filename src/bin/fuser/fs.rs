@@ -1,5 +1,10 @@
 use std::{
-	ffi::{c_int, OsStr}, io::{Error as IoError, ErrorKind, Result as IoResult}, path::Path, time::Duration};
+	ffi::{c_int, OsStr},
+	io::{Error as IoError, ErrorKind, Result as IoResult},
+	path::Path,
+	time::Duration,
+};
+
 use fuse_ufs::Ufs;
 use fuser::{Filesystem, KernelConfig, Request};
 
