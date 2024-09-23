@@ -99,7 +99,7 @@ impl Filesystem for Fs {
 
 		Ok(Statfs {
 			bsize: info.bsize,
-			frsize: info.bsize,
+			frsize: info.fsize,
 			blocks: info.blocks,
 			bfree: info.bfree,
 			bavail: info.bfree,
