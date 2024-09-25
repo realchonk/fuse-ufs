@@ -32,7 +32,7 @@ fn errno() -> i32 {
 
 fn prepare_image(filename: &str) -> PathBuf {
 	let mut zimg = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-	zimg.push("resources");
+	zimg.push("../resources");
 	zimg.push(filename);
 	zimg.set_extension("img.zst");
 	let mut img = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
@@ -287,7 +287,7 @@ fn non_existent(#[case] harness: Harness) {
 	let path = d.path().join("non-existent");
 
 	assert_eq!(
-		std::fs::metadata(&path).unwrap_err().kind(),
+		std::fs::metadata(path).unwrap_err().kind(),
 		ErrorKind::NotFound
 	);
 }

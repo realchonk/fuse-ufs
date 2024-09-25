@@ -1,0 +1,27 @@
+[package]
+name = "rufs"
+version = "0.3.0"
+edition = "2021"
+license = "BSD-2-Clause"
+authors = ["Benjamin Stürz <benni@stuerz.xyz>", "Alan Somers <asomers@gmail.com>", "Davids Paskevics <davids.paskevics@gmail.com>"]
+description = "FUSE implementation of FreeBSD's UFSv2"
+repository = "https://github.com/realchonk/fuse-ufs"
+rust-version = "1.74.0"
+documentation = "https://docs.rs/rufs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+fuser = ["dep:fuser"]
+
+[dependencies]
+bincode.workspace = true
+fuser = { workspace = true, optional = true }
+libc.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
