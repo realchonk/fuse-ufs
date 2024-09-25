@@ -108,7 +108,7 @@ fn harness(img: &Path) -> Harness {
 	waitfor(Duration::from_secs(5), || {
 		let s = nix::sys::statfs::statfs(d.path()).unwrap();
 		cfg_if! {
-			if #[cfg(any(target_os = "freebsd", target_os = "macos"))] {
+			if #[cfg(any(target_os = "freebsd", target_os = "macos", target_os = "openbsd"))] {
 				s.filesystem_type_name() == "fusefs.ufs"
 			} else if #[cfg(target_os = "linux")] {
 				s.filesystem_type() == nix::sys::statfs::FUSE_SUPER_MAGIC

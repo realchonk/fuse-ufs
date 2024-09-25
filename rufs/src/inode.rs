@@ -200,7 +200,50 @@ mod f {
 				atime:   a.atime,
 				mtime:   a.mtime,
 				ctime:   a.ctime,
-				crtime:  a.atime,
+				crtime:  a.btime,
+				kind:    a.kind.into(),
+				perm:    a.perm,
+				nlink:   a.nlink.into(),
+				uid:     a.uid,
+				gid:     a.gid,
+				rdev:    0,
+				blksize: a.blksize,
+				flags:   a.flags,
+			}
+		}
+	}
+}
+
+#[cfg(feature = "fuse2rs")]
+mod f2 {
+	use fuse2rs::{FileAttr, FileType};
+
+	use super::*;
+
+	impl From<InodeType> for FileType {
+		fn from(t: InodeType) -> Self {
+			match t {
+				InodeType::RegularFile => Self::RegularFile,
+				InodeType::Directory => Self::Directory,
+				InodeType::Symlink => Self::Symlink,
+				InodeType::Socket => Self::Socket,
+				InodeType::CharDevice => Self::CharDevice,
+				InodeType::BlockDevice => Self::BlockDevice,
+				InodeType::NamedPipe => Self::NamedPipe,
+			}
+		}
+	}
+
+	impl From<InodeAttr> for FileAttr {
+		fn from(a: InodeAttr) -> Self {
+			Self {
+				ino:     a.inr.get64(),
+				size:    a.size,
+				blocks:  a.blocks,
+				atime:   a.atime,
+				mtime:   a.mtime,
+				ctime:   a.ctime,
+				btime:   a.btime,
 				kind:    a.kind.into(),
 				perm:    a.perm,
 				nlink:   a.nlink.into(),

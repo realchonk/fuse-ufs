@@ -69,7 +69,7 @@ impl<R: Read + Seek> Ufs<R> {
 		xname: &OsStr,
 		mut f: impl FnMut(&ExtattrHeader, &[u8]) -> T,
 	) -> IoResult<T> {
-		#[cfg(target_os = "freebsd")]
+		#[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "macos"))]
 		const ERR: i32 = libc::ENOATTR;
 		#[cfg(target_os = "linux")]
 		const ERR: i32 = libc::ENODATA;
