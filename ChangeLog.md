@@ -10,10 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - basic fuzzing framework ([#74](https://github.com/realchonk/fuse-ufs/pull/74))
 - pre-mount checks for verifying the filesystem ([#74](https://github.com/realchonk/fuse-ufs/pull/74))
+- support for OpenBSD/FUSE2 via fuse2rs ([#79](https://github.com/realchonk/fuse-ufs/pull/79))
 
 ### Changed
 
 - split project into binary and library part ([#74](https://github.com/realchonk/fuse-ufs/pull/74))
+- make fuser optional ([#79](https://github.com/realchonk/fuse-ufs/pull/79))
 
 ## [0.3.0] - 2024-08-22
 
