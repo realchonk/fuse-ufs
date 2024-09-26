@@ -128,6 +128,8 @@ impl<R: Read + Seek> Ufs<R> {
 		sbassert!(sb.cblkno == 32);
 		sbassert!(sb.iblkno == 40);
 		sbassert!(sb.ncg > 0);
+		sbassert!(sb.ipg > 0);
+		sbassert!(sb.fpg > 0);
 		sbassert!(sb.frag > 0 && sb.frag <= 8);
 		sbassert!(sb.fsize == (sb.bsize / sb.frag));
 		// TODO: this looks ugly:
