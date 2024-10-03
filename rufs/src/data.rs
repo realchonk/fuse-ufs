@@ -470,8 +470,8 @@ impl Superblock {
 	}
 }
 
-fn howmany(x: usize, y: usize) -> usize {
-	(x + (y - 1)) / y
+const fn howmany(x: usize, y: usize) -> usize {
+	x.div_ceil(y)
 }
 
 impl ExtattrHeader {
