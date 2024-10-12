@@ -12,13 +12,9 @@
 ## Packages
 [![Packaging status](https://repology.org/badge/vertical-allrepos/fusefs:ufs.svg)](https://repology.org/project/fusefs:ufs/versions)
 
-- [Arch Linux AUR](https://aur.archlinux.org/packages/fuse-ufs)
-- FreeBSD (TODO)
-- [crates.io](https://crates.io/crates/fuse-ufs)
-
 ## Dependencies
 - rust >= 1.74.0
-- libfuse3
+- libfuse3 or libfuse2 (for fuse-ufs)
 
 ## Building from source
 ```sh
