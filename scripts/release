@@ -35,11 +35,6 @@ got tag -m "$ver" "$ver" || die 'failed to tag commit'
 got se -T || die 'failed to send'
 
 for p in rufs fuse-ufs; do
-	cargo publish --dry-run -p "$p" || die "failed to dry publish $p"
-done
-
-ask 'OK?' || exit 1
-
-for p in rufs fuse-ufs; do
 	cargo publish -p "$p" || die "failed to dry publish $p"
 done
+

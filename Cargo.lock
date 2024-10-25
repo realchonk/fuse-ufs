@@ -317,7 +317,7 @@ checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 
 [[package]]
 name = "fuse-ufs"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -695,7 +695,7 @@ dependencies = [
 
 [[package]]
 name = "rufs"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "bincode",
  "fuse2rs",

@@ -1,6 +1,6 @@
 [package]
 name = "fuse-ufs"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 license = "BSD-2-Clause"
 authors = ["Benjamin Stürz <benni@stuerz.xyz>", "Alan Somers <asomers@gmail.com>", "Davids Paskevics <davids.paskevics@gmail.com>"]
