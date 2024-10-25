@@ -1,6 +1,6 @@
 [package]
 name = "fuse-ufs"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 license = "BSD-2-Clause"
 authors = ["Benjamin Stürz <benni@stuerz.xyz>", "Alan Somers <asomers@gmail.com>", "Davids Paskevics <davids.paskevics@gmail.com>"]
@@ -21,6 +21,7 @@ anyhow.workspace = true
 cfg-if = "1.0.0"
 clap.workspace = true
 clap-verbosity-flag.workspace = true
+daemonize = "0.5.0"
 env_logger.workspace = true
 fuse2rs = { workspace = true, optional = true }
 fuser = { workspace = true, optional = true }

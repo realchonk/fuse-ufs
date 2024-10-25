@@ -26,6 +26,7 @@ done
 sed -i "s/^rufs = { version = \".*\", path = \"rufs\" }\$/rufs = { version = \"$ver\", path = \"rufs\" }/" Cargo.toml || die 'failed to patch workspace Cargo.toml'
 
 cargo update || die 'failed to run `cargo update`'
+cargo test || die 'tests failed'
 
 [ -e .got ] || die 'repo is not a GameOfTrees repo'
 got di | bat -l patch

@@ -39,7 +39,10 @@ fn main() -> Result<()> {
 			if cli.foreground {
 				fuser::mount2(fs, mp, &opts)?;
 			} else {
-				fuser::spawn_mount2(fs, mp, &opts)?;
+				let _ = daemonize::Daemonize::new()
+					.working_directory(std::env::current_dir()?)
+					.start()?;
+				fuser::mount2(fs, mp, &opts)?;
 			}
 		} else if #[cfg(feature = "fuse2")] {
 			fuse2rs::mount(mp, fs, cli.options()?)?;

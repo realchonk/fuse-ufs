@@ -12,7 +12,7 @@ fuse2rs = "0.0.2"
 fuser = "0.14.0"
 libc = "0.2.155"
 log = "0.4.22"
-rufs = { version = "0.4.2", path = "rufs" }
+rufs = { version = "0.4.3", path = "rufs" }
 
 # Dev dependencies
 assert_cmd = "2.0"

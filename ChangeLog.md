@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [0.4.3] - 2024-10-25
+
+### Fix
+
+- fuse-ufs: mounting without `-f` on FUSE3
+- scripts/release: run test suite before publishing
+
 ## [0.4.2] - 2024-10-25
 
 ### Fix
