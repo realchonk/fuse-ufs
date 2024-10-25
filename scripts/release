@@ -1,0 +1,41 @@
+#!/bin/sh
+
+ask() {
+	printf '%s [yN] ' "$1" >&2
+	read -r yesno || return 1
+	[ "$yesno" = 'y' ]
+}
+
+die() {
+	printf 'error: %s\n' "$*" >&2
+	if [ -e .got ] && ask 'Restore modified files?'; then
+		got rv ChangeLog.md rufs/Cargo.toml fuse-ufs/Cargo.toml
+	fi
+	exit 1
+}
+
+ver=$(sed -n 's/^## \[\(.*\)\] - unreleased$/\1/p' ChangeLog.md)
+[ -z "$ver" ] && die "cannot find unreleased version in ChangeLog"
+
+sed -i "s/^\\(## \\[$ver\\]\\) - unreleased$/\\1 - $(date +%F)/" ChangeLog.md || die "failed to patch ChangeLog"
+
+for f in rufs/Cargo.toml fuse-ufs/Cargo.toml; do
+	sed -i "s/^version = .*$/version = \"$ver\"/" "$f" || die "failed to patch $f"
+done
+
+[ -e .got ] || die 'repo is not a GameOfTrees repo'
+got di | bat -l patch
+ask 'Commit?' || exit 1
+got ci -m "Release of $ver" || die 'failed to commit'
+got tag "$ver" || die 'failed to tag commit'
+got se -T || die 'failed to send'
+
+for p in rufs fuse-ufs; do
+	cargo publish --dry-run -p "$p" || die "failed to dry publish $p"
+done
+
+ask 'OK?' || exit 1
+
+for p in rufs fuse-ufs; do
+	cargo publish -p "$p" || die "failed to dry publish $p"
+done
