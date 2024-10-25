@@ -23,11 +23,15 @@ for f in rufs/Cargo.toml fuse-ufs/Cargo.toml; do
 	sed -i "s/^version = .*$/version = \"$ver\"/" "$f" || die "failed to patch $f"
 done
 
+sed -i "s/^rufs = { version = \".*\", path = \"rufs\" }\$/rufs = { version = \"$ver\", path = \"rufs\" }/" Cargo.toml || die 'failed to patch workspace Cargo.toml'
+
+cargo update || die 'failed to run `cargo update`'
+
 [ -e .got ] || die 'repo is not a GameOfTrees repo'
 got di | bat -l patch
 ask 'Commit?' || exit 1
 got ci -m "Release of $ver" || die 'failed to commit'
-got tag "$ver" || die 'failed to tag commit'
+got tag -m "$ver" "$ver" || die 'failed to tag commit'
 got se -T || die 'failed to send'
 
 for p in rufs fuse-ufs; do
