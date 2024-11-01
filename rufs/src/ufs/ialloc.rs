@@ -234,7 +234,7 @@ impl<R: Backend> Ufs<R> {
 				let size = self.inode_get_block_size(ino, begin_indir3 + off3 * pbp * pbp + off2 * pbp + i);
 				self.blk_free(bno, size as u64)?;
 			}
-			self.write_pblock(snd[off2 as usize], &mut block)?;
+			self.write_pblock(snd[off2 as usize], &block)?;
 			for i in (off2 + 1)..pbp {
 				let bno = replace(&mut snd[i as usize], 0);
 				self.inode_free_l1(ino, bno, &mut block)?;
@@ -270,7 +270,7 @@ impl<R: Backend> Ufs<R> {
 					continue;
 				}
 				let size = self.inode_get_block_size(ino, begin_indir2 + off2 * pbp + i);
-				self.blk_free(bno as u64, size as u64)?;
+				self.blk_free(bno, size as u64)?;
 			}
 			self.write_pblock(fst[off1 as usize], &block)?;
 
@@ -297,7 +297,7 @@ impl<R: Backend> Ufs<R> {
 					continue;
 				}
 				let size = self.inode_get_block_size(ino, begin_indir1 + i);
-				self.blk_free(bno as u64, size as u64)?;
+				self.blk_free(bno, size as u64)?;
 			}
 
 			self.write_pblock(iblocks.indirect[0] as u64, &block)?;
