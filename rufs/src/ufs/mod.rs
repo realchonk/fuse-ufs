@@ -56,6 +56,7 @@ pub struct Info {
 	pub fsize: u32,
 }
 
+/// Berkley Unix (Fast) Filesystem v2
 pub struct Ufs<R: Read + Seek> {
 	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
