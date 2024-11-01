@@ -374,7 +374,7 @@ pub enum InodeType {
 	//Whiteout,
 }
 
-/// Inode Metadata>
+/// Inode Metadata
 #[derive(Debug)]
 #[doc(alias = "Stat")]
 pub struct InodeAttr {
