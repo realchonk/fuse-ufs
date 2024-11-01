@@ -2,6 +2,8 @@ use super::*;
 use crate::InodeNum;
 
 impl<R: Read + Seek> Ufs<R> {
+	/// Read the contents of a symbolic link.
+	#[doc(alias = "readlink")]
 	pub fn symlink_read(&mut self, inr: InodeNum) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
 

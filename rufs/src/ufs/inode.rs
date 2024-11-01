@@ -2,11 +2,14 @@ use super::*;
 use crate::{err, InodeNum};
 
 impl<R: Read + Seek> Ufs<R> {
+	/// Get metadata about an inode.
+	#[doc(alias("stat", "getattr"))]
 	pub fn inode_attr(&mut self, inr: InodeNum) -> IoResult<InodeAttr> {
 		let ino = self.read_inode(inr)?;
 		Ok(ino.as_attr(inr))
 	}
 
+	/// Read data from an inode.
 	pub fn inode_read(
 		&mut self,
 		inr: InodeNum,

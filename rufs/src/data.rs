@@ -374,24 +374,59 @@ pub enum InodeType {
 	//Whiteout,
 }
 
+/// Inode Metadata>
 #[derive(Debug)]
+#[doc(alias = "Stat")]
 pub struct InodeAttr {
+	/// Inode number.
 	pub inr:       InodeNum,
+
+	/// UNIX Permissions.
 	pub perm:      u16,
+
+	/// Type of the inode.
 	pub kind:      InodeType,
+
+	/// Inode data size.
 	pub size:      u64,
+
+	/// Total number of blocks allocated.
 	pub blocks:    u64,
+
+	/// Access time.
 	pub atime:     SystemTime,
+
+	/// Modify time.
 	pub mtime:     SystemTime,
+
+	/// Change time.
 	pub ctime:     SystemTime,
+
+	/// Birth time.
 	pub btime:     SystemTime,
+
+	/// Number of hard links.
 	pub nlink:     u16,
+
+	/// User ID.
 	pub uid:       u32,
+
+	/// Group ID.
 	pub gid:       u32,
+
+	/// Inode Generation.
 	pub gen:       u32,
+
+	/// Block size.
 	pub blksize:   u32,
+
+	/// Additional inode flags (like immutable).
 	pub flags:     u32,
+
+	/// FreeBSD kernel flags.
 	pub kernflags: u32,
+
+	/// Size of the extended attribute area.
 	pub extsize:   u32,
 }
 

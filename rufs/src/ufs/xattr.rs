@@ -85,11 +85,15 @@ impl<R: Read + Seek> Ufs<R> {
 		.and_then(|r| r.ok_or(IoError::from_raw_os_error(ERR)))
 	}
 
+	/// Get the size of the extended attribute area of inode `inr`.
 	pub fn xattr_list_len(&mut self, inr: InodeNum) -> IoResult<u32> {
 		let ino = self.read_inode(inr)?;
 		Ok(ino.extsize)
 	}
 
+	/// Get the list of extended attribyte names.
+	/// Each entry follows the following format:
+	/// `"namespace.name\0"`
 	pub fn xattr_list(&mut self, inr: InodeNum) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
 		let mut data = OsString::new();
@@ -103,12 +107,14 @@ impl<R: Read + Seek> Ufs<R> {
 		Ok(data.into_vec())
 	}
 
+	/// Get the size of an extended attribute.
 	pub fn xattr_len(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<u32> {
 		let ino = self.read_inode(inr)?;
 		let len = self.read_xattr(&ino, name, |_hdr, data| data.len())?;
 		Ok(len as u32)
 	}
-
+	
+	/// Read the value of an extended attribute.
 	pub fn xattr_read(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
 		let data = self.read_xattr(&ino, name, |_hdr, data| data.into())?;

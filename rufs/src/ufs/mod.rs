@@ -34,6 +34,7 @@ macro_rules! iobail {
 
 /// Summary of filesystem statistics.
 #[derive(Debug, Clone)]
+#[doc(alias = "Statfs")]
 pub struct Info {
 	/// Number of blocks.
 	pub blocks: u64,
@@ -101,6 +102,8 @@ impl<R: Read + Seek> Ufs<R> {
 		Ok(s)
 	}
 
+	/// Get filesystem metadata.
+	#[doc(alias("statfs", "statvfs"))]
 	pub fn info(&self) -> Info {
 		let sb = &self.superblock;
 		let cst = &sb.cstotal;
