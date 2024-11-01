@@ -16,6 +16,7 @@ pub struct BlockReader<T: Backend> {
 	inner: T,
 	block: Vec<u8>,
 	idx:   usize,
+	dirty: bool,
 }
 
 impl BlockReader<File> {
@@ -33,10 +34,15 @@ impl<T: Backend> BlockReader<T> {
 			inner,
 			block,
 			idx: bs,
+			dirty: false,
 		}
 	}
 
 	fn refill(&mut self) -> IoResult<()> {
+		if self.dirty {
+			panic!("Cannot refill dirty BlockReader");
+		}
+		let pos = self.inner.stream_position()?;
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.read(&mut self.block[num..])? {
@@ -45,6 +51,7 @@ impl<T: Backend> BlockReader<T> {
 			}
 		}
 		self.idx = 0;
+		self.inner.seek(SeekFrom::Start(pos))?;
 		Ok(())
 	}
 
@@ -76,6 +83,37 @@ impl<T: Backend> Read for BlockReader<T> {
 	}
 }
 
+impl<T: Backend> Write for BlockReader<T> {
+	fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+		self.refill_if_empty()?;
+		let num = buf.len().min(self.buffered());
+		self.block[self.idx..(self.idx + num)].copy_from_slice(&buf[0..num]);
+		self.idx += num;
+		self.flush()?;
+		Ok(num)
+	}
+
+	fn flush(&mut self) -> IoResult<()> {
+		if !self.dirty {
+			return Ok(());
+		}
+
+		let pos = self.inner.stream_position()?;
+		let mut num = 0;
+		while num < self.block.len() {
+			match self.inner.write(&self.block[num..])? {
+				0 => break,
+				n => num += n,
+			}
+		}
+		if num < self.block.len() {
+			log::error!("short write: pos={pos}, num={num}, len={}", self.block.len());
+		}
+		self.inner.seek(SeekFrom::Start(pos))?;
+		Ok(())
+	}
+}
+
 impl<T: Backend> BufRead for BlockReader<T> {
 	fn fill_buf(&mut self) -> IoResult<&[u8]> {
 		self.refill_if_empty()?;
@@ -93,6 +131,7 @@ impl<T: Backend> Seek for BlockReader<T> {
 		let bs = self.blksize() as u64;
 		match pos {
 			SeekFrom::Start(pos) => {
+				self.flush()?;
 				let real = self.inner.seek(SeekFrom::Start(pos / bs * bs))?;
 				let rem = pos - real;
 				assert!(rem < bs);
