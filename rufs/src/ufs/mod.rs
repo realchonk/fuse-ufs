@@ -19,6 +19,7 @@ use crate::{
 	decoder::{Config, Decoder},
 };
 
+/// (INTERNAL) Constructs an [`std::io::Error`] from an `errno`.
 #[macro_export]
 macro_rules! err {
 	($name:ident) => {
