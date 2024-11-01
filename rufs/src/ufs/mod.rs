@@ -32,13 +32,25 @@ macro_rules! iobail {
 	};
 }
 
+/// Summary of filesystem statistics.
 #[derive(Debug, Clone)]
 pub struct Info {
+	/// Number of blocks.
 	pub blocks: u64,
+
+	/// Number of free blocks.
 	pub bfree:  u64,
+
+	/// Number of inodes (files).
 	pub files:  u64,
+
+	/// Number of free inodes (files).
 	pub ffree:  u64,
+
+	/// Block size.
 	pub bsize:  u32,
+
+	/// Fragment size.
 	pub fsize:  u32,
 }
 
