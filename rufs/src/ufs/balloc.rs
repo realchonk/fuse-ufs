@@ -1,5 +1,4 @@
 use super::*;
-use crate::{err, InodeNum};
 
 impl<R: Backend> Ufs<R> {
 	/// See /sys/ufs/ffs/ffs_subr.c: ffs_isblock()
