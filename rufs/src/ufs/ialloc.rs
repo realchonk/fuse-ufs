@@ -65,6 +65,10 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	fn inode_free_l1(&mut self, ino: &Inode, bno: u64, block: &mut Vec<u64>) -> IoResult<()> {
+		if bno == 0 {
+			return Ok(());
+		}
+
 		self.read_pblock(bno, block)?;
 
 		for bno in block {
@@ -78,6 +82,10 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	fn inode_free_l2(&mut self, ino: &Inode, bno: u64, block: &mut Vec<u64>) -> IoResult<()> {
+		if bno == 0 {
+			return Ok(());
+		}
+
 		self.read_pblock(bno, block)?;
 		let indir = block.clone();
 
@@ -91,6 +99,10 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	fn inode_free_l3(&mut self, ino: &Inode, bno: u64, block: &mut Vec<u64>) -> IoResult<()> {
+		if bno == 0 {
+			return Ok(());
+		}
+
 		self.read_pblock(bno, block)?;
 		let indir = block.clone();
 
@@ -156,21 +168,50 @@ impl<R: Backend> Ufs<R> {
 				self.blk_free(bno, size as u64)?;
 			}
 
-			// free 1st level indirect blocks
-			if blocks.indirect[0] != 0 {
-				self.inode_free_l1(&ino, blocks.indirect[0] as u64, &mut block)?;
-			}
-
-			// free 2nd level indirect blocks
-			if blocks.indirect[1] != 0 {
-				self.inode_free_l2(&ino, blocks.indirect[1] as u64, &mut block)?;
-			}
-
-			// free 3rd level indirect blocks
-			if blocks.indirect[2] != 0 {
-				self.inode_free_l3(&ino, blocks.indirect[3] as u64, &mut block)?;
-			}
+			self.inode_free_l1(&ino, blocks.indirect[0] as u64, &mut block)?;
+			self.inode_free_l2(&ino, blocks.indirect[1] as u64, &mut block)?;
+			self.inode_free_l3(&ino, blocks.indirect[2] as u64, &mut block)?;
 		}
+
+		Ok(())
+	}
+
+	fn inode_shrink(&mut self, ino: &mut Inode, size: u64) -> IoResult<()> {
+		let (begin_indir1, begin_indir2, begin_indir3, _) = self.inode_data_zones();
+		let sb = &self.superblock;
+		let bs = sb.bsize as u64;
+		let fs = sb.fsize as u64;
+		let (blocks, frags) = ino.size(bs, fs);
+		let blocks = blocks + (frags > 0) as u64;
+
+		let InodeData::Blocks(iblocks) = ino.data.clone() else {
+			return Err(err!(EINVAL));
+		};
+
+		if blocks > begin_indir3 {
+			todo!();
+			return Ok(());
+		}
+
+		let mut block = vec![0u64; bs as usize / size_of::<u64>()];
+
+		self.inode_free_l3(ino, iblocks.indirect[2] as u64, &mut block)?;
+
+		todo!();
+	}
+
+	pub fn inode_truncate(&mut self, inr: InodeNum, new_size: u64) -> IoResult<()> {
+		self.assert_rw()?;
+
+		let mut ino = self.read_inode(inr)?;
+		let old_size = ino.size;
+		ino.size = new_size;
+
+		if new_size < old_size {
+			self.inode_shrink(&mut ino, new_size)?;
+		}
+
+		self.write_inode(inr, &ino)?;
 
 		Ok(())
 	}
