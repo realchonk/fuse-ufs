@@ -129,7 +129,7 @@ impl Inode {
 	}
 
 	/// The number of blocks and fragments this inode needs.
-	fn inode_size(bs: u64, fs: u64, size: u64) -> (u64, u64) {
+	pub fn inode_size(bs: u64, fs: u64, size: u64) -> (u64, u64) {
 		let blocks = size / bs;
 		let frags = (size % bs).div_ceil(fs);
 
