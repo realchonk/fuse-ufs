@@ -1,4 +1,4 @@
-use std::io::{BufReader, Error, ErrorKind, Read, Result, Seek, SeekFrom};
+use std::io::{BufRead, Error, ErrorKind, Result, Seek, SeekFrom};
 
 use bincode::{
 	config::{BigEndian, Configuration, Fixint, LittleEndian, NoLimit},
@@ -26,7 +26,7 @@ impl Config {
 		Self::Big(cfg)
 	}
 
-	fn decode<T: Read, X: Decode>(&self, rdr: &mut BufReader<T>) -> Result<X> {
+	fn decode<T: Decode>(&self, rdr: &mut dyn BufRead) -> Result<T> {
 		match self {
 			Self::Little(cfg) => bincode::decode_from_reader(rdr, *cfg),
 			Self::Big(cfg) => bincode::decode_from_reader(rdr, *cfg),
@@ -35,17 +35,25 @@ impl Config {
 	}
 }
 
-pub struct Decoder<T> {
-	inner:  BufReader<T>,
+pub struct Decoder<T: BufRead> {
+	inner:  T,
 	config: Config,
 }
 
-impl<T: Read> Decoder<T> {
+impl<T: BufRead> Decoder<T> {
 	pub fn new(inner: T, config: Config) -> Self {
 		Self {
-			inner: BufReader::with_capacity(4096, inner),
+			inner,
 			config,
 		}
+	}
+
+	pub fn inner(&self) -> &T {
+		&self.inner
+	}
+
+	pub fn inner_mut(&mut self) -> &mut T {
+		&mut self.inner
 	}
 
 	pub fn decode<X: Decode>(&mut self) -> Result<X> {
@@ -61,7 +69,7 @@ impl<T: Read> Decoder<T> {
 	}
 }
 
-impl<T: Read + Seek> Decoder<T> {
+impl<T: BufRead + Seek> Decoder<T> {
 	pub fn read_at(&mut self, pos: u64, buf: &mut [u8]) -> Result<()> {
 		self.seek(pos)?;
 		self.read(buf)
