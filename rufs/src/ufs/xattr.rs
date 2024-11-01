@@ -113,7 +113,7 @@ impl<R: Read + Seek> Ufs<R> {
 		let len = self.read_xattr(&ino, name, |_hdr, data| data.len())?;
 		Ok(len as u32)
 	}
-	
+
 	/// Read the value of an extended attribute.
 	pub fn xattr_read(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;

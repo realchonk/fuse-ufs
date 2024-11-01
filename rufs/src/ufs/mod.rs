@@ -40,19 +40,19 @@ pub struct Info {
 	pub blocks: u64,
 
 	/// Number of free blocks.
-	pub bfree:  u64,
+	pub bfree: u64,
 
 	/// Number of inodes (files).
-	pub files:  u64,
+	pub files: u64,
 
 	/// Number of free inodes (files).
-	pub ffree:  u64,
+	pub ffree: u64,
 
 	/// Block size.
-	pub bsize:  u32,
+	pub bsize: u32,
 
 	/// Fragment size.
-	pub fsize:  u32,
+	pub fsize: u32,
 }
 
 pub struct Ufs<R: Read + Seek> {
