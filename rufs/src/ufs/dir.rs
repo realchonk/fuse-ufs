@@ -64,7 +64,13 @@ impl Header {
 			Some(InodeType::Socket) => DT_SOCK,
 			None => DT_WHT,
 		};
-		log::trace!("Header::write(inr={}, reclen={}, namelen={}, name={:?}, kind={kind})", self.inr, self.reclen, self.namelen, self.name());
+		log::trace!(
+			"Header::write(inr={}, reclen={}, namelen={}, name={:?}, kind={kind})",
+			self.inr,
+			self.reclen,
+			self.namelen,
+			self.name()
+		);
 		file.encode(&self.inr)?;
 		file.encode(&self.reclen)?;
 		file.encode(&kind)?;

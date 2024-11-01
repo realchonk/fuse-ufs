@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added 
 
-- initial write support (#84)
+- initial write support ([#84](https://github.com/realchonk/fuse-ufs/pull/84))
 - Ufs::unlink()
 - support for FUSE2 on Linux and FreeBSD (through fuse2rs)
 
