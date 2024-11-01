@@ -26,8 +26,10 @@ fn main() -> Result<()> {
 		.filter_level(cli.verbose.log_level_filter())
 		.init();
 
+	let (opts, rw) = cli.options()?;
+
 	let fs = Fs {
-		ufs: Ufs::open(&cli.device, false)?,
+		ufs: Ufs::open(&cli.device, rw)?,
 	};
 
 	let mp = &cli.mountpoint;
@@ -35,7 +37,6 @@ fn main() -> Result<()> {
 		if #[cfg(all(feature = "fuse3", feature = "fuse2"))] {
 			compile_error!("more than one FUSE backend selected")
 		} else if #[cfg(feature = "fuse3")] {
-			let opts = cli.options();
 			if cli.foreground {
 				fuser::mount2(fs, mp, &opts)?;
 			} else {
@@ -45,7 +46,7 @@ fn main() -> Result<()> {
 				fuser::mount2(fs, mp, &opts)?;
 			}
 		} else if #[cfg(feature = "fuse2")] {
-			fuse2rs::mount(mp, fs, cli.options()?)?;
+			fuse2rs::mount(mp, fs, opts)?;
 		} else {
 			compile_error!("no FUSE backend selected");
 		}
