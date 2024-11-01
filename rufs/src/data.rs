@@ -42,16 +42,20 @@ pub type UfsDaddr = i64;
 #[repr(transparent)]
 pub struct InodeNum(u32);
 impl InodeNum {
+	/// The inode number of the root directory (`/`) of the filesystem.
 	pub const ROOT: Self = Self(2);
 
+	/// Get the numeric value.
 	pub fn get(&self) -> u32 {
 		self.0
 	}
 
+	/// The same as `.get()`, but returns u64.
 	pub fn get64(&self) -> u64 {
 		self.0.into()
 	}
 
+	/// Create a new inode number.
 	/// # Safety
 	/// `inr` must be a valid inode number
 	pub unsafe fn new(inr: u32) -> Self {
