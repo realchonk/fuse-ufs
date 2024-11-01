@@ -39,6 +39,7 @@ pub type UfsDaddr = i64;
 
 /// UFS-native inode number type
 #[derive(Debug, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
 pub struct InodeNum(u32);
 impl InodeNum {
 	pub const ROOT: Self = Self(2);
