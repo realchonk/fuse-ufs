@@ -305,7 +305,7 @@ impl<R: Backend> Ufs<R> {
 		}
 	}
 
-	fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> usize {
+	pub(super) fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> usize {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
