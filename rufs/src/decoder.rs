@@ -86,6 +86,13 @@ impl<T: Read + Write> Decoder<T> {
 	pub fn encode(&mut self, x: &impl Encode) -> Result<()> {
 		self.config.encode(&mut self.inner, x)
 	}
+
+	pub fn fill(&mut self, b: u8, num: usize) -> Result<()> {
+		for _ in 0..num {
+			self.write(&[b])?;
+		}
+		Ok(())
+	}
 }
 
 impl<T: Read + Seek> Decoder<T> {

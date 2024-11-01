@@ -38,7 +38,7 @@ pub type UfsTime = i64;
 pub type UfsDaddr = i64;
 
 /// UFS-native inode number type
-#[derive(Debug, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Decode, Encode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct InodeNum(u32);
 impl InodeNum {
