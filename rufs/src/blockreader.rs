@@ -17,24 +17,29 @@ pub struct BlockReader<T: Backend> {
 	block: Vec<u8>,
 	idx:   usize,
 	dirty: bool,
+	rw:    bool,
 }
 
 impl BlockReader<File> {
-	pub fn open(path: &Path) -> IoResult<Self> {
-		let file = File::options().read(true).write(false).open(path)?;
+	pub fn open(path: &Path, rw: bool) -> IoResult<Self> {
+		let file = File::options()
+			.read(true)
+			.write(rw)
+			.open(path)?;
 		let bs = file.metadata()?.blksize() as usize;
-		Ok(BlockReader::new(file, bs))
+		Ok(BlockReader::new(file, bs, rw))
 	}
 }
 
 impl<T: Backend> BlockReader<T> {
-	pub fn new(inner: T, bs: usize) -> Self {
+	pub fn new(inner: T, bs: usize, rw: bool) -> Self {
 		let block = vec![0u8; bs];
 		Self {
 			inner,
 			block,
 			idx: bs,
 			dirty: false,
+			rw,
 		}
 	}
 
@@ -83,10 +88,14 @@ impl<T: Backend> Read for BlockReader<T> {
 
 impl<T: Backend> Write for BlockReader<T> {
 	fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+		if !self.rw {
+			panic!("BUG: BlockReader::write() should never be called when the medium is not writable");
+		}
 		self.refill_if_empty()?;
 		let num = buf.len().min(self.buffered());
 		self.block[self.idx..(self.idx + num)].copy_from_slice(&buf[0..num]);
 		self.idx += num;
+		self.dirty = true;
 		self.flush()?;
 		Ok(num)
 	}
@@ -108,6 +117,7 @@ impl<T: Backend> Write for BlockReader<T> {
 			let pos = self.inner.stream_position()?;
 			log::error!("short write: pos={pos}, num={num}, len={}", self.block.len());
 		}
+		self.dirty = false;
 		Ok(())
 	}
 }
@@ -162,26 +172,45 @@ impl<T: Backend> Seek for BlockReader<T> {
 mod t {
 	use super::*;
 
+	const FSIZE: u64 = 1 << 20;
+
+	fn harness(rw: bool) -> BlockReader<File> {
+		let f = tempfile::NamedTempFile::new().unwrap();
+		f.as_file().set_len(FSIZE).unwrap();
+		let br = BlockReader::open(f.path(), rw).unwrap();
+		let bs = br.blksize();
+		assert!(FSIZE > 2 * bs as u64);
+		br
+	}
+
+	mod write {
+		use super::*;
+		
+		#[test]
+		fn simple_write() {
+			let mut br = harness(true);
+			let bs = br.blksize();
+			let pos = bs + (bs >> 2);
+			let mut buf = vec![0x55u8; bs];
+			br.seek(SeekFrom::Start(pos as u64)).unwrap();
+			br.write_all(&buf).unwrap();
+			buf.fill(0);
+			br.seek(SeekFrom::Start(pos as u64)).unwrap();
+			br.read_exact(&mut buf).unwrap();
+			assert_eq!(buf, vec![0x55u8; bs]);
+
+		}
+	}
+
 	mod seek {
 		use super::*;
-
-		const FSIZE: u64 = 1 << 20;
-
-		fn harness() -> BlockReader<File> {
-			let f = tempfile::NamedTempFile::new().unwrap();
-			f.as_file().set_len(FSIZE).unwrap();
-			let br = BlockReader::open(f.path()).unwrap();
-			let bs = br.blksize();
-			assert!(FSIZE > 2 * bs as u64);
-			br
-		}
 
 		/// Seeking to SeekFrom::Current(0) should refill the internal buffer but otherwise be a
 		/// no-op.
 		#[test]
 		#[allow(clippy::seek_from_current)] // That's the whole point of the test
 		fn current_0() {
-			let mut br = harness();
+			let mut br = harness(false);
 			let bs = br.blksize();
 			let pos = bs + (bs >> 2);
 			br.seek(SeekFrom::Start(pos as u64)).unwrap();
@@ -196,7 +225,7 @@ mod t {
 		/// Seek to a negative offset from current
 		#[test]
 		fn current_neg() {
-			let mut br = harness();
+			let mut br = harness(false);
 			let bs = br.blksize();
 			let initial = bs + (bs >> 2);
 			br.seek(SeekFrom::Start(initial as u64)).unwrap();
@@ -213,7 +242,7 @@ mod t {
 		/// Seek to a negative absolute offset using SeekFrom::Current
 		#[test]
 		fn current_neg_neg() {
-			let mut br = harness();
+			let mut br = harness(false);
 			let bs = br.blksize();
 			let initial = bs + (bs >> 2);
 			br.seek(SeekFrom::Start(initial as u64)).unwrap();
@@ -225,7 +254,7 @@ mod t {
 		/// Seek to a small positive offset from current, within the current block
 		#[test]
 		fn current_pos_incr() {
-			let mut br = harness();
+			let mut br = harness(false);
 			let bs = br.blksize();
 			let initial = bs + (bs >> 2);
 			br.seek(SeekFrom::Start(initial as u64)).unwrap();
@@ -242,7 +271,7 @@ mod t {
 		/// Seek to a large positive offset from current
 		#[test]
 		fn current_pos_large() {
-			let mut br = harness();
+			let mut br = harness(false);
 			let bs = br.blksize();
 			let initial = bs + (bs >> 2);
 			br.seek(SeekFrom::Start(initial as u64)).unwrap();
