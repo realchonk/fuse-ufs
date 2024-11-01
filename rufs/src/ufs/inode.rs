@@ -65,7 +65,7 @@ impl<R: Backend> Ufs<R> {
 		&mut self,
 		inr: InodeNum,
 		f: impl FnOnce(InodeAttr) -> InodeAttr,
-	) -> IoResult<()> {
+	) -> IoResult<InodeAttr> {
 		self.assert_rw()?;
 		let mut ino = self.read_inode(inr)?;
 		let attr = f(ino.as_attr(inr));
@@ -80,7 +80,7 @@ impl<R: Backend> Ufs<R> {
 		ino.flags = attr.flags;
 
 		self.write_inode(inr, &ino)?;
-		Ok(())
+		Ok(ino.as_attr(inr))
 	}
 
 	pub(super) fn inode_read_block(
