@@ -27,7 +27,7 @@ fn main() -> Result<()> {
 		.init();
 
 	let fs = Fs {
-		ufs: Ufs::open(&cli.device)?,
+		ufs: Ufs::open(&cli.device, false)?,
 	};
 
 	let mp = &cli.mountpoint;
