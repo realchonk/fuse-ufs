@@ -78,7 +78,7 @@ impl<R: Backend> Ufs<R> {
 		ino.set_ctime(attr.ctime);
 		ino.set_btime(attr.btime);
 		ino.flags = attr.flags;
-		
+
 		self.write_inode(inr, &ino)?;
 		Ok(())
 	}
@@ -256,7 +256,7 @@ impl<R: Backend> Ufs<R> {
 		let mut ino = self.read_inode(inr)?;
 		ino.nlink -= 1;
 		self.write_inode(inr, &ino)?;
-		
+
 		if ino.nlink == 0 {
 			log::warn!("TODO: free inode {inr}");
 		}
