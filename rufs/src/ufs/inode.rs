@@ -35,7 +35,8 @@ impl<R: Backend> Ufs<R> {
 				&mut blockbuf[0..(block.size as usize)],
 			)?;
 			let off = block.off as usize;
-			buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[off..(off + num as usize)]);
+			buffer[boff..(boff + num as usize)]
+				.copy_from_slice(&blockbuf[off..(off + num as usize)]);
 
 			offset += num;
 			boff += num as usize;
@@ -77,14 +78,10 @@ impl<R: Backend> Ufs<R> {
 			)?;
 
 			let off = block.off as usize;
-			blockbuf[off..(off + num as usize)].copy_from_slice(&buffer[boff..(boff + num as usize)]);
+			blockbuf[off..(off + num as usize)]
+				.copy_from_slice(&buffer[boff..(boff + num as usize)]);
 
-			self.inode_write_block(
-				inr,
-				&ino,
-				block.blkidx,
-				&blockbuf[0..(block.size as usize)],
-			)?;
+			self.inode_write_block(inr, &ino, block.blkidx, &blockbuf[0..(block.size as usize)])?;
 
 			offset += num;
 			boff += num as usize;
