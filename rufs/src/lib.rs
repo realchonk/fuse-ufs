@@ -8,6 +8,6 @@ mod ufs;
 
 pub use crate::{
 	blockreader::BlockReader,
-	data::{Inode, InodeNum},
+	data::{InodeAttr, InodeNum},
 	ufs::{Info, Ufs},
 };

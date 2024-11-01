@@ -55,6 +55,7 @@ fn readdir_block<T>(
 }
 
 impl<R: Read + Seek> Ufs<R> {
+	/// Find a file named `name` in the directory referenced by `pinr`.
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
 		self.dir_iter(
 			pinr,
@@ -69,6 +70,7 @@ impl<R: Read + Seek> Ufs<R> {
 		.ok_or(err!(ENOENT))
 	}
 
+	/// Iterate through a directory referenced by `inr`, and call `f` for each entry.
 	pub fn dir_iter<T>(
 		&mut self,
 		inr: InodeNum,

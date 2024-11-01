@@ -19,6 +19,7 @@ use crate::{
 	decoder::{Config, Decoder},
 };
 
+/// (INTERNAL) Constructs an [`std::io::Error`] from an `errno`.
 #[macro_export]
 macro_rules! err {
 	($name:ident) => {
@@ -32,16 +33,30 @@ macro_rules! iobail {
 	};
 }
 
+/// Summary of filesystem statistics.
 #[derive(Debug, Clone)]
+#[doc(alias = "Statfs")]
 pub struct Info {
+	/// Number of blocks.
 	pub blocks: u64,
-	pub bfree:  u64,
-	pub files:  u64,
-	pub ffree:  u64,
-	pub bsize:  u32,
-	pub fsize:  u32,
+
+	/// Number of free blocks.
+	pub bfree: u64,
+
+	/// Number of inodes (files).
+	pub files: u64,
+
+	/// Number of free inodes (files).
+	pub ffree: u64,
+
+	/// Block size.
+	pub bsize: u32,
+
+	/// Fragment size.
+	pub fsize: u32,
 }
 
+/// Berkley Unix (Fast) Filesystem v2
 pub struct Ufs<R: Read + Seek> {
 	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
@@ -89,6 +104,8 @@ impl<R: Read + Seek> Ufs<R> {
 		Ok(s)
 	}
 
+	/// Get filesystem metadata.
+	#[doc(alias("statfs", "statvfs"))]
 	pub fn info(&self) -> Info {
 		let sb = &self.superblock;
 		let cst = &sb.cstotal;

@@ -39,18 +39,23 @@ pub type UfsDaddr = i64;
 
 /// UFS-native inode number type
 #[derive(Debug, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
 pub struct InodeNum(u32);
 impl InodeNum {
+	/// The inode number of the root directory (`/`) of the filesystem.
 	pub const ROOT: Self = Self(2);
 
+	/// Get the numeric value.
 	pub fn get(&self) -> u32 {
 		self.0
 	}
 
+	/// The same as `.get()`, but returns u64.
 	pub fn get64(&self) -> u64 {
 		self.0.into()
 	}
 
+	/// Create a new inode number.
 	/// # Safety
 	/// `inr` must be a valid inode number
 	pub unsafe fn new(inr: u32) -> Self {
@@ -369,25 +374,60 @@ pub enum InodeType {
 	//Whiteout,
 }
 
+/// Inode Metadata
 #[derive(Debug)]
+#[doc(alias = "Stat")]
 pub struct InodeAttr {
-	pub inr:       InodeNum,
-	pub perm:      u16,
-	pub kind:      InodeType,
-	pub size:      u64,
-	pub blocks:    u64,
-	pub atime:     SystemTime,
-	pub mtime:     SystemTime,
-	pub ctime:     SystemTime,
-	pub btime:     SystemTime,
-	pub nlink:     u16,
-	pub uid:       u32,
-	pub gid:       u32,
-	pub gen:       u32,
-	pub blksize:   u32,
-	pub flags:     u32,
+	/// Inode number.
+	pub inr: InodeNum,
+
+	/// UNIX Permissions.
+	pub perm: u16,
+
+	/// Type of the inode.
+	pub kind: InodeType,
+
+	/// Inode data size.
+	pub size: u64,
+
+	/// Total number of blocks allocated.
+	pub blocks: u64,
+
+	/// Access time.
+	pub atime: SystemTime,
+
+	/// Modify time.
+	pub mtime: SystemTime,
+
+	/// Change time.
+	pub ctime: SystemTime,
+
+	/// Birth time.
+	pub btime: SystemTime,
+
+	/// Number of hard links.
+	pub nlink: u16,
+
+	/// User ID.
+	pub uid: u32,
+
+	/// Group ID.
+	pub gid: u32,
+
+	/// Inode Generation.
+	pub gen: u32,
+
+	/// Block size.
+	pub blksize: u32,
+
+	/// Additional inode flags (like immutable).
+	pub flags: u32,
+
+	/// FreeBSD kernel flags.
 	pub kernflags: u32,
-	pub extsize:   u32,
+
+	/// Size of the extended attribute area.
+	pub extsize: u32,
 }
 
 #[derive(Debug, Clone, Copy, Decode, PartialEq, Eq)]

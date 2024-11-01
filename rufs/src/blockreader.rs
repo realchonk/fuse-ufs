@@ -5,6 +5,9 @@ use std::{
 	path::Path,
 };
 
+/// Block-level Abstraction Layer.
+///
+/// `BlockReader` maps random access reads onto block operations.
 pub struct BlockReader<T: Read + Seek> {
 	inner: T,
 	block: Vec<u8>,
@@ -52,6 +55,7 @@ impl<T: Read + Seek> BlockReader<T> {
 		Ok(())
 	}
 
+	/// Get the underlying block size.
 	pub fn blksize(&self) -> usize {
 		self.block.len()
 	}
