@@ -14,7 +14,7 @@ mod symlink;
 mod xattr;
 
 use crate::{
-	blockreader::BlockReader,
+	blockreader::{Backend, BlockReader},
 	data::*,
 	decoder::{Config, Decoder},
 };
@@ -57,7 +57,7 @@ pub struct Info {
 }
 
 /// Berkley Unix (Fast) Filesystem v2
-pub struct Ufs<R: Read + Seek> {
+pub struct Ufs<R: Backend> {
 	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
 }
@@ -69,7 +69,7 @@ impl Ufs<File> {
 	}
 }
 
-impl<R: Read + Seek> Ufs<R> {
+impl<R: Backend> Ufs<R> {
 	pub fn new(mut file: BlockReader<R>) -> IoResult<Self> {
 		let pos = SBLOCK_UFS2 as u64 + MAGIC_OFFSET;
 		file.seek(SeekFrom::Start(pos))?;

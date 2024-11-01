@@ -1,14 +1,18 @@
 use std::{
 	fs::File,
-	io::{self, BufRead, Read, Result as IoResult, Seek, SeekFrom},
+	io::{self, BufRead, Read, Result as IoResult, Seek, SeekFrom, Write},
 	os::unix::fs::MetadataExt,
 	path::Path,
 };
 
+pub trait Backend: Read + Write + Seek {}
+
+impl<T: Read + Write + Seek> Backend for T {}
+
 /// Block-level Abstraction Layer.
 ///
-/// `BlockReader` maps random access reads onto block operations.
-pub struct BlockReader<T: Read + Seek> {
+/// `BlockReader` maps random access reads and writes onto block operations.
+pub struct BlockReader<T: Backend> {
 	inner: T,
 	block: Vec<u8>,
 	idx:   usize,
@@ -22,7 +26,7 @@ impl BlockReader<File> {
 	}
 }
 
-impl<T: Read + Seek> BlockReader<T> {
+impl<T: Backend> BlockReader<T> {
 	pub fn new(inner: T, bs: usize) -> Self {
 		let block = vec![0u8; bs];
 		Self {
@@ -61,7 +65,7 @@ impl<T: Read + Seek> BlockReader<T> {
 	}
 }
 
-impl<T: Read + Seek> Read for BlockReader<T> {
+impl<T: Backend> Read for BlockReader<T> {
 	fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
 		self.refill_if_empty()?;
 		let num = buf.len().min(self.buffered());
@@ -72,7 +76,7 @@ impl<T: Read + Seek> Read for BlockReader<T> {
 	}
 }
 
-impl<T: Read + Seek> BufRead for BlockReader<T> {
+impl<T: Backend> BufRead for BlockReader<T> {
 	fn fill_buf(&mut self) -> IoResult<&[u8]> {
 		self.refill_if_empty()?;
 		Ok(&self.block[self.idx..])
@@ -84,7 +88,7 @@ impl<T: Read + Seek> BufRead for BlockReader<T> {
 	}
 }
 
-impl<T: Read + Seek> Seek for BlockReader<T> {
+impl<T: Backend> Seek for BlockReader<T> {
 	fn seek(&mut self, pos: SeekFrom) -> IoResult<u64> {
 		let bs = self.blksize() as u64;
 		match pos {
