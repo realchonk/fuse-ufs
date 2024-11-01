@@ -40,6 +40,10 @@ impl<T: Backend> BlockReader<T> {
 		}
 	}
 
+	pub fn write_enabled(&self) -> bool {
+		self.rw
+	}
+
 	fn refill(&mut self) -> IoResult<()> {
 		if self.dirty {
 			panic!("Cannot refill dirty BlockReader");
