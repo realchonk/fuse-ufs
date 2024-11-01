@@ -39,7 +39,7 @@ fn main() -> Result<()> {
 			if cli.foreground {
 				fuser::mount2(fs, mp, &opts)?;
 			} else {
-				let _ = daemonize::Daemonize::new()
+				daemonize::Daemonize::new()
 					.working_directory(std::env::current_dir()?)
 					.start()?;
 				fuser::mount2(fs, mp, &opts)?;
