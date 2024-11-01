@@ -60,7 +60,7 @@ impl<R: Backend> Ufs<R> {
 		let block = unsafe {
 			std::slice::from_raw_parts_mut(
 				block.as_mut_ptr() as *mut u8,
-				block.len() * size_of::<u64>(),
+				size_of_val(block),
 			)
 		};
 		self.file.read_at(bno * fs, block)
@@ -71,7 +71,7 @@ impl<R: Backend> Ufs<R> {
 		let block = unsafe {
 			std::slice::from_raw_parts(
 				block.as_ptr() as *const u8,
-				block.len() * size_of::<u64>(),
+				size_of_val(block),
 			)
 		};
 		self.file.write_at(bno * fs, block)
@@ -305,8 +305,7 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 
 		let mut ino = self.read_inode(inr)?;
-		let old_size = ino.size;
-		ino.size = new_size;
+		let old_size = replace(&mut ino.size, new_size);
 
 		if new_size < old_size {
 			self.inode_shrink(&mut ino)?;
