@@ -8,7 +8,7 @@ use std::{
 	time::SystemTime,
 };
 
-use bincode::Decode;
+use bincode::{Decode, Encode};
 
 /// UFS2 fast filesystem magic number
 pub const FS_UFS2_MAGIC: i32 = 0x19540119;
@@ -38,7 +38,7 @@ pub type UfsTime = i64;
 pub type UfsDaddr = i64;
 
 /// UFS-native inode number type
-#[derive(Debug, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Decode, Encode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct InodeNum(u32);
 impl InodeNum {
@@ -157,7 +157,7 @@ pub const DT_WHT: u8 = 14;
 /// read in from fs_csaddr (size fs_cssize) in addition to the
 /// super block.
 /// `struct csum` in FreeBSD
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 pub struct Csum {
 	pub ndir:   i32, // number of directories
 	pub nbfree: i32, // number of free blocks
@@ -166,7 +166,7 @@ pub struct Csum {
 }
 
 /// `struct csum_total` in FreeBSD
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 pub struct CsumTotal {
 	pub ndir:        i64,      // number of directories
 	pub nbfree:      i64,      // number of free blocks
@@ -178,7 +178,7 @@ pub struct CsumTotal {
 
 /// Super block for an FFS filesystem.
 /// `struct fs` in FreeBSD
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 pub struct Superblock {
 	pub firstfield:       i32, // historic filesystem linked list,
 	pub unused_1:         i32, // used for incore super blocks
@@ -287,7 +287,7 @@ pub struct Superblock {
 	pub magic:            i32, // magic number
 }
 
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 #[allow(dead_code)]
 pub struct CylGroup {
 	pub firstfield:    i32,            // historic cyl groups linked list
@@ -320,20 +320,20 @@ pub struct CylGroup {
 	                                   // actually longer - space used for cylinder group maps
 }
 
-#[derive(Debug, Decode)]
+#[derive(Debug, Clone, Decode, Encode)]
 pub struct InodeBlocks {
 	pub direct:   [UfsDaddr; UFS_NDADDR],
 	pub indirect: [UfsDaddr; UFS_NIADDR],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InodeData {
 	Blocks(InodeBlocks),
 	Shortlink([u8; UFS_SLLEN]),
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Encode)]
 pub struct Inode {
 	pub mode:      u16,                    //   0: IFMT, permissions; see below.
 	pub nlink:     u16,                    //   2: File link count.
@@ -482,6 +482,13 @@ impl Superblock {
 	/// inode number to cylinder group number.
 	pub fn ino_to_cg(&self, inr: InodeNum) -> u64 {
 		inr.get64() / self.ipg as u64
+	}
+
+	/// inode number to cylinder group number and offset.
+	pub fn ino_in_cg(&self, inr: InodeNum) -> (u64, u64) {
+		let ipg = self.ipg as u64;
+		let inr = inr.get64();
+		(inr / ipg, inr % ipg)
 	}
 
 	pub fn blocks_to_frags(&self, blocks: u64) -> u64 {

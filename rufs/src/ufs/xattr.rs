@@ -1,7 +1,7 @@
 use super::*;
 use crate::InodeNum;
 
-impl<R: Read + Seek> Ufs<R> {
+impl<R: Backend> Ufs<R> {
 	fn iter_xattr<T>(
 		&mut self,
 		ino: &Inode,

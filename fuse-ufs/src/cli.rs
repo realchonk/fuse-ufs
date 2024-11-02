@@ -25,14 +25,15 @@ pub struct Cli {
 
 impl Cli {
 	#[cfg(feature = "fuse3")]
-	pub fn options(&self) -> Vec<fuser::MountOption> {
+	pub fn options(&self) -> anyhow::Result<(Vec<fuser::MountOption>, bool)> {
 		use fuser::MountOption;
 		let mut opts = vec![
 			MountOption::FSName("fusefs".into()),
 			MountOption::Subtype("ufs".into()),
 			MountOption::DefaultPermissions,
-			MountOption::RO,
 		];
+
+		let mut rw = false;
 
 		for opt in &self.options {
 			let opt = match opt.as_str() {
@@ -49,8 +50,14 @@ impl Cli {
 				"nodev" => MountOption::NoDev,
 				"noexec" => MountOption::NoExec,
 				"nosuid" => MountOption::NoSuid,
-				"ro" => continue,
-				"rw" => panic!("rw is not yet supported"),
+				"ro" => {
+					rw = false;
+					continue;
+				}
+				"rw" => {
+					rw = true;
+					continue;
+				}
 				"suid" => MountOption::Suid,
 				"sync" => MountOption::Sync,
 				custom => MountOption::CUSTOM(custom.into()),
@@ -58,16 +65,23 @@ impl Cli {
 			opts.push(opt);
 		}
 
-		opts
+		if rw {
+			log::warn!("Write support is very experimental! Data Loss is practically guaranteed!");
+			opts.push(MountOption::RW);
+		} else {
+			opts.push(MountOption::RO);
+		}
+
+		Ok((opts, rw))
 	}
 
 	#[cfg(feature = "fuse2")]
-	pub fn options(&self) -> anyhow::Result<Vec<fuse2rs::MountOption>> {
+	pub fn options(&self) -> anyhow::Result<(Vec<fuse2rs::MountOption>, bool)> {
 		use std::ffi::CString;
 
 		use fuse2rs::MountOption;
 
-		let mut opts = vec![MountOption::DefaultPermissions, MountOption::Ro];
+		let mut opts = vec![MountOption::DefaultPermissions];
 
 		if self.foreground {
 			opts.push(MountOption::Foreground);
@@ -80,6 +94,8 @@ impl Cli {
 		{
 			opts.push(MountOption::Debug);
 		}
+
+		let mut rw = false;
 
 		for opt in &self.options {
 			let opt = match opt.as_str() {
@@ -94,8 +110,14 @@ impl Cli {
 				"nodev" => MountOption::NoDev,
 				"noexec" => MountOption::NoExec,
 				"nosuid" => MountOption::NoSuid,
-				"ro" => continue,
-				"rw" => panic!("rw is not yet supported"),
+				"ro" => {
+					rw = false;
+					continue;
+				}
+				"rw" => {
+					rw = true;
+					continue;
+				}
 				"suid" => MountOption::Suid,
 				"sync" => MountOption::Sync,
 				custom => MountOption::Custom(CString::new(custom)?),
@@ -103,6 +125,12 @@ impl Cli {
 			opts.push(opt);
 		}
 
-		Ok(opts)
+		if rw {
+			log::warn!("Write support is very experimental! Data Loss is practically guaranteed!");
+		} else {
+			opts.push(MountOption::Ro);
+		}
+
+		Ok((opts, rw))
 	}
 }

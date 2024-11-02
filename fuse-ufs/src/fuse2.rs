@@ -3,6 +3,7 @@ use std::{
 	io::{Error, Result},
 	os::unix::ffi::OsStrExt,
 	path::Path,
+	time::SystemTime,
 };
 
 use fuse2rs::*;
@@ -71,6 +72,19 @@ impl Filesystem for Fs {
 		Ok(num)
 	}
 
+	fn write(
+		&mut self,
+		_req: &Request,
+		path: &Path,
+		off: u64,
+		buf: &[u8],
+		_info: &FileInfo,
+	) -> Result<usize> {
+		let inr = self.lookup(path)?;
+		let num = self.ufs.inode_write(inr, off, buf)?;
+		Ok(num)
+	}
+
 	fn readlink(&mut self, _req: &Request, path: &Path, buf: &mut [u8]) -> Result<()> {
 		let inr = self.lookup(path)?;
 		let link = self.ufs.symlink_read(inr)?;
@@ -100,5 +114,83 @@ impl Filesystem for Fs {
 			ffree:  info.ffree,
 			favail: info.ffree,
 		})
+	}
+
+	fn chown(
+		&mut self,
+		_req: &Request,
+		path: &Path,
+		uid: Option<u32>,
+		gid: Option<u32>,
+	) -> Result<()> {
+		let inr = self.lookup(path)?;
+		self.ufs.inode_modify(inr, |mut attr| {
+			if let Some(uid) = uid {
+				attr.uid = uid;
+			}
+			if let Some(gid) = gid {
+				attr.gid = gid;
+			}
+			attr
+		})?;
+
+		Ok(())
+	}
+
+	fn chmod(&mut self, _req: &Request, path: &Path, mode: u32) -> Result<()> {
+		let inr = self.lookup(path)?;
+		self.ufs.inode_modify(inr, |mut attr| {
+			attr.perm = (mode & 0xffff) as u16;
+			attr
+		})?;
+
+		Ok(())
+	}
+
+	fn utime(
+		&mut self,
+		_req: &Request,
+		path: &Path,
+		atime: SystemTime,
+		mtime: SystemTime,
+	) -> Result<()> {
+		let inr = self.lookup(path)?;
+		self.ufs.inode_modify(inr, |mut attr| {
+			attr.atime = atime;
+			attr.mtime = mtime;
+			attr
+		})?;
+
+		Ok(())
+	}
+
+	fn unlink(&mut self, _req: &Request, path: &Path) -> Result<()> {
+		let Some(dir) = path.parent() else {
+			return Err(Error::from_raw_os_error(libc::EINVAL));
+		};
+		let Some(name) = path.file_name() else {
+			return Err(Error::from_raw_os_error(libc::EINVAL));
+		};
+		let dinr = self.lookup(dir)?;
+		self.ufs.unlink(dinr, name)?;
+		Ok(())
+	}
+
+	fn rmdir(&mut self, _req: &Request, path: &Path) -> Result<()> {
+		let Some(dir) = path.parent() else {
+			return Err(Error::from_raw_os_error(libc::EINVAL));
+		};
+		let Some(name) = path.file_name() else {
+			return Err(Error::from_raw_os_error(libc::EINVAL));
+		};
+		let dinr = self.lookup(dir)?;
+		self.ufs.rmdir(dinr, name)?;
+		Ok(())
+	}
+
+	fn truncate(&mut self, _req: &Request, path: &Path, size: u64) -> Result<()> {
+		let inr = self.lookup(path)?;
+		self.ufs.inode_truncate(inr, size)?;
+		Ok(())
 	}
 }
