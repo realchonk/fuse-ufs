@@ -96,9 +96,9 @@ impl<R: Read + Seek> Ufs<R> {
 			}
 		} else if offset < (bs * blocks + fs * frags) {
 			BlockInfo {
-				blkidx: blocks + (offset - blocks * bs) / fs,
-				off:    offset % fs,
-				size:   fs,
+				blkidx: blocks,
+				off:    offset % bs,
+				size:   frags * fs,
 			}
 		} else {
 			panic!("out of bounds");
@@ -217,7 +217,7 @@ impl<R: Read + Seek> Ufs<R> {
 		if blkidx < blocks {
 			bs as usize
 		} else if blkidx < blocks + frags {
-			fs as usize
+			(fs * frags) as usize
 		} else {
 			panic!("out of bounds: {blkidx}, blocks: {blocks}, frags: {frags}");
 		}
