@@ -430,6 +430,13 @@ pub struct InodeAttr {
 	pub extsize: u32,
 }
 
+pub enum InodeBlock {
+	Direct(usize),
+	Indirect1(usize),
+	Indirect2(usize, usize),
+	Indirect3(usize, usize, usize),
+}
+
 #[derive(Debug, Clone, Copy, Decode, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ExtattrNamespace {
@@ -550,3 +557,4 @@ impl Display for InodeNum {
 		write!(f, "{}", self.0)
 	}
 }
+
