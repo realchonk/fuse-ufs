@@ -7,7 +7,7 @@ mod inode;
 mod ufs;
 
 pub use crate::{
-	blockreader::BlockReader,
+	blockreader::{Backend, BlockReader},
 	data::{InodeAttr, InodeNum},
 	ufs::{Info, Ufs},
 };
