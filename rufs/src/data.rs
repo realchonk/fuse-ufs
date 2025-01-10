@@ -37,6 +37,9 @@ pub type UfsTime = i64;
 /// `ufs2_daddr_t` on FreeBSD
 pub type UfsDaddr = i64;
 
+/// Size of a directory block.
+pub const DIRBLKSIZE: usize = 512;
+
 /// UFS-native inode number type
 #[derive(Debug, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
