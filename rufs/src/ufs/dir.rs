@@ -70,7 +70,6 @@ impl<R: Read + Seek> Ufs<R> {
 				}
 			},
 		)?
-		.inspect(|inr| log::trace!("dir_lookup({pinr}, {name:?}): found inode {inr}"))
 		.ok_or(err!(ENOENT))
 	}
 
