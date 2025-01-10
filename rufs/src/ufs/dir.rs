@@ -46,6 +46,7 @@ fn readdir_block<T>(
 			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
 			_ => panic!("invalid filetype: {kind}"),
 		};
+		log::trace!("readdir_block({inr}): ino={ino}, name={name:?}, reclen={reclen}, kind={kind:?}");
 		let res = f(name, ino, kind);
 		if res.is_some() {
 			return Ok(res);
@@ -58,6 +59,7 @@ fn readdir_block<T>(
 impl<R: Read + Seek> Ufs<R> {
 	/// Find a file named `name` in the directory referenced by `pinr`.
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
+		log::trace!("dir_lookup({pinr}, {name:?});");
 		self.dir_iter(
 			pinr,
 			|name2, inr, _kind| {
@@ -68,6 +70,7 @@ impl<R: Read + Seek> Ufs<R> {
 				}
 			},
 		)?
+		.inspect(|inr| log::trace!("dir_lookup({pinr}, {name:?}): found inode {inr}"))
 		.ok_or(err!(ENOENT))
 	}
 
@@ -82,9 +85,12 @@ impl<R: Read + Seek> Ufs<R> {
 
 		let mut pos = 0;
 		while pos < ino.size {
-			self.inode_read(inr, pos, &mut block)?;
+			let n = self.inode_read(inr, pos, &mut block)?;
+			assert_eq!(n, DIRBLKSIZE);
 
-			readdir_block(inr, &block, self.file.config(), &mut f)?;
+			if let Some(x) = readdir_block(inr, &block, self.file.config(), &mut f)? {
+				return Ok(Some(x));
+			}
 
 			pos += DIRBLKSIZE as u64;
 		}
