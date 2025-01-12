@@ -1,0 +1,17 @@
+[package]
+name = "native-fuse"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+fuse2 = ["dep:fuse2rs"]
+fuse3 = ["dep:fuser"]
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+fuse2rs = { workspace = true, optional = true }
+fuser = { workspace = true }
+
+[target.'cfg(target_os = "openbsd")'.dependencies]
+fuser = { workspace = true, optional = true }
+fuse2rs = { workspace = true }
