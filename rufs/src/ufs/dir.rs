@@ -46,7 +46,6 @@ fn readdir_block<T>(
 			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
 			_ => panic!("invalid filetype: {kind}"),
 		};
-		log::trace!("readdir_block({inr}): ino={ino}, name={name:?}, reclen={reclen}, kind={kind:?}");
 		let res = f(name, ino, kind);
 		if res.is_some() {
 			return Ok(res);
