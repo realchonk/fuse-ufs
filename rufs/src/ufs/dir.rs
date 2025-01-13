@@ -7,6 +7,7 @@ fn readdir_block<T>(
 	config: Config,
 	mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 ) -> IoResult<Option<T>> {
+	assert_eq!(block.len(), DIRBLKSIZE);
 	let mut name = [0u8; UFS_MAXNAMELEN + 1];
 	let file = Cursor::new(block);
 	let mut file = Decoder::new(file, config);
@@ -57,6 +58,7 @@ fn readdir_block<T>(
 impl<R: Read + Seek> Ufs<R> {
 	/// Find a file named `name` in the directory referenced by `pinr`.
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
+		log::trace!("dir_lookup({pinr}, {name:?});");
 		self.dir_iter(
 			pinr,
 			|name2, inr, _kind| {
@@ -77,16 +79,18 @@ impl<R: Read + Seek> Ufs<R> {
 		mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 	) -> IoResult<Option<T>> {
 		let ino = self.read_inode(inr)?;
-		let mut block = vec![0u8; self.superblock.bsize as usize];
-		let frag = self.superblock.frag as u64;
+		let mut block = [0u8; DIRBLKSIZE];
 
-		for blkidx in 0..(ino.blocks / frag) {
-			let size = self.inode_read_block(inr, &ino, blkidx, &mut block)?;
+		let mut pos = 0;
+		while pos < ino.size {
+			let n = self.inode_read(inr, pos, &mut block)?;
+			assert_eq!(n, DIRBLKSIZE);
 
-			let x = readdir_block(inr, &block[0..size], self.file.config(), &mut f)?;
-			if x.is_some() {
-				return Ok(x);
+			if let Some(x) = readdir_block(inr, &block, self.file.config(), &mut f)? {
+				return Ok(Some(x));
 			}
+
+			pos += DIRBLKSIZE as u64;
 		}
 		Ok(None)
 	}
