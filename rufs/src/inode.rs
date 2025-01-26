@@ -19,6 +19,17 @@ fn timetosys(mut s: UfsTime, ns: u32) -> SystemTime {
 	time
 }
 
+fn systotime(t: SystemTime) -> (UfsTime, u32) {
+	let (diff, neg) = if t >= SystemTime::UNIX_EPOCH {
+		(t.duration_since(SystemTime::UNIX_EPOCH).unwrap(), 1)
+	} else {
+		(SystemTime::UNIX_EPOCH.duration_since(t).unwrap(), -1)
+	};
+
+
+	(neg * diff.as_secs() as UfsTime, diff.subsec_nanos())
+}
+
 impl Inode {
 	pub fn atime(&self) -> SystemTime {
 		timetosys(self.atime, self.atimensec)
@@ -34,6 +45,26 @@ impl Inode {
 
 	pub fn btime(&self) -> SystemTime {
 		timetosys(self.birthtime, self.birthnsec)
+	}
+
+	pub fn set_atime(&mut self, t: SystemTime) {
+		(self.atime, self.atimensec) = systotime(t);
+	}
+
+	pub fn set_mtime(&mut self, t: SystemTime) {
+		(self.mtime, self.mtimensec) = systotime(t);
+	}
+
+	pub fn set_ctime(&mut self, t: SystemTime) {
+		(self.ctime, self.ctimensec) = systotime(t);
+	}
+
+	pub fn set_btime(&mut self, t: SystemTime) {
+		(self.birthtime, self.birthnsec) = systotime(t);
+	}
+
+	pub fn perm(&self) -> u16 {
+		self.mode & 0o7777
 	}
 
 	pub fn kind(&self) -> InodeType {
