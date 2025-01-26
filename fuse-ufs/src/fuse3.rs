@@ -1,11 +1,11 @@
 use std::{
 	ffi::{c_int, OsStr},
 	io::{Error as IoError, ErrorKind, Result as IoResult},
-	time::Duration,
+	time::{Duration, SystemTime},
 };
 
-use fuser::{FileAttr, Filesystem, KernelConfig, Request};
-use rufs::InodeNum;
+use fuser::{FileAttr, Filesystem, KernelConfig, Request, TimeOrNow};
+use rufs::{InodeAttr, InodeNum};
 
 use crate::Fs;
 
@@ -136,6 +136,29 @@ impl Filesystem for Fs {
 		}
 	}
 
+	fn write(
+		&mut self,
+		_req: &Request<'_>,
+		inr: u64,
+		_fh: u64,
+		offset: i64,
+		data: &[u8],
+		_write_flags: u32,
+		_flags: i32,
+		_lock_owner: Option<u64>,
+		reply: fuser::ReplyWrite,
+	) {
+		let f = || {
+			let inr = transino(inr)?;
+			self.ufs.inode_write(inr, offset as u64, &data)
+		};
+
+		match run(f) {
+			Ok(n) => reply.written(n as u32),
+			Err(e) => reply.error(e),
+		}
+	}
+
 	fn statfs(&mut self, _req: &Request<'_>, _ino: u64, reply: fuser::ReplyStatfs) {
 		let info = self.ufs.info();
 		reply.statfs(
@@ -218,6 +241,112 @@ impl Filesystem for Fs {
 			Ok(R::Data(x)) => reply.data(&x),
 			Ok(R::TooShort) => reply.error(libc::ERANGE),
 			Ok(R::Len(l)) => reply.size(l),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn unlink(&mut self, _req: &Request<'_>, pinr: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
+		let f = || {
+			let pinr = transino(pinr)?;
+			self.ufs.unlink(pinr, name)?;
+			Ok(())
+		};
+
+		match run(f) {
+			Ok(()) => reply.ok(),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn rmdir(&mut self, _req: &Request<'_>, pinr: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
+		let f = || {
+			let pinr = transino(pinr)?;
+			self.ufs.rmdir(pinr, name)?;
+			Ok(())
+		};
+
+		match run(f) {
+			Ok(()) => reply.ok(),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn setattr(
+		&mut self,
+		_req: &Request<'_>,
+		inr: u64,
+		mode: Option<u32>,
+		uid: Option<u32>,
+		gid: Option<u32>,
+		size: Option<u64>,
+		atime: Option<TimeOrNow>,
+		mtime: Option<TimeOrNow>,
+		ctime: Option<SystemTime>,
+		_fh: Option<u64>,
+		btime: Option<SystemTime>,
+		_chgtime: Option<SystemTime>,
+		_bkuptime: Option<SystemTime>,
+		flags: Option<u32>,
+		reply: fuser::ReplyAttr,
+	) {
+		fn cvtime(t: TimeOrNow) -> SystemTime {
+			match t {
+				TimeOrNow::SpecificTime(t) => t,
+				TimeOrNow::Now => SystemTime::now(),
+			}
+		}
+
+		if size.is_some() {
+			todo!("TODO: resizing is not supported");
+		}
+
+		let f = || {
+			let inr = transino(inr)?;
+
+			let f = |mut attr: InodeAttr| {
+				if let Some(mode) = mode {
+					attr.perm = (mode & 0xffff) as u16;
+				}
+
+				if let Some(uid) = uid {
+					attr.uid = uid;
+				}
+
+				if let Some(gid) = gid {
+					attr.gid = gid;
+				}
+
+				if let Some(atime) = atime {
+					attr.atime = cvtime(atime);
+				}
+
+				if let Some(mtime) = mtime {
+					attr.mtime = cvtime(mtime);
+				}
+
+				if let Some(ctime) = ctime {
+					attr.ctime = ctime;
+				}
+
+				if let Some(btime) = btime {
+					attr.btime = btime;
+				}
+
+				if let Some(flags) = flags {
+					attr.flags = flags;
+				}
+
+				attr
+			};
+
+			self.ufs.inode_modify(inr, f)?;
+
+			let st = self.ufs.inode_attr(inr)?;
+			Ok(st)
+		};
+
+		match run(f) {
+			Ok(st) => reply.attr(&MAX_CACHE, &st.into()),
 			Err(e) => reply.error(e),
 		}
 	}

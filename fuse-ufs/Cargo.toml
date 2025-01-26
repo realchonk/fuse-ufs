@@ -15,6 +15,9 @@ documentation = "https://docs.rs/fuse-ufs"
 default = ["fuse3"]
 fuse3 = ["dep:fuser", "rufs/fuser"]
 fuse2 = ["dep:fuse2rs", "rufs/fuse2rs"]
+Linux = ["fuse3"]
+FreeBSD = ["fuse3"]
+OpenBSD = ["fuse2"]
 
 [dependencies]
 anyhow.workspace = true
