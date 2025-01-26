@@ -117,8 +117,7 @@ impl Inode {
 
 	pub fn size(&self, bs: u64, fs: u64) -> (u64, u64) {
 		let size = match self.kind() {
-			InodeType::Directory => self.blocks * fs,
-			InodeType::RegularFile | InodeType::Symlink => self.size,
+			InodeType::RegularFile | InodeType::Symlink | InodeType::Directory => self.size,
 			kind => todo!("Inode::size() is undefined for {kind:?}"),
 		};
 		Self::inode_size(bs, fs, size)

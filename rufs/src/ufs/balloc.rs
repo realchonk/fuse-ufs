@@ -105,6 +105,7 @@ impl<R: Backend> Ufs<R> {
 
 	/// See: /sys/ufs/ffs/ffs_alloc.c: ffs_blkfree()
 	pub(super) fn blk_free(&mut self, bno: u64, size: u64) -> IoResult<()> {
+		log::trace!("blk_free(bno={bno}, size={size});");
 		self.assert_rw()?;
 
 		if bno == 0 {

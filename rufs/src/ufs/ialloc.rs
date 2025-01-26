@@ -184,12 +184,12 @@ impl<R: Backend> Ufs<R> {
 			let mut block = vec![0u64; bs as usize / size_of::<u64>()];
 
 			// free direct blocks
-			for bno in blocks.direct {
-				let bno = bno as u64;
+			for i in 0..UFS_NDADDR {
+				let bno = blocks.direct[i] as u64;
 				if bno == 0 {
 					continue;
 				}
-				let size = self.inode_get_block_size(&ino, bno);
+				let size = self.inode_get_block_size(&ino, i as u64);
 				self.blk_free(bno, size as u64)?;
 			}
 

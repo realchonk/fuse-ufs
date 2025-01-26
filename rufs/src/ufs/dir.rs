@@ -131,7 +131,7 @@ fn unlink_block(
 	block: &mut [u8],
 	name: &OsStr,
 	config: Config,
-) -> IoResult<Option<InodeNum>> {
+) -> IoResult<Option<(InodeNum, bool)>> {
 	let mut file = Decoder::new(Cursor::new(block), config);
 	let mut prevpos = 0;
 
@@ -146,18 +146,24 @@ fn unlink_block(
 			continue;
 		}
 
+		log::trace!("unlink_block({dinr}, {name:?}): pos={pos}, hdr={hdr:?}");
+
+		let has;
 		if pos == 0 {
-			match Header::parse(&mut file)? {
-				Some(next) => {
+			match Header::parse(&mut file) {
+				Ok(Some(next)) => {
+					log::trace!("unlink_block({dinr}, {name:?}): next={next:?}");
 					let new = Header {
 						reclen: hdr.reclen + next.reclen,
 						..next
 					};
 					file.seek(pos)?;
 					new.write(&mut file)?;
+					has = true;
 				}
-				None => {
-					todo!("unlink_block({dinr}): unlinking the only entry in a directory block")
+				_ => {
+					log::trace!("unlink_block({dinr}, {name:?}): no next");
+					has = false;
 				}
 			}
 		} else {
@@ -167,6 +173,7 @@ fn unlink_block(
 					prev.reclen += hdr.reclen;
 					file.seek(prevpos)?;
 					prev.write(&mut file)?;
+					has = true;
 				}
 				None => {
 					log::error!(
@@ -176,7 +183,7 @@ fn unlink_block(
 				}
 			}
 		}
-		return Ok(Some(hdr.inr));
+		return Ok(Some((hdr.inr, has)));
 	}
 
 	Ok(None)
@@ -222,26 +229,37 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	pub(super) fn dir_unlink(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
+		log::trace!("dir_unlink({dinr}, {name:?});");
 		self.assert_rw()?;
-		let mut dino = self.read_inode(dinr)?;
+		let dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
 
-		let mut block = vec![0u8; self.superblock.bsize as usize];
-		let frag = self.superblock.frag as u64;
 
-		for blkidx in 0..(dino.blocks / frag) {
-			let size = self.inode_read_block(dinr, &dino, blkidx, &mut block)?;
+		let mut block = vec![0u8; DIRBLKSIZE];
+		let mut pos = 0;
+		while pos < dino.size {
+			let n = self.inode_read(dinr, pos, &mut block)?;
+			assert_eq!(n, DIRBLKSIZE);
 
-			if let Some(inr) = unlink_block(dinr, &mut block[0..size], name, self.file.config())? {
-				self.inode_write_block(dinr, &mut dino, blkidx, &block)?;
+			if let Some((inr, has)) = unlink_block(dinr, &mut block, name, self.file.config())? {
+				if has {
+					self.inode_write(dinr, pos, &block)?;
+				} else {
+					let n = self.inode_copy_range(dinr, &dino, (pos + DIRBLKSIZE as u64).., pos..)?;
+					assert_eq!(n, dino.size - pos - DIRBLKSIZE as u64);
+					self.inode_truncate(dinr, dino.size - DIRBLKSIZE as u64)?;
+				}
 				return Ok(inr);
 			}
+
+			pos += DIRBLKSIZE as u64;
 		}
 
 		Err(err!(ENOENT))
 	}
 
 	pub fn unlink(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<()> {
+		log::trace!("unlink({dinr}, {name:?});");
 		self.assert_rw()?;
 		let inr = self.dir_unlink(dinr, name)?;
 		self.inode_free(inr)?;
@@ -252,14 +270,15 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 		let inr = self.dir_lookup(dinr, name)?;
 		let x = self.dir_iter(inr, |name, _inr, kind| {
-			if kind != InodeType::Directory || name != "." || name != ".." {
-				Some(())
+			if kind != InodeType::Directory || (name != "." && name != "..") {
+				Some(name.to_os_string())
 			} else {
 				None
 			}
 		})?;
 
 		if x.is_some() {
+			log::debug!("rmdir({dinr}, {name:?}): x = {x:?}");
 			return Err(err!(ENOTEMPTY));
 		}
 

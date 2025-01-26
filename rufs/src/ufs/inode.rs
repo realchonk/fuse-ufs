@@ -1,3 +1,5 @@
+use std::ops::{Bound, RangeBounds};
+
 use super::*;
 use crate::{err, InodeNum};
 
@@ -86,6 +88,61 @@ impl<R: Backend> Ufs<R> {
 		}
 
 		Ok(boff)
+	}
+
+	/// Copy data within a file.
+	pub fn inode_copy_range(
+		&mut self,
+		inr: InodeNum,
+		ino: &Inode,
+		from: impl RangeBounds<u64>,
+		to: impl RangeBounds<u64>,
+	) -> IoResult<u64> {
+		fn decode(ino: &Inode, b: impl RangeBounds<u64>) -> (u64, u64, u64) {
+			let beg = match b.start_bound() {
+				Bound::Unbounded => 0,
+				Bound::Included(x) => *x,
+				Bound::Excluded(_) => todo!(),
+			};
+			let end = match b.end_bound() {
+				Bound::Unbounded => ino.size,
+				Bound::Included(x) => *x - 1,
+				Bound::Excluded(x) => *x,
+			};
+			assert!(beg <= end);
+			(beg, end, end - beg)
+		}
+
+		self.assert_rw()?;
+
+		let (fbeg, fend, flen) = decode(ino, from);
+		let (tbeg, mut tend, mut tlen) = decode(ino, to);
+
+		assert!(tlen >= flen);
+		if tlen > flen {
+			tend = tbeg + flen;
+			tlen = flen;
+		}
+		assert_eq!(flen, tlen);
+
+		let mut fpos = fbeg;
+		let mut tpos = tbeg;
+		let mut buf = [0u8; 512];
+
+		while fpos < fend {
+			assert!(tpos < tend);
+			let n = (fend - fpos).min(buf.len() as u64);
+			let nr = self.inode_read(inr, fpos, &mut buf)?;
+			assert_eq!(n, nr as u64);
+
+			let nw = self.inode_write(inr, tpos, &buf[..nr])?;
+			assert_eq!(n, nw as u64);
+
+			fpos += n;
+			tpos += n;
+		}
+		
+		Ok(flen)
 	}
 
 	pub(super) fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
@@ -312,12 +369,15 @@ impl<R: Backend> Ufs<R> {
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
 
-		if blkidx < blocks {
+		let res = if blkidx < blocks {
 			bs as usize
 		} else if blkidx < blocks + frags {
 			(fs * frags) as usize
 		} else {
 			panic!("out of bounds: {blkidx}, blocks: {blocks}, frags: {frags}");
-		}
+		};
+
+		log::trace!("inode_get_block_size(blkidx={blkidx}) = {res}; frags={frags}, blocks={blocks}");
+		res
 	}
 }
