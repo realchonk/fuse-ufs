@@ -205,8 +205,8 @@ impl<R: Backend> Ufs<R> {
 		inr: InodeNum,
 		mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 	) -> IoResult<Option<T>> {
-		ino.assert_dir()?;
 		let ino = self.read_inode(inr)?;
+		ino.assert_dir()?;
 		let mut block = [0u8; DIRBLKSIZE];
 		let mut pos = 0;
 		while pos < ino.size {
