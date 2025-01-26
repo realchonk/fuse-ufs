@@ -8,7 +8,7 @@ use std::{
 	time::SystemTime,
 };
 
-use bincode::Decode;
+use bincode::{Decode, Encode};
 
 /// UFS2 fast filesystem magic number
 pub const FS_UFS2_MAGIC: i32 = 0x19540119;
@@ -323,7 +323,7 @@ pub struct CylGroup {
 	                                   // actually longer - space used for cylinder group maps
 }
 
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 pub struct InodeBlocks {
 	pub direct:   [UfsDaddr; UFS_NDADDR],
 	pub indirect: [UfsDaddr; UFS_NIADDR],
@@ -336,7 +336,7 @@ pub enum InodeData {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Encode)]
 pub struct Inode {
 	pub mode:      u16,                    //   0: IFMT, permissions; see below.
 	pub nlink:     u16,                    //   2: File link count.
