@@ -53,6 +53,14 @@ impl<R: Backend> Ufs<R> {
 		Err(err!(ENOSPC))
 	}
 
+	fn read_pblock(&mut self, bno: u64, block: &mut [u64]) -> IoResult<()> {
+		let fs = self.superblock.fsize as u64;
+		let block = unsafe {
+			std::slice::from_raw_parts_mut(block.as_mut_ptr() as *mut u8, block.len() * size_of::<u64>())
+		};
+		self.file.read_at(bno * fs, block)
+	}
+
 	pub(super) fn inode_free(&mut self, inr: InodeNum) -> IoResult<()> {
 		self.assert_rw()?;
 		let mut ino = self.read_inode(inr)?;
@@ -95,7 +103,86 @@ impl<R: Backend> Ufs<R> {
 
 		self.update_sb(|sb| sb.cstotal.nifree += 1)?;
 
-		// TODO: free data blocks
+		if let InodeData::Blocks(blocks) = &ino.data {
+			let bs = self.superblock.bsize as u64;
+			let mut block = vec![0u64; bs as usize / size_of::<u64>()];
+
+			// free direct blocks
+			for bno in blocks.direct {
+				let bno = bno as u64;
+				let size = self.inode_get_block_size(&ino, bno);
+				self.blk_free(bno, size as u64)?;
+			}
+
+			// free 1st level indirect blocks
+			if blocks.indirect[0] != 0 {
+				self.read_pblock(blocks.indirect[0] as u64, &mut block)?;
+
+				for bno in &block {
+					let size = self.inode_get_block_size(&ino, *bno);
+					self.blk_free(*bno, size as u64)?;
+				}
+				
+				self.blk_free(blocks.indirect[0] as u64, bs)?;
+			}
+
+			// free 2nd level indirect blocks
+			if blocks.indirect[1] != 0 {
+				self.read_pblock(blocks.indirect[1] as u64, &mut block)?;
+				let fst = block.clone();
+
+				for bno in &fst {
+					if *bno == 0 {
+						continue;
+					}
+
+					self.read_pblock(*bno, &mut block)?;
+
+					for bno in &block {
+						let size = self.inode_get_block_size(&ino, *bno);
+						self.blk_free(*bno, size as u64)?;
+					}
+
+					self.blk_free(*bno, bs)?;
+				}
+
+				self.blk_free(blocks.indirect[1] as u64, bs)?;
+			}
+
+			// free 3rd level indirect blocks
+			if blocks.indirect[2] != 0 {
+				self.read_pblock(blocks.indirect[2] as u64, &mut block)?;
+				let fst = block.clone();
+
+				for bno in &fst {
+					if *bno == 0 {
+						continue;
+					}
+
+					self.read_pblock(*bno, &mut block)?;
+					let snd = block.clone();
+
+					for bno in &snd {
+						if *bno == 0 {
+							continue;
+						}
+
+						self.read_pblock(*bno, &mut block)?;
+
+						for bno in &block {
+							let size = self.inode_get_block_size(&ino, *bno);
+							self.blk_free(*bno, size as u64)?;
+						}
+
+						self.blk_free(*bno, bs)?;
+					}
+
+					self.blk_free(*bno, bs)?;
+				}
+
+				self.blk_free(blocks.indirect[2] as u64, bs)?;
+			}
+		}
 
 		Ok(())
 	}

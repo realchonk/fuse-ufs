@@ -102,6 +102,10 @@ impl<R: Backend> Ufs<R> {
 	pub(super) fn blk_free(&mut self, bno: u64, size: u64) -> IoResult<()> {
 		self.assert_rw()?;
 
+		if bno == 0 {
+			return Ok(());
+		}
+
 		let sb = &self.superblock;
 		let fsize = sb.fsize as u64;
 		let bsize = sb.bsize as u64;
