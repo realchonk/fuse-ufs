@@ -116,7 +116,7 @@ impl<R: Backend> Ufs<R> {
 		match self.inode_resolve_block(inr, ino, blkidx)? {
 			Some(blkno) => {
 				self.file.write_at(blkno.get() * fs, &buf[0..size])?;
-			},
+			}
 			None => todo!("TODO: implement block allocation"),
 		}
 		Ok(())
