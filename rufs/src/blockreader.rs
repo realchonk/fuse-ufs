@@ -42,7 +42,6 @@ impl<T: Backend> BlockReader<T> {
 		if self.dirty {
 			panic!("Cannot refill dirty BlockReader");
 		}
-		let pos = self.inner.stream_position()?;
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.read(&mut self.block[num..])? {
@@ -51,7 +50,6 @@ impl<T: Backend> BlockReader<T> {
 			}
 		}
 		self.idx = 0;
-		self.inner.seek(SeekFrom::Start(pos))?;
 		Ok(())
 	}
 
@@ -98,7 +96,7 @@ impl<T: Backend> Write for BlockReader<T> {
 			return Ok(());
 		}
 
-		let pos = self.inner.stream_position()?;
+		self.inner.seek(SeekFrom::Current(-(self.block.len() as i64)))?;
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.write(&self.block[num..])? {
@@ -107,9 +105,9 @@ impl<T: Backend> Write for BlockReader<T> {
 			}
 		}
 		if num < self.block.len() {
+			let pos = self.inner.stream_position()?;
 			log::error!("short write: pos={pos}, num={num}, len={}", self.block.len());
 		}
-		self.inner.seek(SeekFrom::Start(pos))?;
 		Ok(())
 	}
 }
