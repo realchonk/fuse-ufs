@@ -251,4 +251,15 @@ impl<R: Backend> Ufs<R> {
 			panic!("out of bounds: {blkidx}, blocks: {blocks}, frags: {frags}");
 		}
 	}
+
+	pub(super) fn inode_free(&mut self, inr: InodeNum) -> IoResult<()> {
+		let mut ino = self.read_inode(inr)?;
+		ino.nlink -= 1;
+		self.write_inode(inr, &ino)?;
+		
+		if ino.nlink == 0 {
+			log::warn!("TODO: free inode {inr}");
+		}
+		Ok(())
+	}
 }

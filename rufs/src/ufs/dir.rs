@@ -1,5 +1,83 @@
+use std::io::{BufRead, Write};
+
 use super::*;
 use crate::{err, InodeNum};
+
+#[derive(Debug, Clone, Copy)]
+struct Header {
+	inr: InodeNum,
+	reclen: u16,
+	kind: Option<InodeType>,
+	namelen: u8,
+	name: [u8; UFS_MAXNAMELEN + 1],
+}
+
+impl Header {
+	fn parse<T: BufRead + Seek>(file: &mut Decoder<T>) -> IoResult<Option<Header>> {
+		let inr: InodeNum = file.decode()?;
+		let reclen: u16 = file.decode()?;
+		if reclen == 0 {
+			return Ok(None);
+		}
+		let kind: u8 = file.decode()?;
+		let namelen: u8 = file.decode()?;
+		let mut name = [0u8; UFS_MAXNAMELEN + 1];
+		file.read(&mut name[0..namelen.into()])?;
+
+		// skip remaining bytes of record, if any
+		let off = reclen - (namelen as u16) - 8;
+		file.seek_relative(off as i64)?;
+
+		let kind = match kind {
+			DT_FIFO => Some(InodeType::NamedPipe),
+			DT_CHR => Some(InodeType::CharDevice),
+			DT_DIR => Some(InodeType::Directory),
+			DT_BLK => Some(InodeType::BlockDevice),
+			DT_REG => Some(InodeType::RegularFile),
+			DT_LNK => Some(InodeType::Symlink),
+			DT_SOCK => Some(InodeType::Socket),
+			DT_WHT => None,
+			DT_UNKNOWN => todo!("DT_UNKNOWN: {inr}"),
+			_ => panic!("invalid filetype: {kind}"),
+		};
+		
+		Ok(Some(Self {
+			inr,
+			reclen,
+			kind,
+			namelen,
+			name,
+		}))
+	}
+
+	fn write<T: Read + Write + Seek>(&self, file: &mut Decoder<T>) -> IoResult<()> {
+		let kind = match self.kind {
+			Some(InodeType::NamedPipe) => DT_FIFO,
+			Some(InodeType::CharDevice) => DT_CHR,
+			Some(InodeType::Directory) => DT_DIR,
+			Some(InodeType::BlockDevice) => DT_BLK,
+			Some(InodeType::RegularFile) => DT_REG,
+			Some(InodeType::Symlink) => DT_LNK,
+			Some(InodeType::Socket) => DT_SOCK,
+			None => DT_WHT,
+		};
+		file.encode(&self.inr)?;
+		file.encode(&self.reclen)?;
+		file.encode(&kind)?;
+		file.encode(&self.namelen)?;
+		file.write(&self.name[0..self.namelen.into()])?;
+
+		// fill the rest of the record with zeros
+		file.fill(0u8, (self.reclen - (self.namelen as u16) - 8).into())?;
+
+		Ok(())
+	}
+
+	fn name(&self) -> &OsStr {
+		unsafe { OsStr::from_encoded_bytes_unchecked(&self.name[0..self.namelen.into()]) }
+	}
+}
+
 
 fn readdir_block<T>(
 	inr: InodeNum,
@@ -7,49 +85,78 @@ fn readdir_block<T>(
 	config: Config,
 	mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 ) -> IoResult<Option<T>> {
-	assert_eq!(block.len(), DIRBLKSIZE);
-	let mut name = [0u8; UFS_MAXNAMELEN + 1];
-	let file = Cursor::new(block);
-	let mut file = Decoder::new(file, config);
+	let mut file = Decoder::new(Cursor::new(block), config);
 
 	loop {
-		let Ok(ino) = file.decode::<InodeNum>() else {
+		let Ok(Some(hdr)) = Header::parse(&mut file) else {
 			break;
 		};
-		if ino.get() == 0 {
+
+		if hdr.inr.get() == 0 {
 			break;
 		}
 
-		let reclen: u16 = file.decode()?;
-		let kind: u8 = file.decode()?;
-		let namelen: u8 = file.decode()?;
-		let name = &mut name[0..namelen.into()];
-		file.read(name)?;
-
-		// skip remaining bytes of record, if any
-		let off = reclen - (namelen as u16) - 8;
-		file.seek_relative(off as i64)?;
-
-		let name = unsafe { OsStr::from_encoded_bytes_unchecked(name) };
-		let kind = match kind {
-			DT_FIFO => InodeType::NamedPipe,
-			DT_CHR => InodeType::CharDevice,
-			DT_DIR => InodeType::Directory,
-			DT_BLK => InodeType::BlockDevice,
-			DT_REG => InodeType::RegularFile,
-			DT_LNK => InodeType::Symlink,
-			DT_SOCK => InodeType::Socket,
-			DT_WHT => {
-				log::warn!("readdir_block({inr}): encountered a whiteout entry: {name:?}");
-				continue;
-			}
-			DT_UNKNOWN => todo!("DT_UNKNOWN: {ino}"),
-			_ => panic!("invalid filetype: {kind}"),
+		let Some(kind) = hdr.kind else {
+			log::warn!("readdir_block({inr}): encountered a whiteout entry: {:?}", hdr.name());
+			continue;
 		};
-		let res = f(name, ino, kind);
+
+		let res = f(hdr.name(), hdr.inr, kind);
 		if res.is_some() {
 			return Ok(res);
 		}
+	}
+
+	Ok(None)
+}
+
+fn unlink_block(
+	dinr: InodeNum,
+	block: &mut [u8],
+	name: &OsStr,
+	config: Config,
+) -> IoResult<Option<InodeNum>> {
+	let mut file = Decoder::new(Cursor::new(block), config);
+	let mut prevpos = 0;
+
+	loop {
+		let pos = file.pos()?;
+		let Ok(Some(hdr)) = Header::parse(&mut file) else {
+			break;
+		};
+
+		if hdr.name() != name {
+			prevpos = pos;
+			continue;
+		}
+
+
+		if pos == 0 {
+			file.seek(pos)?;
+			match Header::parse(&mut file)? {
+				Some(next) => {
+					let new = Header {
+						reclen: hdr.reclen + next.reclen,
+						..next
+					};
+					new.write(&mut file)?;
+				},
+				None => todo!("unlink_block({dinr}): unlinking the only entry in a directory block"),
+			}
+		} else {
+			file.seek(prevpos)?;
+			match Header::parse(&mut file)? {
+				Some(mut prev) => {
+					prev.reclen += hdr.reclen;
+					prev.write(&mut file)?;
+				},
+				None => {
+					log::error!("unlink_block({dinr}): previous entry is bad: prevpos={prevpos}, pos={pos}");
+					return Err(err!(EIO));
+				},
+			}
+		}
+		return Ok(Some(hdr.inr));
 	}
 
 	Ok(None)
@@ -78,14 +185,13 @@ impl<R: Backend> Ufs<R> {
 		inr: InodeNum,
 		mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 	) -> IoResult<Option<T>> {
+		ino.assert_dir()?;
 		let ino = self.read_inode(inr)?;
 		let mut block = [0u8; DIRBLKSIZE];
-
 		let mut pos = 0;
 		while pos < ino.size {
 			let n = self.inode_read(inr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
-
 			if let Some(x) = readdir_block(inr, &block, self.file.config(), &mut f)? {
 				return Ok(Some(x));
 			}
@@ -93,5 +199,39 @@ impl<R: Backend> Ufs<R> {
 			pos += DIRBLKSIZE as u64;
 		}
 		Ok(None)
+	}
+
+	pub(super) fn dir_unlink(
+		&mut self,
+		dinr: InodeNum,
+		name: &OsStr,
+	) -> IoResult<InodeNum> {
+		self.assert_rw()?;
+		let dino = self.read_inode(dinr)?;
+		dino.assert_dir()?;
+
+		let mut block = vec![0u8; self.superblock.bsize as usize];
+		let frag = self.superblock.frag as u64;
+
+		for blkidx in 0..(dino.blocks / frag) {
+			let size = self.inode_read_block(dinr, &dino, blkidx, &mut block)?;
+
+			if let Some(inr) = unlink_block(dinr, &mut block[0..size], name, self.file.config())? {
+				return Ok(inr);
+			}
+		}
+
+		Err(err!(ENOENT))
+	}
+
+	pub fn unlink(
+		&mut self,
+		dinr: InodeNum,
+		name: &OsStr,
+	) -> IoResult<()> {
+		self.assert_rw()?;
+		let inr = self.dir_unlink(dinr, name)?;
+		self.inode_free(inr)?;
+		Ok(())
 	}
 }
