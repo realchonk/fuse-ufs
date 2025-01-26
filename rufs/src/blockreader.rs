@@ -22,10 +22,7 @@ pub struct BlockReader<T: Backend> {
 
 impl BlockReader<File> {
 	pub fn open(path: &Path, rw: bool) -> IoResult<Self> {
-		let file = File::options()
-			.read(true)
-			.write(rw)
-			.open(path)?;
+		let file = File::options().read(true).write(rw).open(path)?;
 		let bs = file.metadata()?.blksize() as usize;
 		Ok(BlockReader::new(file, bs, rw))
 	}
@@ -89,7 +86,9 @@ impl<T: Backend> Read for BlockReader<T> {
 impl<T: Backend> Write for BlockReader<T> {
 	fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
 		if !self.rw {
-			panic!("BUG: BlockReader::write() should never be called when the medium is not writable");
+			panic!(
+				"BUG: BlockReader::write() should never be called when the medium is not writable"
+			);
 		}
 		self.refill_if_empty()?;
 		let num = buf.len().min(self.buffered());
@@ -105,7 +104,8 @@ impl<T: Backend> Write for BlockReader<T> {
 			return Ok(());
 		}
 
-		self.inner.seek(SeekFrom::Current(-(self.block.len() as i64)))?;
+		self.inner
+			.seek(SeekFrom::Current(-(self.block.len() as i64)))?;
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.write(&self.block[num..])? {
@@ -115,7 +115,10 @@ impl<T: Backend> Write for BlockReader<T> {
 		}
 		if num < self.block.len() {
 			let pos = self.inner.stream_position()?;
-			log::error!("short write: pos={pos}, num={num}, len={}", self.block.len());
+			log::error!(
+				"short write: pos={pos}, num={num}, len={}",
+				self.block.len()
+			);
 		}
 		self.dirty = false;
 		Ok(())
@@ -185,7 +188,7 @@ mod t {
 
 	mod write {
 		use super::*;
-		
+
 		#[test]
 		fn simple_write() {
 			let mut br = harness(true);
@@ -198,7 +201,6 @@ mod t {
 			br.seek(SeekFrom::Start(pos as u64)).unwrap();
 			br.read_exact(&mut buf).unwrap();
 			assert_eq!(buf, vec![0x55u8; bs]);
-
 		}
 	}
 
