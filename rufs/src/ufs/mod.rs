@@ -104,6 +104,10 @@ impl<R: Backend> Ufs<R> {
 		Ok(s)
 	}
 
+	pub fn write_enabled(&self) -> bool {
+		self.file.inner().write_enabled()
+	}
+
 	/// Get filesystem metadata.
 	#[doc(alias("statfs", "statvfs"))]
 	pub fn info(&self) -> Info {
