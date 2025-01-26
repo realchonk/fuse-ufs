@@ -20,7 +20,7 @@ impl<R: Backend> Ufs<R> {
 		let ino = self.read_inode(inr)?;
 
 		let mut boff = 0;
-		let len = buffer.len() as u64;
+		let len = (buffer.len() as u64).min(ino.size - offset);
 		let end = offset + len;
 
 		while offset < end {
@@ -132,7 +132,7 @@ impl<R: Backend> Ufs<R> {
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
 		log::trace!(
-			"find_file_block({inr}, {offset}): size={}, blocks={blocks}, frags={frags}",
+			"inode_find_block({inr}, {offset}): size={}, bs={bs}, blocks={blocks}, fs={fs}, frags={frags}",
 			ino.size
 		);
 
@@ -149,9 +149,9 @@ impl<R: Backend> Ufs<R> {
 				size:   frags * fs,
 			}
 		} else {
-			panic!("out of bounds");
+			panic!("inode_find_block({inr}, {offset}): out of bounds");
 		};
-		log::trace!("find_file_block({inr}, {offset}) = {x:?}");
+		log::trace!("inode_find_block({inr}, {offset}) = {x:?}");
 		x
 	}
 
