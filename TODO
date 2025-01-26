@@ -1,6 +1,7 @@
 Short Term:
 - more integration tests
 - more unit tests
+- BlockReader: make `Write` somehow optional
 
 Long Term:
 - read-write
