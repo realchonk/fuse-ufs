@@ -127,7 +127,6 @@ impl Cli {
 
 		if rw {
 			log::warn!("Write support is very experimental! Data Loss is practically guaranteed!");
-			opts.push(MountOption::Rw);
 		} else {
 			opts.push(MountOption::Ro);
 		}
