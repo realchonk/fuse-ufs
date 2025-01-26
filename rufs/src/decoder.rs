@@ -136,4 +136,9 @@ impl<T: Read + Write + Seek> Decoder<T> {
 		self.seek(pos)?;
 		self.encode(x)
 	}
+
+	pub fn fill_at(&mut self, pos: u64, b: u8, num: usize) -> Result<()> {
+		self.seek(pos)?;
+		self.fill(b, num)
+	}
 }
