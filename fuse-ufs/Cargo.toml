@@ -12,7 +12,7 @@ documentation = "https://docs.rs/fuse-ufs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["fuse2"]
+default = ["fuse3"]
 fuse3 = ["dep:fuser", "rufs/fuser"]
 fuse2 = ["dep:fuse2rs", "rufs/fuse2rs"]
 Linux = ["fuse3"]
