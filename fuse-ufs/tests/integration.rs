@@ -112,13 +112,8 @@ fn harness(img: &Path) -> Harness {
 			cmd = Command::cargo_bin("fuse-ufs").unwrap();
 		}
 	}
-	
-	let child = cmd
-		.arg("-f")
-		.arg(img)
-		.arg(d.path())
-		.spawn()
-		.unwrap();
+
+	let child = cmd.arg("-f").arg(img).arg(d.path()).spawn().unwrap();
 
 	waitfor(Duration::from_secs(5), || {
 		let s = nix::sys::statfs::statfs(d.path()).expect("failed to statfs");
@@ -136,20 +131,15 @@ fn harness(img: &Path) -> Harness {
 
 	Harness { d, child }
 }
-			
+
 #[cfg(target_os = "openbsd")]
 fn umount(path: &Path) -> Result<Output, Error> {
-	Command::new("doas")
-		.arg("umount")
-		.arg(path)
-		.output()
+	Command::new("doas").arg("umount").arg(path).output()
 }
 
 #[cfg(not(target_os = "openbsd"))]
 fn umount(path: &Path) -> Result<Output, Error> {
-	Command::new("umount")
-		.arg(path)
-		.output()
+	Command::new("umount").arg(path).output()
 }
 
 impl Drop for Harness {

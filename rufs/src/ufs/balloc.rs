@@ -9,7 +9,7 @@ impl<R: Backend> Ufs<R> {
 		let h = bno / frag;
 
 		let mut cp = |h| self.file.decode_at::<u8>(cgo + freeoff + h);
-		
+
 		let st = match frag {
 			8 => cp(h)? == 0xff,
 			4 => {
@@ -38,7 +38,7 @@ impl<R: Backend> Ufs<R> {
 
 		Ok(b & mask == mask)
 	}
-	
+
 	/// See /sys/ufs/ffs/ffs_subr.c: ffs_setblock() and ffs_clrblock()
 	fn cg_setblock(&mut self, cgo: u64, cg: &CylGroup, bno: u64, free: bool) -> IoResult<()> {
 		let sb = &self.superblock;
@@ -86,7 +86,7 @@ impl<R: Backend> Ufs<R> {
 		let h = bno / frag;
 
 		let mut cp = |h| self.file.decode_at::<u8>(cgo + freeoff + h);
-		
+
 		let st = match frag {
 			8 => cp(h)? == 0,
 			4 => (cp(h >> 1)? & (0x0f << ((h & 0x01) << 2))) == 0,
