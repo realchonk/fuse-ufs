@@ -41,6 +41,10 @@ impl<R: Backend> Ufs<R> {
 		cg.cs.nifree += 1;
 		// TODO: update cg.time
 		self.file.encode_at(cga, &cg)?;
+
+		self.update_sb(|sb| sb.cstotal.nifree += 1)?;
+
+		// TODO: free data blocks
 		
 		Ok(())
 	}

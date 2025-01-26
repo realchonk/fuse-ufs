@@ -181,7 +181,7 @@ pub struct CsumTotal {
 
 /// Super block for an FFS filesystem.
 /// `struct fs` in FreeBSD
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 pub struct Superblock {
 	pub firstfield:       i32, // historic filesystem linked list,
 	pub unused_1:         i32, // used for incore super blocks
