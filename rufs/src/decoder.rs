@@ -128,7 +128,7 @@ impl<T: BufRead + Seek> Decoder<T> {
 }
 
 impl<T: Read + Write + Seek> Decoder<T> {
-	pub fn write_at(&mut self, pos: u64, buf: &mut [u8]) -> Result<()> {
+	pub fn write_at(&mut self, pos: u64, buf: &[u8]) -> Result<()> {
 		self.seek(pos)?;
 		self.write(buf)
 	}
