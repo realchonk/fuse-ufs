@@ -1,4 +1,4 @@
-use std::mem::replace;
+use std::mem::{replace, size_of_val};
 
 use super::*;
 use crate::{err, InodeNum};
