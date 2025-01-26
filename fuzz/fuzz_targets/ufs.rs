@@ -6,7 +6,7 @@ use libfuzzer_sys::fuzz_target;
 use rufs::*;
 
 fuzz_target!(|data: Vec<u8>| {
-	let rdr = BlockReader::new(Cursor::new(data), 4096);
+	let rdr = BlockReader::new(Cursor::new(data), 4096, false);
 	let mut fs = match Ufs::new(rdr) {
 		Ok(fs) => fs,
 		// Malformed FS already detected and handled properly by rufs

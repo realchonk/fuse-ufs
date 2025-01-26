@@ -64,7 +64,7 @@ pub struct Ufs<R: Backend> {
 
 impl Ufs<File> {
 	pub fn open(path: &Path) -> IoResult<Self> {
-		let file = BlockReader::open(path)?;
+		let file = BlockReader::open(path, false)?;
 		Self::new(file)
 	}
 }
