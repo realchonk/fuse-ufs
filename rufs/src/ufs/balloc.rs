@@ -1,3 +1,4 @@
+use crate::err;
 use super::*;
 
 impl<R: Backend> Ufs<R> {
@@ -7,6 +8,8 @@ impl<R: Backend> Ufs<R> {
 		let frag = sb.frag as u64;
 		let freeoff = cg.freeoff as u64;
 		let h = bno / frag;
+
+		assert!(bno < cg.ndblk as u64);
 
 		let mut cp = |h| self.file.decode_at::<u8>(cgo + freeoff + h);
 
@@ -45,6 +48,8 @@ impl<R: Backend> Ufs<R> {
 		let frag = sb.frag as u64;
 		let freeoff = cg.freeoff as u64;
 		let h = bno / frag;
+
+		assert!(bno < cg.ndblk as u64);
 
 		let mut cp = |h, x: u8| {
 			let old = self.file.decode_at::<u8>(cgo + freeoff + h)?;
@@ -162,5 +167,68 @@ impl<R: Backend> Ufs<R> {
 		self.file.encode_at(cgo, &cg)?;
 
 		Ok(())
+	}
+
+	pub(super) fn blk_alloc_full(&mut self) -> IoResult<NonZeroU64> {
+		let sb = &self.superblock;
+		let frag = sb.frag as u64;
+		let fpg = sb.fpg as u64;
+
+		for i in 0..(sb.ncg as u64) {
+			let cgo = self.cg_addr(i);
+			let mut cg: CylGroup = self.file.decode_at(cgo)?;
+			if cg.cs.nbfree <= 0 {
+				continue;
+			}
+
+			let ndblk = cg.ndblk as u64;
+
+			for bno in (0..ndblk).filter(|bno| bno % frag == 0) {
+				if !self.cg_isfreeblock(cgo, &cg, bno)? {
+					continue;
+				}
+
+				self.cg_setblock(cgo, &cg, bno, false)?;
+				cg.cs.nbfree -= 1;
+				self.file.encode_at(cgo, &cg)?;
+				let blkno = NonZeroU64::new(i * fpg + bno).unwrap();
+				return Ok(blkno);
+			}
+		}
+		
+		Err(err!(ENOSPC))
+	}
+
+	pub(super) fn blk_alloc(&mut self, size: u64) -> IoResult<(NonZeroU64, u64)> {
+		self.assert_rw()?;
+
+		let sb = &self.superblock;
+		let fsize = sb.fsize as u64;
+		let bsize = sb.bsize as u64;
+
+		assert!(size > 0);
+		assert!(size <= bsize);
+		assert!(size % fsize == 0);
+
+		// for now only allocate full blocks
+		let blk = self.blk_alloc_full()?;
+		Ok((blk, bsize))
+	}
+
+	pub(super) fn blk_alloc_zeroed(&mut self, size: u64) -> IoResult<(NonZeroU64, u64)> {
+		let fs = self.superblock.fsize as u64;
+		let (blkno, size) = self.blk_alloc(size)?;
+		let data = vec![0u8; size as usize];
+		self.file.encode_at(blkno.get() * fs, &data)?;
+		Ok((blkno, size))
+	}
+
+	pub(super) fn blk_alloc_full_zeroed(&mut self) -> IoResult<NonZeroU64> {
+		let bs = self.superblock.bsize as usize;
+		let fs = self.superblock.fsize as u64;
+		let blkno = self.blk_alloc_full()?;
+		let data = vec![0u8; bs];
+		self.file.encode_at(blkno.get() * fs, &data)?;
+		Ok(blkno)
 	}
 }
