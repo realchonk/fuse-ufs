@@ -85,6 +85,9 @@ impl<R: Backend> Ufs<R> {
 		self.read_pblock(bno, block)?;
 
 		for bno in block {
+			if *bno == 0 {
+				continue;
+			}
 			let size = self.inode_get_block_size(ino, *bno);
 			self.blk_free(*bno, size as u64)?;
 		}
@@ -177,6 +180,9 @@ impl<R: Backend> Ufs<R> {
 			// free direct blocks
 			for bno in blocks.direct {
 				let bno = bno as u64;
+				if bno == 0 {
+					continue;
+				}
 				let size = self.inode_get_block_size(&ino, bno);
 				self.blk_free(bno, size as u64)?;
 			}
@@ -189,15 +195,17 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
-	fn inode_shrink(&mut self, ino: &mut Inode) -> IoResult<()> {
+	fn inode_shrink(&mut self, ino: &mut Inode, new_size: u64) -> IoResult<()> {
 		let (begin_indir1, begin_indir2, begin_indir3, _) = self.inode_data_zones();
 		let sb = &self.superblock;
 		let bs = sb.bsize as u64;
 		let fs = sb.fsize as u64;
-		let (blocks, frags) = ino.size(bs, fs);
+		let (blocks, frags) = Inode::inode_size(bs, fs, new_size);
+		log::trace!("inode_shrink(): blocks={blocks}, frags={frags}");
 		let blocks = blocks + (frags > 0) as u64;
 		let pbp = bs / size_of::<u64>() as u64;
 		let nd = UFS_NDADDR as u64;
+
 
 		let InodeData::Blocks(mut iblocks) = ino.data.clone() else {
 			return Err(err!(EINVAL));
@@ -220,7 +228,10 @@ impl<R: Backend> Ufs<R> {
 			self.read_pblock(snd[off2 as usize], &mut block)?;
 			for i in off3..pbp {
 				let bno = replace(&mut block[i as usize], 0);
-				let size = self.inode_get_block_size(ino, bno);
+				if bno == 0 {
+					continue;
+				}
+				let size = self.inode_get_block_size(ino, begin_indir3 + off3 * pbp * pbp + off2 * pbp + i);
 				self.blk_free(bno, size as u64)?;
 			}
 			self.write_pblock(snd[off2 as usize], &mut block)?;
@@ -255,7 +266,10 @@ impl<R: Backend> Ufs<R> {
 			self.read_pblock(fst[off1 as usize], &mut block)?;
 			for i in off2..pbp {
 				let bno = replace(&mut block[i as usize], 0);
-				let size = self.inode_get_block_size(ino, bno);
+				if bno == 0 {
+					continue;
+				}
+				let size = self.inode_get_block_size(ino, begin_indir2 + off2 * pbp + i);
 				self.blk_free(bno as u64, size as u64)?;
 			}
 			self.write_pblock(fst[off1 as usize], &block)?;
@@ -279,7 +293,10 @@ impl<R: Backend> Ufs<R> {
 
 			for i in used..pbp {
 				let bno = replace(&mut block[i as usize], 0);
-				let size = self.inode_get_block_size(ino, bno);
+				if bno == 0 {
+					continue;
+				}
+				let size = self.inode_get_block_size(ino, begin_indir1 + i);
 				self.blk_free(bno as u64, size as u64)?;
 			}
 
@@ -293,7 +310,10 @@ impl<R: Backend> Ufs<R> {
 
 		for i in (blocks as usize)..UFS_NDADDR {
 			let bno = replace(&mut iblocks.direct[i], 0) as u64;
-			let size = self.inode_get_block_size(ino, bno);
+			if bno == 0 {
+				continue;
+			}
+			let size = self.inode_get_block_size(ino, i as u64);
 			self.blk_free(bno, size as u64)?;
 		}
 
@@ -302,14 +322,17 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	pub fn inode_truncate(&mut self, inr: InodeNum, new_size: u64) -> IoResult<()> {
+		log::trace!("inode_truncate({inr}, {new_size});");
 		self.assert_rw()?;
 
 		let mut ino = self.read_inode(inr)?;
-		let old_size = replace(&mut ino.size, new_size);
+		let old_size = ino.size;
 
 		if new_size < old_size {
-			self.inode_shrink(&mut ino)?;
+			self.inode_shrink(&mut ino, new_size)?;
 		}
+
+		ino.size = new_size;
 
 		self.write_inode(inr, &ino)?;
 
