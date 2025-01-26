@@ -220,7 +220,7 @@ impl<R: Backend> Ufs<R> {
 		let pbp = bs / su64;
 
 		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &ino.data else {
-			log::warn!("resolve_file_block({inr}, {blkno}): inode doesn't have blocks");
+			log::warn!("inode_resolve_block({inr}, {blkno}): inode doesn't have blocks");
 			return Err(err!(EIO));
 		};
 
@@ -235,7 +235,7 @@ impl<R: Backend> Ufs<R> {
 			let low = blkno - begin_indir1;
 			assert!(low < pbp);
 
-			log::trace!("resolve_file_block({inr}, {blkno}): 1-indirect: low={low}");
+			log::trace!("inode_resolve_block({inr}, {blkno}): 1-indirect: low={low}");
 
 			let first = indirect[0] as u64;
 			if first == 0 {
@@ -252,7 +252,7 @@ impl<R: Backend> Ufs<R> {
 			let high = x / pbp;
 			assert!(high < pbp);
 
-			log::trace!("resolve_file_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
+			log::trace!("inode_resolve_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
 
 			let first = indirect[1] as u64;
 			if first == 0 {
@@ -277,7 +277,7 @@ impl<R: Backend> Ufs<R> {
 			assert!(high < pbp);
 
 			log::trace!(
-				"resolve_file_block({inr}, {blkno}): 3-indirect: x={x:#x} high={high:#x}, mid={mid:#x}, low={low:#x}"
+				"inode_resolve_block({inr}, {blkno}): 3-indirect: x={x:#x} high={high:#x}, mid={mid:#x}, low={low:#x}"
 			);
 
 			let first = indirect[2] as u64;
