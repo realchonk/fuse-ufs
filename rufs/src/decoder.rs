@@ -1,8 +1,8 @@
-use std::io::{BufRead, Error, ErrorKind, Result, Seek, SeekFrom};
+use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 
 use bincode::{
 	config::{BigEndian, Configuration, Fixint, LittleEndian, NoLimit},
-	Decode,
+	Decode, Encode,
 };
 
 #[derive(Clone, Copy)]
@@ -26,21 +26,30 @@ impl Config {
 		Self::Big(cfg)
 	}
 
-	fn decode<T: Decode>(&self, rdr: &mut dyn BufRead) -> Result<T> {
+	fn decode<T: Decode>(&self, rdr: &mut impl Read) -> Result<T> {
 		match self {
-			Self::Little(cfg) => bincode::decode_from_reader(rdr, *cfg),
-			Self::Big(cfg) => bincode::decode_from_reader(rdr, *cfg),
+			Self::Little(cfg) => bincode::decode_from_std_read(rdr, *cfg),
+			Self::Big(cfg) => bincode::decode_from_std_read(rdr, *cfg),
 		}
 		.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to decode"))
 	}
+
+	fn encode(&self, wtr: &mut impl Write, x: &impl Encode) -> Result<()> {
+		match self {
+			Self::Little(cfg) => bincode::encode_into_std_write(x, wtr, *cfg),
+			Self::Big(cfg) => bincode::encode_into_std_write(x, wtr, *cfg),
+		}
+		.map(|_| ())
+		.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to encode"))
+	}
 }
 
-pub struct Decoder<T: BufRead> {
+pub struct Decoder<T: Read> {
 	inner:  T,
 	config: Config,
 }
 
-impl<T: BufRead> Decoder<T> {
+impl<T: Read> Decoder<T> {
 	pub fn new(inner: T, config: Config) -> Self {
 		Self {
 			inner,
@@ -69,7 +78,17 @@ impl<T: BufRead> Decoder<T> {
 	}
 }
 
-impl<T: BufRead + Seek> Decoder<T> {
+impl<T: Read + Write> Decoder<T> {
+	pub fn write(&mut self, buf: &[u8]) -> Result<()> {
+		self.inner.write_all(buf)
+	}
+
+	pub fn encode(&mut self, x: &impl Encode) -> Result<()> {
+		self.config.encode(&mut self.inner, x)
+	}
+}
+
+impl<T: Read + Seek> Decoder<T> {
 	pub fn read_at(&mut self, pos: u64, buf: &mut [u8]) -> Result<()> {
 		self.seek(pos)?;
 		self.read(buf)
@@ -98,5 +117,17 @@ impl<T: BufRead + Seek> Decoder<T> {
 
 	pub fn pos(&mut self) -> Result<u64> {
 		self.inner.stream_position()
+	}
+}
+
+impl<T: Read + Write + Seek> Decoder<T> {
+	pub fn write_at(&mut self, pos: u64, buf: &mut [u8]) -> Result<()> {
+		self.seek(pos)?;
+		self.write(buf)
+	}
+
+	pub fn encode_at(&mut self, pos: u64, x: &impl Encode) -> Result<()> {
+		self.seek(pos)?;
+		self.encode(x)
 	}
 }
