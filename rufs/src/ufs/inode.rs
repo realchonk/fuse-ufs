@@ -90,7 +90,7 @@ impl<R: Backend> Ufs<R> {
 		blkidx: u64,
 		buf: &mut [u8],
 	) -> IoResult<usize> {
-		log::trace!("read_file_block({inr}, {blkidx});");
+		log::trace!("inode_read_block({inr}, {blkidx});");
 		let fs = self.superblock.fsize as u64;
 		let size = self.inode_get_block_size(ino, blkidx);
 		match self.inode_resolve_block(inr, ino, blkidx)? {
@@ -101,6 +101,25 @@ impl<R: Backend> Ufs<R> {
 		}
 
 		Ok(size)
+	}
+
+	pub(super) fn inode_write_block(
+		&mut self,
+		inr: InodeNum,
+		ino: &Inode,
+		blkidx: u64,
+		buf: &[u8],
+	) -> IoResult<()> {
+		log::trace!("inode_write_block({inr}, {blkidx})");
+		let fs = self.superblock.fsize as u64;
+		let size = self.inode_get_block_size(ino, blkidx);
+		match self.inode_resolve_block(inr, ino, blkidx)? {
+			Some(blkno) => {
+				self.file.write_at(blkno.get() * fs, &buf[0..size])?;
+			},
+			None => todo!("TODO: implement block allocation"),
+		}
+		Ok(())
 	}
 
 	pub(super) fn inode_find_block(
