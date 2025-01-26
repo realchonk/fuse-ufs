@@ -247,4 +247,27 @@ impl<R: Backend> Ufs<R> {
 		self.inode_free(inr)?;
 		Ok(())
 	}
+
+	pub fn rmdir(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<()> {
+		self.assert_rw()?;
+		let inr = self.dir_lookup(dinr, name)?;
+		let x = self.dir_iter(inr, |name, _inr, kind| {
+			if kind != InodeType::Directory || name != "." || name != ".." {
+				Some(())
+			} else {
+				None
+			}
+		})?;
+
+		if x.is_some() {
+			return Err(err!(ENOTEMPTY));
+		}
+
+		assert_eq!(inr, self.dir_unlink(dinr, name)?);
+
+		self.unlink(inr, OsStr::new(".."))?;
+		self.unlink(inr, OsStr::new("."))?;
+		self.inode_free(inr)?;
+		Ok(())
+	}
 }
