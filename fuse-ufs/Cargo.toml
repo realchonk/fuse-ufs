@@ -18,10 +18,10 @@ fuse2 = ["dep:fuse2rs", "rufs/fuse2rs"]
 
 [dependencies]
 anyhow.workspace = true
-cfg-if = "1.0.0"
+cfg-if.workspace = true
 clap.workspace = true
 clap-verbosity-flag.workspace = true
-daemonize = "0.5.0"
+daemonize.workspace = true
 env_logger.workspace = true
 fuse2rs = { workspace = true, optional = true }
 fuser = { workspace = true, optional = true }
