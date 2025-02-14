@@ -491,25 +491,15 @@ impl Superblock {
 		blocks << self.fragshift as u32
 	}
 
-	/// inode number to filesystem block adddress.
-	pub fn ino_to_fsba(&self, inr: InodeNum) -> u64 {
-		let cg = self.ino_to_cg(inr);
-		let cgstart = cg * self.fpg as u64;
-		let cgimin = cgstart + self.iblkno as u64;
-		let frags = self.blocks_to_frags(inr.get64() % self.ipg as u64) / self.inopb as u64;
-		cgimin + frags
-	}
-
-	/// inode number to filesystem block offset.
-	pub fn ino_to_fsbo(&self, inr: InodeNum) -> u64 {
-		inr.get64() % self.inopb as u64
-	}
-
-	/// inode number to filesystem offset.
 	pub fn ino_to_fso(&self, inr: InodeNum) -> u64 {
-		let addr = self.ino_to_fsba(inr) * self.fsize as u64;
-		let off = self.ino_to_fsbo(inr) * UFS_INOSZ as u64;
-		addr + off
+		let ipg = self.ipg as u64;
+		let fpg = self.fpg as u64;
+		let fs = self.fsize as u64;
+		let cgi = inr.get64() / ipg;
+		let off = inr.get64() % ipg;
+		let cgstart = cgi * fpg * fs;
+		let cgistart = cgstart + (self.iblkno as u64 * fs);
+		cgistart + (off * UFS_INOSZ as u64)
 	}
 }
 
