@@ -1,5 +1,9 @@
 [workspace]
-members = ["rufs", "fuse-ufs", "fuzz"]
+members = [
+	"rufs",
+	"fuse-ufs",
+	"fuzz"
+]
 resolver = "2"
 
 [workspace.dependencies]
