@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [0.4.4] - unreleased
+
+### Add
+
+- A little more documentation
+
+### Fix
+
+- calculation of fragment blocks (#89)
+- reading directories (#87)
+- inode reading (#92) (pending)
+- update dependencies
+
 ## [0.4.3] - 2024-10-25
 
 ### Fix
@@ -67,7 +80,11 @@ This was the final release as part of [Google Summer of Code 2024](https://summe
 
 This was the first formal release of fuse-ufs.
 
-[0.4.0]: https://github.com/realchonk/fuse-ufs/compare/0.3.0...HEAD
+[unreleased]: https://github.com/realchonk/fuse-ufs/compare/0.4.3...HEAD
+[0.4.3]: https://github.com/realchonk/fuse-ufs/compare/0.4.2...0.4.3
+[0.4.2]: https://github.com/realchonk/fuse-ufs/compare/0.4.1...0.4.2
+[0.4.1]: https://github.com/realchonk/fuse-ufs/compare/0.4.0...0.4.1
+[0.4.0]: https://github.com/realchonk/fuse-ufs/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/realchonk/fuse-ufs/compare/0.2.1...0.3.0
 [0.2.1]: https://github.com/realchonk/fuse-ufs/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/realchonk/fuse-ufs/releases/tag/0.2.0
