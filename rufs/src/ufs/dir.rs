@@ -1,4 +1,4 @@
-use std::io::{BufRead, Write};
+use std::{io::{BufRead, Write}, path::Component};
 
 use super::*;
 use crate::{err, InodeNum};
@@ -430,5 +430,28 @@ impl<R: Backend> Ufs<R> {
 
 		let ino = self.read_inode(inr)?;
 		Ok(ino.as_attr(inr))
+	}
+
+	pub fn lookup(&mut self, path: &Path) -> IoResult<InodeNum> {
+		let mut comps = path.components();
+		if comps.next() != Some(Component::RootDir) {
+			log::error!("lookup({path:?}: not an absolute path");
+			return Err(err!(EINVAL));
+		}
+
+		let mut inr = InodeNum::ROOT;
+		for c in comps {
+			match c {
+				Component::Normal(name) => {
+					inr = self.dir_lookup(inr, name)?;
+				},
+				Component::CurDir => {},
+				_ => {
+					log::error!("lookup({path:?}): invalid component: {c:?}");
+					return Err(err!(EINVAL));
+				}
+			}
+		}
+		Ok(inr)
 	}
 }
