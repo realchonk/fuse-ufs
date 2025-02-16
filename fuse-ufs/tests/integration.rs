@@ -145,14 +145,17 @@ fn harness(img: &Path, delete: bool) -> Harness {
 	}
 }
 
-fn harness_rw(img: &Path) -> Harness {
-	let suffix: String = rand::rng()
+fn rand_str(n: usize) -> String {
+	rand::rng()
 		.sample_iter(&Alphanumeric)
 		.map(char::from)
-		.take(6)
-		.collect();
+		.take(n)
+		.collect()
+}
 
+fn harness_rw(img: &Path) -> Harness {
 	let stem = img.file_stem().unwrap().to_string_lossy();
+	let suffix = rand_str(6);
 	let img_copy = img.with_file_name(format!("{stem}-{suffix}.img"));
 
 	std::fs::copy(img, &img_copy).unwrap();
@@ -590,22 +593,52 @@ fn big_xattr(#[case] harness: Harness) {
 	assert_eq!(data, expected);
 }
 
-#[apply(all_images_rw)]
-fn new_file(#[case] harness: Harness) {
-	let d = &harness.d;
-
-	let path = d.path().join("new-file");
+fn mkfile(path: &Path) -> File {
 	File::options()
 		.read(true)
 		.write(true)
 		.truncate(true)
 		.create_new(true)
-		.open(&path)
+		.open(path)
 		.unwrap()
+}
+
+#[apply(all_images_rw)]
+fn new_file(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let path = d.path().join("new-file");
+	mkfile(&path)
 		.write_all(b"Hello World")
 		.unwrap();
-
 	assert_eq!(std::fs::read_to_string(path).unwrap(), "Hello World");
+}
+
+#[apply(all_images_rw)]
+fn new_dir(#[case] harness: Harness) {
+	let d = &harness.d;
+	let path = d
+		.path()
+		.join("newdir1")
+		.join("newdir2")
+		.join("newdir3")
+		.join("newdir4")
+		.join("newdir5");
+	std::fs::create_dir_all(path).unwrap();
+}
+
+#[apply(all_images_rw)]
+fn fatdir(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let dir = d.path().join("newdir");
+	std::fs::create_dir(&dir).unwrap();
+	// TODO: increase image sizes, then increase 32 to 1024 (or more)
+	for _ in 0..113 {
+		let name = rand_str(12);
+		let path = dir.join(name);
+		mkfile(&path);
+	}
 }
 
 /// rm -rf mp/*
