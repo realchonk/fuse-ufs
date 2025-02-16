@@ -1,12 +1,9 @@
 use std::{
-	fs::File,
-	hint::black_box,
-	path::{Path, PathBuf},
-	process::Command,
-	time::Duration,
+	fs::File, hint::black_box, os::raw::c_int, path::{Path, PathBuf}, process::Command, time::Duration
 };
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use pprof::criterion::{Output, PProfProfiler};
 use rufs::{InodeNum, InodeType, Ufs};
 
 // This has around 1800 files.
@@ -253,5 +250,10 @@ fn find(c: &mut Criterion) {
 	group.finish();
 }
 
-criterion_group!(benches, open, read, find);
+criterion_group! {
+	name = benches;
+	config = Criterion::default()
+		.with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+	targets = open, read, find
+}
 criterion_main!(benches);
