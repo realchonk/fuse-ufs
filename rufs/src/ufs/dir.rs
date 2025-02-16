@@ -55,7 +55,7 @@ fn readdir_block<T>(
 	Ok(None)
 }
 
-impl<R: Read + Seek> Ufs<R> {
+impl<R: Backend> Ufs<R> {
 	/// Find a file named `name` in the directory referenced by `pinr`.
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
 		log::trace!("dir_lookup({pinr}, {name:?});");

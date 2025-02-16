@@ -1,7 +1,7 @@
 use super::*;
 use crate::{err, InodeNum};
 
-impl<R: Read + Seek> Ufs<R> {
+impl<R: Backend> Ufs<R> {
 	/// Get metadata about an inode.
 	#[doc(alias("stat", "getattr"))]
 	pub fn inode_attr(&mut self, inr: InodeNum) -> IoResult<InodeAttr> {
