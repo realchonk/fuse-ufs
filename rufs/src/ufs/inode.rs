@@ -166,6 +166,8 @@ impl<R: Backend> Ufs<R> {
 			return Err(err!(EINVAL));
 		}
 
+		self.icache.push(inr, ino.clone());
+
 		Ok(ino)
 	}
 
@@ -174,7 +176,7 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 		let off = self.superblock.ino_to_fso(inr);
 		self.file.encode_at(off, &ino)?;
-		self.icache.put(inr, ino.clone());
+		self.icache.push(inr, ino.clone());
 		Ok(())
 	}
 
