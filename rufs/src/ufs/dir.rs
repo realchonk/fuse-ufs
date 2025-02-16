@@ -5,11 +5,11 @@ use crate::{err, InodeNum};
 
 #[derive(Debug, Clone, Copy)]
 struct Header {
-	inr: InodeNum,
-	reclen: u16,
-	kind: Option<InodeType>,
+	inr:     InodeNum,
+	reclen:  u16,
+	kind:    Option<InodeType>,
 	namelen: u8,
-	name: [u8; UFS_MAXNAMELEN + 1],
+	name:    [u8; UFS_MAXNAMELEN + 1],
 }
 
 impl Header {
@@ -40,7 +40,7 @@ impl Header {
 			DT_UNKNOWN => todo!("DT_UNKNOWN: {inr}"),
 			_ => panic!("invalid filetype: {kind}"),
 		};
-		
+
 		Ok(Some(Self {
 			inr,
 			reclen,
@@ -78,7 +78,6 @@ impl Header {
 	}
 }
 
-
 fn readdir_block<T>(
 	inr: InodeNum,
 	block: &[u8],
@@ -97,7 +96,10 @@ fn readdir_block<T>(
 		}
 
 		let Some(kind) = hdr.kind else {
-			log::warn!("readdir_block({inr}): encountered a whiteout entry: {:?}", hdr.name());
+			log::warn!(
+				"readdir_block({inr}): encountered a whiteout entry: {:?}",
+				hdr.name()
+			);
 			continue;
 		};
 
@@ -130,7 +132,6 @@ fn unlink_block(
 			continue;
 		}
 
-
 		if pos == 0 {
 			file.seek(pos)?;
 			match Header::parse(&mut file)? {
@@ -140,8 +141,10 @@ fn unlink_block(
 						..next
 					};
 					new.write(&mut file)?;
-				},
-				None => todo!("unlink_block({dinr}): unlinking the only entry in a directory block"),
+				}
+				None => {
+					todo!("unlink_block({dinr}): unlinking the only entry in a directory block")
+				}
 			}
 		} else {
 			file.seek(prevpos)?;
@@ -149,11 +152,13 @@ fn unlink_block(
 				Some(mut prev) => {
 					prev.reclen += hdr.reclen;
 					prev.write(&mut file)?;
-				},
+				}
 				None => {
-					log::error!("unlink_block({dinr}): previous entry is bad: prevpos={prevpos}, pos={pos}");
+					log::error!(
+						"unlink_block({dinr}): previous entry is bad: prevpos={prevpos}, pos={pos}"
+					);
 					return Err(err!(EIO));
-				},
+				}
 			}
 		}
 		return Ok(Some(hdr.inr));
@@ -201,11 +206,7 @@ impl<R: Backend> Ufs<R> {
 		Ok(None)
 	}
 
-	pub(super) fn dir_unlink(
-		&mut self,
-		dinr: InodeNum,
-		name: &OsStr,
-	) -> IoResult<InodeNum> {
+	pub(super) fn dir_unlink(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
 		self.assert_rw()?;
 		let dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
@@ -224,11 +225,7 @@ impl<R: Backend> Ufs<R> {
 		Err(err!(ENOENT))
 	}
 
-	pub fn unlink(
-		&mut self,
-		dinr: InodeNum,
-		name: &OsStr,
-	) -> IoResult<()> {
+	pub fn unlink(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<()> {
 		self.assert_rw()?;
 		let inr = self.dir_unlink(dinr, name)?;
 		self.inode_free(inr)?;

@@ -1,6 +1,15 @@
-use std::{io::Error, time::{Duration, SystemTime}};
+use std::{
+	io::Error,
+	time::{Duration, SystemTime},
+};
 
-use bincode::{de::Decoder, enc::Encoder, error::{DecodeError, EncodeError}, Decode, Encode};
+use bincode::{
+	de::Decoder,
+	enc::Encoder,
+	error::{DecodeError, EncodeError},
+	Decode,
+	Encode,
+};
 
 use crate::data::*;
 
@@ -25,7 +34,6 @@ fn systotime(t: SystemTime) -> (UfsTime, u32) {
 	} else {
 		(SystemTime::UNIX_EPOCH.duration_since(t).unwrap(), -1)
 	};
-
 
 	(neg * diff.as_secs() as UfsTime, diff.subsec_nanos())
 }
