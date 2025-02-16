@@ -12,6 +12,7 @@ mod dir;
 mod inode;
 mod symlink;
 mod xattr;
+mod ialloc;
 
 use crate::{
 	blockreader::{Backend, BlockReader},

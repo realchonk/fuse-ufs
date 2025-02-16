@@ -160,7 +160,7 @@ pub const DT_WHT: u8 = 14;
 /// read in from fs_csaddr (size fs_cssize) in addition to the
 /// super block.
 /// `struct csum` in FreeBSD
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 pub struct Csum {
 	pub ndir:   i32, // number of directories
 	pub nbfree: i32, // number of free blocks
@@ -169,7 +169,7 @@ pub struct Csum {
 }
 
 /// `struct csum_total` in FreeBSD
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 pub struct CsumTotal {
 	pub ndir:        i64,      // number of directories
 	pub nbfree:      i64,      // number of free blocks
@@ -290,7 +290,7 @@ pub struct Superblock {
 	pub magic:            i32, // magic number
 }
 
-#[derive(Debug, Decode)]
+#[derive(Debug, Decode, Encode)]
 #[allow(dead_code)]
 pub struct CylGroup {
 	pub firstfield:    i32,            // historic cyl groups linked list
@@ -485,6 +485,13 @@ impl Superblock {
 	/// inode number to cylinder group number.
 	pub fn ino_to_cg(&self, inr: InodeNum) -> u64 {
 		inr.get64() / self.ipg as u64
+	}
+
+	/// inode number to cylinder group number and offset.
+	pub fn ino_in_cg(&self, inr: InodeNum) -> (u64, u64) {
+		let ipg = self.ipg as u64;
+		let inr = inr.get64();
+		(inr / ipg, inr % ipg)
 	}
 
 	pub fn blocks_to_frags(&self, blocks: u64) -> u64 {
