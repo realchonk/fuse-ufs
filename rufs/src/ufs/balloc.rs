@@ -1,5 +1,5 @@
-use crate::err;
 use super::*;
+use crate::err;
 
 impl<R: Backend> Ufs<R> {
 	/// See /sys/ufs/ffs/ffs_subr.c: ffs_isblock()
@@ -196,7 +196,7 @@ impl<R: Backend> Ufs<R> {
 				return Ok(blkno);
 			}
 		}
-		
+
 		Err(err!(ENOSPC))
 	}
 

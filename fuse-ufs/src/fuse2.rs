@@ -18,10 +18,7 @@ macro_rules! err {
 }
 
 fn path_split(path: &Path) -> Result<(&Path, &OsStr)> {
-	path
-		.parent()
-		.zip(path.file_name())
-		.ok_or(err!(EINVAL))
+	path.parent().zip(path.file_name()).ok_or(err!(EINVAL))
 }
 
 impl Fs {

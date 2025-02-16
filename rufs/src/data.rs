@@ -550,4 +550,3 @@ impl Display for InodeNum {
 		write!(f, "{}", self.0)
 	}
 }
-

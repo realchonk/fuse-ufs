@@ -351,15 +351,15 @@ impl Filesystem for Fs {
 	}
 
 	fn mknod(
-        &mut self,
-        req: &Request<'_>,
-        parent: u64,
-        name: &OsStr,
-        mode: u32,
-        umask: u32,
-        _rdev: u32,
-        reply: fuser::ReplyEntry,
-    ) {
+		&mut self,
+		req: &Request<'_>,
+		parent: u64,
+		name: &OsStr,
+		mode: u32,
+		umask: u32,
+		_rdev: u32,
+		reply: fuser::ReplyEntry,
+	) {
 		let f = || {
 			let dinr = transino(parent)?;
 			let kind = match mode & libc::S_IFMT {
@@ -374,7 +374,14 @@ impl Filesystem for Fs {
 			};
 			let perm = (mode & !libc::S_IFMT) as u16;
 
-			let attr = self.ufs.mknod(dinr, name, kind, perm & !(umask as u16), req.uid(), req.gid())?;
+			let attr = self.ufs.mknod(
+				dinr,
+				name,
+				kind,
+				perm & !(umask as u16),
+				req.uid(),
+				req.gid(),
+			)?;
 			Ok((attr.gen, attr))
 		};
 
@@ -385,15 +392,15 @@ impl Filesystem for Fs {
 	}
 
 	fn create(
-        &mut self,
-        req: &Request<'_>,
-        parent: u64,
-        name: &OsStr,
-        mode: u32,
-        umask: u32,
-        _flags: i32,
-        reply: fuser::ReplyCreate,
-    ) {
+		&mut self,
+		req: &Request<'_>,
+		parent: u64,
+		name: &OsStr,
+		mode: u32,
+		umask: u32,
+		_flags: i32,
+		reply: fuser::ReplyCreate,
+	) {
 		let f = || {
 			let dinr = transino(parent)?;
 			let kind = match mode & libc::S_IFMT {
@@ -408,7 +415,14 @@ impl Filesystem for Fs {
 			};
 			let perm = (mode & !libc::S_IFMT) as u16;
 
-			let attr = self.ufs.mknod(dinr, name, kind, perm & !(umask as u16), req.uid(), req.gid())?;
+			let attr = self.ufs.mknod(
+				dinr,
+				name,
+				kind,
+				perm & !(umask as u16),
+				req.uid(),
+				req.gid(),
+			)?;
 			Ok((attr.gen, attr))
 		};
 
@@ -419,16 +433,18 @@ impl Filesystem for Fs {
 	}
 
 	fn symlink(
-        &mut self,
-        req: &Request<'_>,
-        parent: u64,
-        link_name: &OsStr,
-        target: &std::path::Path,
-        reply: fuser::ReplyEntry,
-    ) {
+		&mut self,
+		req: &Request<'_>,
+		parent: u64,
+		link_name: &OsStr,
+		target: &std::path::Path,
+		reply: fuser::ReplyEntry,
+	) {
 		let f = || {
 			let dinr = transino(parent)?;
-			let attr = self.ufs.symlink(dinr, link_name, target.as_os_str(), req.uid(), req.gid())?;
+			let attr =
+				self.ufs
+					.symlink(dinr, link_name, target.as_os_str(), req.uid(), req.gid())?;
 			Ok((attr.gen, attr))
 		};
 
@@ -439,18 +455,20 @@ impl Filesystem for Fs {
 	}
 
 	fn mkdir(
-        &mut self,
-        req: &Request<'_>,
-        parent: u64,
-        name: &OsStr,
-        mode: u32,
-        umask: u32,
-        reply: fuser::ReplyEntry,
-    ) {
+		&mut self,
+		req: &Request<'_>,
+		parent: u64,
+		name: &OsStr,
+		mode: u32,
+		umask: u32,
+		reply: fuser::ReplyEntry,
+	) {
 		let f = || {
 			let dinr = transino(parent)?;
 			let perm = mode & !libc::S_IFMT & !umask;
-			let attr = self.ufs.mkdir(dinr, name, perm as u16, req.uid(), req.gid())?;
+			let attr = self
+				.ufs
+				.mkdir(dinr, name, perm as u16, req.uid(), req.gid())?;
 			Ok((attr.gen, attr))
 		};
 

@@ -26,7 +26,7 @@ impl Header {
 			namelen: dname.len() as u8,
 		}
 	}
-	
+
 	fn parse<T: BufRead + Seek>(file: &mut Decoder<T>) -> IoResult<Option<Header>> {
 		let inr: InodeNum = file.decode()?;
 		let reclen: u16 = file.decode()?;
@@ -144,17 +144,13 @@ fn readdir_block<T>(
 	Ok(None)
 }
 
-fn newlink_block(
-	block: &mut [u8],
-	mut entry: Header,
-	config: Config,
-) -> IoResult<bool> {
+fn newlink_block(block: &mut [u8], mut entry: Header, config: Config) -> IoResult<bool> {
 	let mut file = Decoder::new(Cursor::new(block), config);
 
 	loop {
 		let pos = file.pos()?;
 		let Ok(Some(mut hdr)) = Header::parse(&mut file) else {
-			break
+			break;
 		};
 		let minlen = hdr.minlen();
 		let rem = hdr.reclen - minlen;
@@ -170,7 +166,7 @@ fn newlink_block(
 		entry.write(&mut file)?;
 		return Ok(true);
 	}
-	
+
 	Ok(false)
 }
 
@@ -295,7 +291,6 @@ impl<R: Backend> Ufs<R> {
 		let dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
 
-
 		let mut block = vec![0u8; DIRBLKSIZE];
 		let mut pos = 0;
 		while pos < dino.size {
@@ -306,7 +301,8 @@ impl<R: Backend> Ufs<R> {
 				if has {
 					self.inode_write(dinr, pos, &block)?;
 				} else {
-					let n = self.inode_copy_range(dinr, &dino, (pos + DIRBLKSIZE as u64).., pos..)?;
+					let n =
+						self.inode_copy_range(dinr, &dino, (pos + DIRBLKSIZE as u64).., pos..)?;
 					assert_eq!(n, dino.size - pos - DIRBLKSIZE as u64);
 					self.inode_truncate(dinr, dino.size - DIRBLKSIZE as u64)?;
 				}
@@ -319,7 +315,13 @@ impl<R: Backend> Ufs<R> {
 		Err(err!(ENOENT))
 	}
 
-	pub(super) fn dir_newlink(&mut self, dinr: InodeNum, inr: InodeNum, name: &OsStr, kind: InodeType) -> IoResult<()> {
+	pub(super) fn dir_newlink(
+		&mut self,
+		dinr: InodeNum,
+		inr: InodeNum,
+		name: &OsStr,
+		kind: InodeType,
+	) -> IoResult<()> {
 		log::trace!("dir_newlink({dinr}, {inr}, {name:?}, {kind:?});");
 		self.assert_rw()?;
 		let dino = self.read_inode(dinr)?;
@@ -344,7 +346,10 @@ impl<R: Backend> Ufs<R> {
 		log::trace!("dir_link({dinr}, {inr}, {name:?}, {kind:?}): extending directory for new entry: {entry:?}");
 		self.inode_truncate(dinr, dino.size + DIRBLKSIZE as u64)?;
 		entry.reclen = DIRBLKSIZE as u16;
-		entry.write(&mut Decoder::new(Cursor::new(&mut block as &mut [u8]), self.file.config()))?;
+		entry.write(&mut Decoder::new(
+			Cursor::new(&mut block as &mut [u8]),
+			self.file.config(),
+		))?;
 		self.inode_write(dinr, pos, &block)?;
 		Ok(())
 	}

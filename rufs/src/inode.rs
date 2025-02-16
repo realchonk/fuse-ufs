@@ -83,6 +83,7 @@ impl Inode {
 			spare: [0; 2],
 		}
 	}
+
 	pub fn atime(&self) -> SystemTime {
 		timetosys(self.atime, self.atimensec)
 	}

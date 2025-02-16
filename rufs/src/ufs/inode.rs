@@ -82,7 +82,12 @@ impl<R: Backend> Ufs<R> {
 			blockbuf[off..(off + num as usize)]
 				.copy_from_slice(&buffer[boff..(boff + num as usize)]);
 
-			self.inode_write_block(inr, &mut ino, block.blkidx, &blockbuf[0..(block.size as usize)])?;
+			self.inode_write_block(
+				inr,
+				&mut ino,
+				block.blkidx,
+				&blockbuf[0..(block.size as usize)],
+			)?;
 
 			offset += num;
 			boff += num as usize;
@@ -142,7 +147,7 @@ impl<R: Backend> Ufs<R> {
 			fpos += n;
 			tpos += n;
 		}
-		
+
 		Ok(flen)
 	}
 
@@ -224,7 +229,7 @@ impl<R: Backend> Ufs<R> {
 			Some(blkno) => blkno,
 			None => self.inode_alloc_block(inr, ino, blkidx, size as u64)?.0,
 		};
-		
+
 		self.file.write_at(blkno.get() * fs, &buf[0..size])?;
 		Ok(())
 	}
@@ -294,7 +299,11 @@ impl<R: Backend> Ufs<R> {
 			let high = x / pbp / pbp;
 			let mid = x / pbp % pbp;
 			let low = x % pbp;
-			Ok(InodeBlock::Indirect3(high as usize, mid as usize, low as usize))
+			Ok(InodeBlock::Indirect3(
+				high as usize,
+				mid as usize,
+				low as usize,
+			))
 		} else {
 			Err(err!(EINVAL))
 		}
@@ -327,7 +336,7 @@ impl<R: Backend> Ufs<R> {
 
 				self.read_pblock(x1, &mut data)?;
 				Ok(NonZeroU64::new(data[off]))
-			},
+			}
 			InodeBlock::Indirect2(high, low) => {
 				let x1 = indirect[1] as u64;
 				if x1 == 0 {
@@ -342,7 +351,7 @@ impl<R: Backend> Ufs<R> {
 
 				self.read_pblock(x2, &mut data)?;
 				Ok(NonZeroU64::new(data[low]))
-			},
+			}
 			InodeBlock::Indirect3(high, mid, low) => {
 				let x1 = indirect[2] as u64;
 				if x1 == 0 {
@@ -363,7 +372,7 @@ impl<R: Backend> Ufs<R> {
 
 				self.read_pblock(x3, &mut data)?;
 				Ok(NonZeroU64::new(data[low]))
-			},
+			}
 		}
 	}
 
@@ -380,7 +389,9 @@ impl<R: Backend> Ufs<R> {
 			panic!("out of bounds: {blkidx}, blocks: {blocks}, frags: {frags}");
 		};
 
-		log::trace!("inode_get_block_size(blkidx={blkidx}) = {res}; frags={frags}, blocks={blocks}");
+		log::trace!(
+			"inode_get_block_size(blkidx={blkidx}) = {res}; frags={frags}, blocks={blocks}"
+		);
 		res
 	}
 }

@@ -20,6 +20,7 @@ impl<R: Backend> Ufs<R> {
 		let _ = self.read_inode(inr)?;
 		Ok(())
 	}
+
 	pub(super) fn inode_alloc(&mut self, ino: &mut Inode) -> IoResult<InodeNum> {
 		self.assert_rw()?;
 		let sb = &self.superblock;
@@ -252,7 +253,8 @@ impl<R: Backend> Ufs<R> {
 				if bno == 0 {
 					continue;
 				}
-				let size = self.inode_get_block_size(ino, begin_indir3 + off3 * pbp * pbp + off2 * pbp + i);
+				let size = self
+					.inode_get_block_size(ino, begin_indir3 + off3 * pbp * pbp + off2 * pbp + i);
 				self.blk_free(bno, size as u64)?;
 			}
 			self.write_pblock(snd[off2 as usize], &block)?;
@@ -322,7 +324,7 @@ impl<R: Backend> Ufs<R> {
 			}
 
 			self.write_pblock(iblocks.indirect[0] as u64, &block)?;
-			
+
 			ino.data = InodeData::Blocks(iblocks);
 			return Ok(());
 		}
@@ -373,8 +375,10 @@ impl<R: Backend> Ufs<R> {
 		let pbp = bs / su64;
 		let mut data = vec![0u64; pbp as usize];
 
-		let InodeData::Blocks(InodeBlocks { direct, indirect}) = &mut ino.data else {
-			log::warn!("inode_set_block({inr}, {blkidx}, {block}): inode doesn't haave data blocks");
+		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &mut ino.data else {
+			log::warn!(
+				"inode_set_block({inr}, {blkidx}, {block}): inode doesn't haave data blocks"
+			);
 			return Err(err!(EIO));
 		};
 
@@ -384,7 +388,7 @@ impl<R: Backend> Ufs<R> {
 			InodeBlock::Direct(off) => {
 				direct[off] = block.get() as i64;
 				wb = true;
-			},
+			}
 			InodeBlock::Indirect1(off) => {
 				if indirect[0] == 0 {
 					indirect[0] = self.blk_alloc_full_zeroed()?.get() as i64;
@@ -395,7 +399,7 @@ impl<R: Backend> Ufs<R> {
 				self.read_pblock(x1, &mut data)?;
 				data[off] = block.get();
 				self.write_pblock(x1, &data)?;
-			},
+			}
 			InodeBlock::Indirect2(high, low) => {
 				if indirect[1] == 0 {
 					indirect[1] = self.blk_alloc_full_zeroed()?.get() as i64;
@@ -414,7 +418,7 @@ impl<R: Backend> Ufs<R> {
 				self.read_pblock(x2, &mut data)?;
 				data[low] = block.get();
 				self.write_pblock(x2, &data)?;
-			},
+			}
 			InodeBlock::Indirect3(high, mid, low) => {
 				if indirect[2] == 0 {
 					indirect[2] = self.blk_alloc_full_zeroed()?.get() as i64;
@@ -440,7 +444,7 @@ impl<R: Backend> Ufs<R> {
 				self.read_pblock(x3, &mut data)?;
 				data[low] = block.get();
 				self.write_pblock(x3, &data)?;
-			},
+			}
 		}
 
 		if wb {
