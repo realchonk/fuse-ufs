@@ -656,3 +656,14 @@ fn rm_rf_everything(#[case] harness: Harness) {
 		}
 	}
 }
+
+#[apply(all_images_rw)]
+fn symlink(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let path = d.path().join("link123");
+	let target = Path::new("file1");
+	std::os::unix::fs::symlink(target, &path).unwrap();
+
+	assert_eq!(std::fs::read_link(path).unwrap(), target);
+}
