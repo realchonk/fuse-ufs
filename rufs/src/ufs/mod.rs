@@ -167,10 +167,13 @@ impl<R: Backend> Ufs<R> {
 		sbassert!(sb.sbsize == sb.fsize);
 		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
 
+		let fpg = sb.fpg as u64;
+		let sblkno = sb.sblkno as u64;
+		let fs = sb.fsize as u64;
+		
 		// check that all superblocks are ok.
 		for i in 0..sb.ncg {
-			let sb = &self.superblock;
-			let addr = ((i as i32 * sb.fpg + sb.sblkno) * sb.fsize) as u64;
+			let addr = (i as u64 * fpg + sblkno) * fs;
 			let csb: Superblock = self.file.decode_at(addr).unwrap();
 			if csb.magic != FS_UFS2_MAGIC {
 				log::error!("CG{i} has invalid superblock magic: {:x}", csb.magic);
@@ -180,8 +183,7 @@ impl<R: Backend> Ufs<R> {
 
 		// check that all cylgroups are ok.
 		for i in 0..self.superblock.ncg {
-			let sb = &self.superblock;
-			let addr = ((i as i32 * sb.fpg + sb.cblkno) * sb.fsize) as u64;
+			let addr = self.cg_addr(i as u64);
 			let cg: CylGroup = self.file.decode_at(addr).unwrap();
 			if cg.magic != CG_MAGIC {
 				log::error!("CG{i} has invalid cg magic: {:x}", cg.magic);
@@ -190,5 +192,14 @@ impl<R: Backend> Ufs<R> {
 		}
 		log::info!("OK");
 		Ok(())
+	}
+
+	fn cg_addr(&self, idx: u64) -> u64 {
+		let sb = &self.superblock;
+		let fpg = sb.fpg as u64;
+		let cblkno = sb.cblkno as u64;
+		let fs = sb.fsize as u64;
+		
+		(idx * fpg + cblkno) * fs
 	}
 }
