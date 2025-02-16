@@ -42,6 +42,51 @@ impl<R: Backend> Ufs<R> {
 		Ok(boff)
 	}
 
+	pub fn inode_write(
+		&mut self,
+		inr: InodeNum,
+		mut offset: u64,
+		buffer: &[u8],
+	) -> IoResult<usize> {
+		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
+		let ino = self.read_inode(inr)?;
+
+		if offset + buffer.len() as u64 > ino.size {
+			todo!("resizing files")
+		}
+
+		let mut boff = 0;
+		let len = (buffer.len() as u64).min(ino.size - offset);
+		let end = offset + len;
+
+		while offset < end {
+			let block = self.inode_find_block(inr, &ino, offset);
+			let num = (block.size - block.off).min(end - offset);
+
+			// TODO: remove this read, if writing a full block
+			self.inode_read_block(
+				inr,
+				&ino,
+				block.blkidx,
+				&mut blockbuf[0..(block.size as usize)],
+			)?;
+
+			blockbuf[0..(num as usize)].copy_from_slice(&buffer[boff..(boff + num as usize)]);
+
+			self.inode_write_block(
+				inr,
+				&ino,
+				block.blkidx,
+				&blockbuf[0..(block.size as usize)],
+			)?;
+
+			offset += num;
+			boff += num as usize;
+		}
+
+		Ok(boff)
+	}
+
 	pub(super) fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
 		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;
