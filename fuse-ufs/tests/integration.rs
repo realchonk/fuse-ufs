@@ -1,3 +1,5 @@
+#[cfg(target_os = "freebsd")]
+use std::os::fd::AsRawFd;
 use std::{
 	ffi::{OsStr, OsString},
 	fmt,
@@ -9,9 +11,6 @@ use std::{
 	thread::sleep,
 	time::{Duration, Instant},
 };
-
-#[cfg(target_os = "freebsd")]
-use std::os::fd::AsRawFd;
 
 #[allow(unused_imports)]
 use assert_cmd::cargo::CommandCargoExt;
@@ -97,9 +96,9 @@ where
 }
 
 struct Harness {
-	d:     TempDir,
-	child: Child,
-	img: PathBuf,
+	d:      TempDir,
+	child:  Child,
+	img:    PathBuf,
 	delete: bool,
 }
 
@@ -153,10 +152,7 @@ fn harness_rw(img: &Path) -> Harness {
 		.take(6)
 		.collect();
 
-	let stem = img
-		.file_stem()
-		.unwrap()
-		.to_string_lossy();
+	let stem = img.file_stem().unwrap().to_string_lossy();
 	let img_copy = img.with_file_name(format!("{stem}-{suffix}.img"));
 
 	std::fs::copy(img, &img_copy).unwrap();
@@ -171,7 +167,7 @@ fn harness_rw(img: &Path) -> Harness {
 		.arg(h.d.path())
 		.status()
 		.unwrap();
-	
+
 	h
 }
 
@@ -627,4 +623,3 @@ fn rm_rf_everything(#[case] harness: Harness) {
 		}
 	}
 }
-

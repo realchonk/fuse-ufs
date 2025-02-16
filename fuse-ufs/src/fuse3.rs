@@ -25,9 +25,7 @@ fn transino(inr: u64) -> IoResult<InodeNum> {
 	if inr == fuser::FUSE_ROOT_ID {
 		Ok(InodeNum::ROOT)
 	} else {
-		let inr = inr
-			.try_into()
-			.map_err(|_| err!(EINVAL))?;
+		let inr = inr.try_into().map_err(|_| err!(EINVAL))?;
 		Ok(unsafe { InodeNum::new(inr) })
 	}
 }
