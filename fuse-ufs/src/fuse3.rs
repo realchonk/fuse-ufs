@@ -5,7 +5,7 @@ use std::{
 };
 
 use fuser::{FileAttr, Filesystem, KernelConfig, Request, TimeOrNow};
-use rufs::{InodeAttr, InodeNum};
+use rufs::{InodeAttr, InodeNum, InodeType};
 
 use crate::Fs;
 
@@ -346,6 +346,74 @@ impl Filesystem for Fs {
 
 		match run(f) {
 			Ok(st) => reply.attr(&MAX_CACHE, &st.into()),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn mknod(
+        &mut self,
+        req: &Request<'_>,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+        _rdev: u32,
+        reply: fuser::ReplyEntry,
+    ) {
+		let f = || {
+			let dinr = transino(parent)?;
+			let kind = match mode & libc::S_IFMT {
+				libc::S_IFREG => InodeType::RegularFile,
+				libc::S_IFDIR => InodeType::Directory,
+				libc::S_IFLNK => InodeType::Symlink,
+				libc::S_IFCHR => InodeType::CharDevice,
+				libc::S_IFBLK => InodeType::BlockDevice,
+				libc::S_IFSOCK => InodeType::Socket,
+				libc::S_IFIFO => InodeType::NamedPipe,
+				_ => return Err(IoError::from_raw_os_error(libc::EINVAL)),
+			};
+			let perm = (mode & !libc::S_IFMT) as u16;
+
+			let attr = self.ufs.mknod(dinr, name, kind, perm & !(umask as u16), req.uid(), req.gid())?;
+			Ok((attr.gen, attr))
+		};
+
+		match run(f) {
+			Ok((g, a)) => reply.entry(&MAX_CACHE, &a.into(), g.into()),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn create(
+        &mut self,
+        req: &Request<'_>,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+        _flags: i32,
+        reply: fuser::ReplyCreate,
+    ) {
+		let f = || {
+			let dinr = transino(parent)?;
+			let kind = match mode & libc::S_IFMT {
+				libc::S_IFREG => InodeType::RegularFile,
+				libc::S_IFDIR => InodeType::Directory,
+				libc::S_IFLNK => InodeType::Symlink,
+				libc::S_IFCHR => InodeType::CharDevice,
+				libc::S_IFBLK => InodeType::BlockDevice,
+				libc::S_IFSOCK => InodeType::Socket,
+				libc::S_IFIFO => InodeType::NamedPipe,
+				_ => return Err(IoError::from_raw_os_error(libc::EINVAL)),
+			};
+			let perm = (mode & !libc::S_IFMT) as u16;
+
+			let attr = self.ufs.mknod(dinr, name, kind, perm & !(umask as u16), req.uid(), req.gid())?;
+			Ok((attr.gen, attr))
+		};
+
+		match run(f) {
+			Ok((g, a)) => reply.created(&MAX_CACHE, &a.into(), g.into(), 0, 0),
 			Err(e) => reply.error(e),
 		}
 	}
