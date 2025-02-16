@@ -48,6 +48,8 @@ impl<R: Backend> Ufs<R> {
 		mut offset: u64,
 		buffer: &[u8],
 	) -> IoResult<usize> {
+		self.assert_rw()?;
+
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
 		let ino = self.read_inode(inr)?;
 
