@@ -220,4 +220,17 @@ impl Filesystem for Fs {
 			Err(e) => reply.error(e),
 		}
 	}
+
+	fn unlink(&mut self, _req: &Request<'_>, pinr: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
+		let f = || {
+			let pinr = transino(pinr)?;
+			self.ufs.unlink(pinr, name)?;
+			Ok(())
+		};
+
+		match run(f) {
+			Ok(()) => reply.ok(),
+			Err(e) => reply.error(e),
+		}
+	}
 }
