@@ -23,6 +23,8 @@ for f in rufs/Cargo.toml fuse-ufs/Cargo.toml; do
 	sed -i "s/^version = .*$/version = \"$ver\"/" "$f" || die "failed to patch $f"
 done
 
+./scripts/fmt-changelog.sh || die 'failed to format ChangeLog'
+
 sed -i "s/^rufs = { version = \".*\", path = \"rufs\" }\$/rufs = { version = \"$ver\", path = \"rufs\" }/" Cargo.toml || die 'failed to patch workspace Cargo.toml'
 
 cargo update || die 'failed to run `cargo update`'
