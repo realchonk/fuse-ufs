@@ -28,6 +28,10 @@ impl Header {
 		let off = reclen - (namelen as u16) - 8;
 		file.seek_relative(off as i64)?;
 
+		if inr.get() == 0 {
+			return Ok(None);
+		}
+
 		log::trace!("Header::read(): {{ inr={inr}, reclen={reclen}, namelen={namelen}, name={:?}, kind={kind} }}",
 					unsafe { OsStr::from_encoded_bytes_unchecked(&name[0..namelen.into()]) });
 
