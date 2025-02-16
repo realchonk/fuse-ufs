@@ -7,7 +7,7 @@ use std::{
 use fuser::{FileAttr, Filesystem, KernelConfig, Request, TimeOrNow};
 use rufs::{InodeAttr, InodeNum, InodeType};
 
-use crate::{Fs, consts::*};
+use crate::{consts::*, Fs};
 
 const MAX_CACHE: Duration = Duration::MAX;
 

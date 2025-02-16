@@ -9,7 +9,7 @@ use std::{
 use fuse2rs::*;
 use rufs::{InodeNum, InodeType};
 
-use crate::{Fs, consts::*};
+use crate::{consts::*, Fs};
 
 macro_rules! err {
 	($n:ident) => {
@@ -197,6 +197,7 @@ impl Filesystem for Fs {
 	fn create(&mut self, req: &Request, path: &Path, mode: u32, _info: &FileInfo) -> Result<()> {
 		self.mknod(req, path, mode, 0)
 	}
+
 	fn mknod(&mut self, req: &Request, path: &Path, mode: u32, _dev: u32) -> Result<()> {
 		let (dir, name) = path_split(path)?;
 		let kind = match mode & S_IFMT {
@@ -212,9 +213,11 @@ impl Filesystem for Fs {
 
 		let dinr = self.lookup(dir)?;
 		let perm = mode & !S_IFMT;
-		self.ufs.mknod(dinr, name, kind, perm as u16, req.uid, req.gid)?;
+		self.ufs
+			.mknod(dinr, name, kind, perm as u16, req.uid, req.gid)?;
 		Ok(())
 	}
+
 	fn symlink(&mut self, req: &Request, name1: &Path, name2: &Path) -> Result<()> {
 		let (dir, name) = path_split(name2)?;
 		let link = name1.as_os_str();
@@ -222,6 +225,7 @@ impl Filesystem for Fs {
 		self.ufs.symlink(dinr, name, link, req.uid, req.gid)?;
 		Ok(())
 	}
+
 	fn mkdir(&mut self, req: &Request, path: &Path, mode: u32) -> Result<()> {
 		let (dir, name) = path_split(path)?;
 		let dinr = self.lookup(dir)?;
