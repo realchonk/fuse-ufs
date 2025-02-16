@@ -16,6 +16,7 @@ impl<R: Backend> Ufs<R> {
 		mut offset: u64,
 		buffer: &mut [u8],
 	) -> IoResult<usize> {
+		log::trace!("inode_read({inr}, {offset}, {})", buffer.len());
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
 		let ino = self.read_inode(inr)?;
 
@@ -33,7 +34,8 @@ impl<R: Backend> Ufs<R> {
 				block.blkidx,
 				&mut blockbuf[0..(block.size as usize)],
 			)?;
-			buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[0..(num as usize)]);
+			let off = block.off as usize;
+			buffer[boff..(boff + num as usize)].copy_from_slice(&blockbuf[off..(off + num as usize)]);
 
 			offset += num;
 			boff += num as usize;
@@ -48,6 +50,7 @@ impl<R: Backend> Ufs<R> {
 		mut offset: u64,
 		buffer: &[u8],
 	) -> IoResult<usize> {
+		log::trace!("inode_write({inr}, {offset}, {})", buffer.len());
 		self.assert_rw()?;
 
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
@@ -73,7 +76,8 @@ impl<R: Backend> Ufs<R> {
 				&mut blockbuf[0..(block.size as usize)],
 			)?;
 
-			blockbuf[0..(num as usize)].copy_from_slice(&buffer[boff..(boff + num as usize)]);
+			let off = block.off as usize;
+			blockbuf[off..(off + num as usize)].copy_from_slice(&buffer[boff..(boff + num as usize)]);
 
 			self.inode_write_block(
 				inr,
