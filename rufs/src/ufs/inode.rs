@@ -16,12 +16,21 @@ impl<R: Backend> Ufs<R> {
 	pub fn inode_read(
 		&mut self,
 		inr: InodeNum,
+		offset: u64,
+		buffer: &mut [u8],
+	) -> IoResult<usize> {
+		let ino = self.read_inode(inr)?;
+		self.inode_do_read(inr, &ino, offset, buffer)
+	}
+	pub(super) fn inode_do_read(
+		&mut self,
+		inr: InodeNum,
+		ino: &Inode,
 		mut offset: u64,
 		buffer: &mut [u8],
 	) -> IoResult<usize> {
 		log::trace!("inode_read({inr}, {offset}, {})", buffer.len());
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
-		let ino = self.read_inode(inr)?;
 
 		let mut boff = 0;
 		let len = (buffer.len() as u64).min(ino.size - offset);
@@ -51,6 +60,16 @@ impl<R: Backend> Ufs<R> {
 	pub fn inode_write(
 		&mut self,
 		inr: InodeNum,
+		offset: u64,
+		buffer: &[u8],
+	) -> IoResult<usize> {
+		let mut ino = self.read_inode(inr)?;
+		self.inode_do_write(inr, &mut ino, offset, buffer)
+	}
+	pub(super) fn inode_do_write(
+		&mut self,
+		inr: InodeNum,
+		ino: &mut Inode,
 		mut offset: u64,
 		buffer: &[u8],
 	) -> IoResult<usize> {
@@ -58,7 +77,6 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
-		let mut ino = self.read_inode(inr)?;
 		ino.size = ino.size.max(offset + buffer.len() as u64);
 		self.write_inode(inr, &ino)?;
 
@@ -84,7 +102,7 @@ impl<R: Backend> Ufs<R> {
 
 			self.inode_write_block(
 				inr,
-				&mut ino,
+				 ino,
 				block.blkidx,
 				&blockbuf[0..(block.size as usize)],
 			)?;
