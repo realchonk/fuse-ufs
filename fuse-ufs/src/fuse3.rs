@@ -260,7 +260,7 @@ impl Filesystem for Fs {
 		}
 
 		if size.is_some() {
-			todo!("resizing is not supported");
+			todo!("TODO: resizing is not supported");
 		}
 		
 		let f = || {
