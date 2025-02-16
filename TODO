@@ -4,6 +4,7 @@ Short Term:
 - BlockReader: make `Write` somehow optional
 - Edge cases for unlink_block()
 - Ufs::inode_free()
+- adapt test suite for write support
 
 Long Term:
 - read-write
