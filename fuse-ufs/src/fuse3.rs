@@ -14,7 +14,7 @@ const MAX_CACHE: Duration = Duration::MAX;
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
 	f().map_err(|e| {
 		// suppress xattr errors
-		if e.raw_os_error().map_or(true, |e| e != rufs::ENOATTR) {
+		if e.raw_os_error() != Some(rufs::ENOATTR) {
 			log::error!("Error: {e}");
 		}
 		e.raw_os_error().unwrap_or(libc::EIO)

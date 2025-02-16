@@ -101,7 +101,7 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
-	fn inode_free_l1(&mut self, ino: &Inode, bno: u64, block: &mut Vec<u64>) -> IoResult<()> {
+	fn inode_free_l1(&mut self, ino: &Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		if bno == 0 {
 			return Ok(());
 		}
@@ -121,13 +121,13 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
-	fn inode_free_l2(&mut self, ino: &Inode, bno: u64, block: &mut Vec<u64>) -> IoResult<()> {
+	fn inode_free_l2(&mut self, ino: &Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		if bno == 0 {
 			return Ok(());
 		}
 
 		self.read_pblock(bno, block)?;
-		let indir = block.clone();
+		let indir = block.to_owned();
 
 		for bno in indir {
 			self.inode_free_l1(ino, bno, block)?;
@@ -138,13 +138,13 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
-	fn inode_free_l3(&mut self, ino: &Inode, bno: u64, block: &mut Vec<u64>) -> IoResult<()> {
+	fn inode_free_l3(&mut self, ino: &Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		if bno == 0 {
 			return Ok(());
 		}
 
 		self.read_pblock(bno, block)?;
-		let indir = block.clone();
+		let indir = block.to_owned();
 
 		for bno in indir {
 			self.inode_free_l2(ino, bno, block)?;

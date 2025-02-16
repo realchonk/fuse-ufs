@@ -7,6 +7,7 @@ use rufs::Ufs;
 
 use crate::cli::Cli;
 
+#[allow(clippy::unnecessary_cast)]
 mod consts {
 	pub const S_IFMT: u32 = libc::S_IFMT as u32;
 	pub const S_IFREG: u32 = libc::S_IFREG as u32;
