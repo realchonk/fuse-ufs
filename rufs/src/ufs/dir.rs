@@ -28,6 +28,9 @@ impl Header {
 		let off = reclen - (namelen as u16) - 8;
 		file.seek_relative(off as i64)?;
 
+		log::trace!("Header::read(): {{ inr={inr}, reclen={reclen}, namelen={namelen}, name={:?}, kind={kind} }}",
+					unsafe { OsStr::from_encoded_bytes_unchecked(&name[0..namelen.into()]) });
+
 		let kind = match kind {
 			DT_FIFO => Some(InodeType::NamedPipe),
 			DT_CHR => Some(InodeType::CharDevice),
@@ -51,7 +54,7 @@ impl Header {
 	}
 
 	fn write<T: Read + Write + Seek>(&self, file: &mut Decoder<T>) -> IoResult<()> {
-		let kind = match self.kind {
+		let kind: u8 = match self.kind {
 			Some(InodeType::NamedPipe) => DT_FIFO,
 			Some(InodeType::CharDevice) => DT_CHR,
 			Some(InodeType::Directory) => DT_DIR,
@@ -61,6 +64,7 @@ impl Header {
 			Some(InodeType::Socket) => DT_SOCK,
 			None => DT_WHT,
 		};
+		log::trace!("Header::write(inr={}, reclen={}, namelen={}, name={:?}, kind={kind})", self.inr, self.reclen, self.namelen, self.name());
 		file.encode(&self.inr)?;
 		file.encode(&self.reclen)?;
 		file.encode(&kind)?;
@@ -133,13 +137,13 @@ fn unlink_block(
 		}
 
 		if pos == 0 {
-			file.seek(pos)?;
 			match Header::parse(&mut file)? {
 				Some(next) => {
 					let new = Header {
 						reclen: hdr.reclen + next.reclen,
 						..next
 					};
+					file.seek(pos)?;
 					new.write(&mut file)?;
 				}
 				None => {
@@ -151,6 +155,7 @@ fn unlink_block(
 			match Header::parse(&mut file)? {
 				Some(mut prev) => {
 					prev.reclen += hdr.reclen;
+					file.seek(prevpos)?;
 					prev.write(&mut file)?;
 				}
 				None => {
