@@ -608,9 +608,7 @@ fn new_file(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let path = d.path().join("new-file");
-	mkfile(&path)
-		.write_all(b"Hello World")
-		.unwrap();
+	mkfile(&path).write_all(b"Hello World").unwrap();
 	assert_eq!(std::fs::read_to_string(path).unwrap(), "Hello World");
 }
 
