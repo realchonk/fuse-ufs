@@ -55,11 +55,9 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
-		let ino = self.read_inode(inr)?;
-
-		if offset + buffer.len() as u64 > ino.size {
-			todo!("resizing files")
-		}
+		let mut ino = self.read_inode(inr)?;
+		ino.size = ino.size.max(offset + buffer.len() as u64);
+		self.write_inode(inr, &ino)?;
 
 		let mut boff = 0;
 		let len = (buffer.len() as u64).min(ino.size - offset);
