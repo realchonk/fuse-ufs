@@ -235,23 +235,23 @@ impl Filesystem for Fs {
 	}
 
 	fn setattr(
-        &mut self,
-        _req: &Request<'_>,
-        inr: u64,
-        mode: Option<u32>,
-        uid: Option<u32>,
-        gid: Option<u32>,
-        size: Option<u64>,
-        atime: Option<TimeOrNow>,
-        mtime: Option<TimeOrNow>,
-        ctime: Option<SystemTime>,
-        _fh: Option<u64>,
-        btime: Option<SystemTime>,
-        _chgtime: Option<SystemTime>,
-        _bkuptime: Option<SystemTime>,
-        flags: Option<u32>,
-        reply: fuser::ReplyAttr,
-    ) {
+		&mut self,
+		_req: &Request<'_>,
+		inr: u64,
+		mode: Option<u32>,
+		uid: Option<u32>,
+		gid: Option<u32>,
+		size: Option<u64>,
+		atime: Option<TimeOrNow>,
+		mtime: Option<TimeOrNow>,
+		ctime: Option<SystemTime>,
+		_fh: Option<u64>,
+		btime: Option<SystemTime>,
+		_chgtime: Option<SystemTime>,
+		_bkuptime: Option<SystemTime>,
+		flags: Option<u32>,
+		reply: fuser::ReplyAttr,
+	) {
 		fn cvtime(t: TimeOrNow) -> SystemTime {
 			match t {
 				TimeOrNow::SpecificTime(t) => t,
@@ -262,7 +262,7 @@ impl Filesystem for Fs {
 		if size.is_some() {
 			todo!("TODO: resizing is not supported");
 		}
-		
+
 		let f = || {
 			let inr = transino(inr)?;
 
@@ -298,7 +298,7 @@ impl Filesystem for Fs {
 				if let Some(flags) = flags {
 					attr.flags = flags;
 				}
-				
+
 				attr
 			};
 
