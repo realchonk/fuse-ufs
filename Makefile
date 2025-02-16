@@ -1,7 +1,7 @@
 PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 
-BENCH = cargo bench -p fuse-ufs
+BENCH = cargo bench -p rufs
 
 SRC != find rufs/src fuse-ufs/src -name '*.rs'
 
