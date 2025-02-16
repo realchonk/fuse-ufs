@@ -108,6 +108,14 @@ impl<R: Backend> Ufs<R> {
 		self.file.inner().write_enabled()
 	}
 
+	fn assert_rw(&self) -> IoResult<()> {
+		if self.write_enabled() {
+			Ok(())
+		} else {
+			Err(err!(EROFS))
+		}
+	}
+
 	/// Get filesystem metadata.
 	#[doc(alias("statfs", "statvfs"))]
 	pub fn info(&self) -> Info {

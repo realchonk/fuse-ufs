@@ -54,6 +54,35 @@ impl<R: Backend> Ufs<R> {
 		Ok(ino)
 	}
 
+	pub(super) fn write_inode(&mut self, inr: InodeNum, ino: &Inode) -> IoResult<()> {
+		self.assert_rw()?;
+		let off = self.superblock.ino_to_fso(inr);
+		self.file.encode_at(off, &ino)?;
+		Ok(())
+	}
+
+	pub fn inode_modify(
+		&mut self,
+		inr: InodeNum,
+		f: impl FnOnce(InodeAttr) -> InodeAttr,
+	) -> IoResult<()> {
+		self.assert_rw()?;
+		let mut ino = self.read_inode(inr)?;
+		let attr = f(ino.as_attr(inr));
+
+		ino.mode = (ino.mode & S_IFMT) | (attr.perm & !S_IFMT);
+		ino.uid = attr.uid;
+		ino.gid = attr.gid;
+		ino.set_atime(attr.atime);
+		ino.set_mtime(attr.mtime);
+		ino.set_ctime(attr.ctime);
+		ino.set_btime(attr.btime);
+		ino.flags = attr.flags;
+		
+		self.write_inode(inr, &ino)?;
+		Ok(())
+	}
+
 	pub(super) fn inode_read_block(
 		&mut self,
 		inr: InodeNum,
