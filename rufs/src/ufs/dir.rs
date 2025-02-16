@@ -13,6 +13,20 @@ struct Header {
 }
 
 impl Header {
+	fn new(inr: InodeNum, kind: InodeType, dname: &OsStr) -> Self {
+		assert!(dname.len() <= UFS_MAXNAMELEN);
+		let mut name = [0u8; UFS_MAXNAMELEN + 1];
+		name[0..dname.len()].copy_from_slice(dname.as_bytes());
+		let reclen = ((4 + 2 + 1 + 1 + name.len() + 3) & !3) as u16;
+		Self {
+			inr,
+			reclen,
+			kind: Some(kind),
+			name,
+			namelen: dname.len() as u8,
+		}
+	}
+	
 	fn parse<T: BufRead + Seek>(file: &mut Decoder<T>) -> IoResult<Option<Header>> {
 		let inr: InodeNum = file.decode()?;
 		let reclen: u16 = file.decode()?;
@@ -90,6 +104,10 @@ impl Header {
 	fn name(&self) -> &OsStr {
 		unsafe { OsStr::from_encoded_bytes_unchecked(&self.name[0..self.namelen.into()]) }
 	}
+
+	fn minlen(&self) -> u16 {
+		(4 + 2 + 1 + 1 + (self.namelen as u16) + 3) & !3
+	}
 }
 
 fn readdir_block<T>(
@@ -124,6 +142,36 @@ fn readdir_block<T>(
 	}
 
 	Ok(None)
+}
+
+fn newlink_block(
+	block: &mut [u8],
+	mut entry: Header,
+	config: Config,
+) -> IoResult<bool> {
+	let mut file = Decoder::new(Cursor::new(block), config);
+
+	loop {
+		let pos = file.pos()?;
+		let Ok(Some(mut hdr)) = Header::parse(&mut file) else {
+			break
+		};
+		let minlen = hdr.minlen();
+		let rem = hdr.reclen - minlen;
+		if rem < entry.minlen() {
+			continue;
+		}
+
+		hdr.reclen = minlen;
+		entry.reclen = rem;
+
+		file.seek(pos)?;
+		hdr.write(&mut file)?;
+		entry.write(&mut file)?;
+		return Ok(true);
+	}
+	
+	Ok(false)
 }
 
 fn unlink_block(
@@ -258,6 +306,36 @@ impl<R: Backend> Ufs<R> {
 		Err(err!(ENOENT))
 	}
 
+	pub(super) fn dir_newlink(&mut self, dinr: InodeNum, inr: InodeNum, name: &OsStr, kind: InodeType) -> IoResult<()> {
+		log::trace!("dir_newlink({dinr}, {inr}, {name:?}, {kind:?});");
+		self.assert_rw()?;
+		let dino = self.read_inode(dinr)?;
+		dino.assert_dir()?;
+
+		let mut entry = Header::new(inr, kind, name);
+
+		let mut block = [0u8; DIRBLKSIZE];
+		let mut pos = 0;
+		while pos < dino.size {
+			let n = self.inode_read(dinr, pos, &mut block)?;
+			assert_eq!(n, DIRBLKSIZE);
+
+			if newlink_block(&mut block, entry, self.file.config())? {
+				self.inode_write(dinr, pos, &mut block)?;
+				return Ok(());
+			}
+
+			pos += DIRBLKSIZE as u64;
+		}
+
+		log::trace!("dir_link({dinr}, {inr}, {name:?}, {kind:?}): extending directory for new entry: {entry:?}");
+		self.inode_truncate(dinr, dino.size + DIRBLKSIZE as u64)?;
+		entry.reclen = DIRBLKSIZE as u16;
+		entry.write(&mut Decoder::new(Cursor::new(&mut block as &mut [u8]), self.file.config()))?;
+		self.inode_write(dinr, pos, &mut block)?;
+		Ok(())
+	}
+
 	pub fn unlink(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<()> {
 		log::trace!("unlink({dinr}, {name:?});");
 		self.assert_rw()?;
@@ -288,5 +366,22 @@ impl<R: Backend> Ufs<R> {
 		self.unlink(inr, OsStr::new("."))?;
 		self.inode_free(inr)?;
 		Ok(())
+	}
+
+	pub fn mknod(
+		&mut self,
+		dinr: InodeNum,
+		name: &OsStr,
+		kind: InodeType,
+		perm: u16,
+		uid: u32,
+		gid: u32,
+	) -> IoResult<InodeAttr> {
+		self.assert_rw()?;
+		check_name_is_legal(name, false)?;
+		let mut ino = Inode::new(kind, perm, uid, gid, self.superblock.bsize as u32);
+		let inr = self.inode_alloc(&mut ino)?;
+		self.dir_newlink(dinr, inr, name, kind)?;
+		Ok(ino.as_attr(inr))
 	}
 }
