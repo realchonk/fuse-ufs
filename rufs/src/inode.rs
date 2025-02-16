@@ -39,6 +39,50 @@ fn systotime(t: SystemTime) -> (UfsTime, u32) {
 }
 
 impl Inode {
+	pub fn new(kind: InodeType, perm: u16, uid: u32, gid: u32, blksize: u32) -> Self {
+		let (now, nowsnsec) = systotime(SystemTime::now());
+		let data = match kind {
+			InodeType::Symlink => InodeData::Shortlink([0u8; UFS_SLLEN]),
+			_ => InodeData::Blocks(InodeBlocks::default()),
+		};
+		let kind = match kind {
+			InodeType::RegularFile => S_IFREG,
+			InodeType::Directory => S_IFDIR,
+			InodeType::Symlink => S_IFLNK,
+			InodeType::CharDevice => S_IFCHR,
+			InodeType::BlockDevice => S_IFBLK,
+			InodeType::Socket => S_IFSOCK,
+			InodeType::NamedPipe => S_IFIFO,
+		};
+		let mode = kind | (perm & !S_IFMT);
+		Self {
+			mode,
+			nlink: 0,
+			uid,
+			gid,
+			blksize,
+			size: 0,
+			blocks: 0,
+			atime: now,
+			mtime: now,
+			ctime: now,
+			birthtime: now,
+			atimensec: nowsnsec,
+			mtimensec: nowsnsec,
+			ctimensec: nowsnsec,
+			birthnsec: nowsnsec,
+			gen: 0,
+			kernflags: 0,
+			flags: 0,
+			extsize: 0,
+			extb: [0; UFS_NXADDR],
+			data,
+			modrev: 0,
+			ignored: 0,
+			ckhash: 0,
+			spare: [0; 2],
+		}
+	}
 	pub fn atime(&self) -> SystemTime {
 		timetosys(self.atime, self.atimensec)
 	}
