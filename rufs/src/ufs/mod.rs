@@ -8,12 +8,12 @@ use std::{
 	path::Path,
 };
 
+mod balloc;
 mod dir;
+mod ialloc;
 mod inode;
 mod symlink;
 mod xattr;
-mod ialloc;
-mod balloc;
 
 use crate::{
 	blockreader::{Backend, BlockReader},
@@ -172,7 +172,7 @@ impl<R: Backend> Ufs<R> {
 		let fpg = sb.fpg as u64;
 		let sblkno = sb.sblkno as u64;
 		let fs = sb.fsize as u64;
-		
+
 		// check that all superblocks are ok.
 		for i in 0..sb.ncg {
 			let addr = (i as u64 * fpg + sblkno) * fs;
@@ -201,7 +201,7 @@ impl<R: Backend> Ufs<R> {
 		let fpg = sb.fpg as u64;
 		let cblkno = sb.cblkno as u64;
 		let fs = sb.fsize as u64;
-		
+
 		(idx * fpg + cblkno) * fs
 	}
 
@@ -213,15 +213,13 @@ impl<R: Backend> Ufs<R> {
 	}
 }
 
-
 fn check_name_is_legal(name: &OsStr, allow_special: bool) -> IoResult<()> {
 	let b = name.as_encoded_bytes();
 
-	let x = b.contains(&b'/')
-		|| (name == "." && !allow_special)
-		|| (name == ".." && !allow_special)
-		|| b.contains(&b'\0')
-		;
+	let x = b.contains(&b'/') ||
+		(name == "." && !allow_special) ||
+		(name == ".." && !allow_special) ||
+		b.contains(&b'\0');
 
 	if x {
 		Err(err!(EINVAL))

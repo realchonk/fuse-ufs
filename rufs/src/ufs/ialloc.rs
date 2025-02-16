@@ -68,7 +68,7 @@ impl<R: Backend> Ufs<R> {
 		// clear the inode
 		let off = self.superblock.ino_to_fso(inr);
 		self.file.fill_at(off, 0u8, UFS_INOSZ)?;
-		
+
 		// calculate the cylinder group number and offset for the inode.
 		let (cgi, cgo) = self.superblock.ino_in_cg(inr);
 		let cga = self.cg_addr(cgi);
@@ -96,7 +96,7 @@ impl<R: Backend> Ufs<R> {
 		self.update_sb(|sb| sb.cstotal.nifree += 1)?;
 
 		// TODO: free data blocks
-		
+
 		Ok(())
 	}
 }

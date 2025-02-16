@@ -2,7 +2,8 @@ use std::{
 	ffi::CString,
 	io::{Error, Result},
 	os::unix::ffi::OsStrExt,
-	path::Path, time::SystemTime,
+	path::Path,
+	time::SystemTime,
 };
 
 use fuse2rs::*;
@@ -115,7 +116,13 @@ impl Filesystem for Fs {
 		})
 	}
 
-	fn chown(&mut self, _req: &Request, path: &Path, uid: Option<u32>, gid: Option<u32>) -> Result<()> {
+	fn chown(
+		&mut self,
+		_req: &Request,
+		path: &Path,
+		uid: Option<u32>,
+		gid: Option<u32>,
+	) -> Result<()> {
 		let inr = self.lookup(path)?;
 		self.ufs.inode_modify(inr, |mut attr| {
 			if let Some(uid) = uid {
@@ -140,7 +147,13 @@ impl Filesystem for Fs {
 		Ok(())
 	}
 
-	fn utime(&mut self, _req: &Request, path: &Path, atime: SystemTime, mtime: SystemTime) -> Result<()> {
+	fn utime(
+		&mut self,
+		_req: &Request,
+		path: &Path,
+		atime: SystemTime,
+		mtime: SystemTime,
+	) -> Result<()> {
 		let inr = self.lookup(path)?;
 		self.ufs.inode_modify(inr, |mut attr| {
 			attr.atime = atime;
@@ -152,16 +165,24 @@ impl Filesystem for Fs {
 	}
 
 	fn unlink(&mut self, _req: &Request, path: &Path) -> Result<()> {
-		let Some(dir) = path.parent() else { return Err(Error::from_raw_os_error(libc::EINVAL)) };
-		let Some(name) = path.file_name() else { return Err(Error::from_raw_os_error(libc::EINVAL)) };
+		let Some(dir) = path.parent() else {
+			return Err(Error::from_raw_os_error(libc::EINVAL));
+		};
+		let Some(name) = path.file_name() else {
+			return Err(Error::from_raw_os_error(libc::EINVAL));
+		};
 		let dinr = self.lookup(dir)?;
 		self.ufs.unlink(dinr, name)?;
 		Ok(())
 	}
 
 	fn rmdir(&mut self, _req: &Request, path: &Path) -> Result<()> {
-		let Some(dir) = path.parent() else { return Err(Error::from_raw_os_error(libc::EINVAL)) };
-		let Some(name) = path.file_name() else { return Err(Error::from_raw_os_error(libc::EINVAL)) };
+		let Some(dir) = path.parent() else {
+			return Err(Error::from_raw_os_error(libc::EINVAL));
+		};
+		let Some(name) = path.file_name() else {
+			return Err(Error::from_raw_os_error(libc::EINVAL));
+		};
 		let dinr = self.lookup(dir)?;
 		self.ufs.rmdir(dinr, name)?;
 		Ok(())

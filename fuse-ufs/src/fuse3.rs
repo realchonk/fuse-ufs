@@ -136,17 +136,17 @@ impl Filesystem for Fs {
 	}
 
 	fn write(
-        &mut self,
-        _req: &Request<'_>,
-        inr: u64,
-        _fh: u64,
-        offset: i64,
-        data: &[u8],
-        _write_flags: u32,
-        _flags: i32,
-        _lock_owner: Option<u64>,
-        reply: fuser::ReplyWrite,
-    ) {
+		&mut self,
+		_req: &Request<'_>,
+		inr: u64,
+		_fh: u64,
+		offset: i64,
+		data: &[u8],
+		_write_flags: u32,
+		_flags: i32,
+		_lock_owner: Option<u64>,
+		reply: fuser::ReplyWrite,
+	) {
 		let f = || {
 			let inr = transino(inr)?;
 			self.ufs.inode_write(inr, offset as u64, &data)
@@ -157,7 +157,7 @@ impl Filesystem for Fs {
 			Err(e) => reply.error(e),
 		}
 	}
-	
+
 	fn statfs(&mut self, _req: &Request<'_>, _ino: u64, reply: fuser::ReplyStatfs) {
 		let info = self.ufs.info();
 		reply.statfs(
