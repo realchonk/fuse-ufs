@@ -3,7 +3,7 @@ use std::{
 	fs::File,
 	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
-	num::NonZeroU64,
+	num::{NonZeroU64, NonZeroUsize},
 	os::unix::ffi::{OsStrExt, OsStringExt},
 	path::Path,
 };
@@ -14,6 +14,8 @@ mod ialloc;
 mod inode;
 mod symlink;
 mod xattr;
+
+use lru::LruCache;
 
 use crate::{
 	blockreader::{Backend, BlockReader},
@@ -62,6 +64,7 @@ pub struct Info {
 pub struct Ufs<R: Backend> {
 	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
+	icache: LruCache<InodeNum, Inode>,
 }
 
 impl Ufs<File> {
@@ -101,7 +104,11 @@ impl<R: Backend> Ufs<R> {
 				superblock.magic
 			);
 		}
-		let mut s = Self { file, superblock };
+		let mut s = Self {
+			file,
+			superblock,
+			icache: LruCache::new(NonZeroUsize::new(crate::ICACHE_SIZE).unwrap()),
+		};
 		s.check()?;
 		Ok(s)
 	}
