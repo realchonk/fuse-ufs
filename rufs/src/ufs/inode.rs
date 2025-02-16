@@ -386,7 +386,7 @@ impl<R: Backend> Ufs<R> {
 		} else if blkidx < blocks + frags {
 			(fs * frags) as usize
 		} else {
-			panic!("out of bounds: {blkidx}, blocks: {blocks}, frags: {frags}");
+			panic!("out of bounds: blkidx={blkidx}, blocks={blocks}, frags={frags}");
 		};
 
 		log::trace!(

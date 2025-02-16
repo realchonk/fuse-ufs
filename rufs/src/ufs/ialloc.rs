@@ -108,11 +108,11 @@ impl<R: Backend> Ufs<R> {
 
 		self.read_pblock(bno, block)?;
 
-		for bno in block {
+		for (idx, bno) in block.iter().enumerate() {
 			if *bno == 0 {
 				continue;
 			}
-			let size = self.inode_get_block_size(ino, *bno);
+			let size = self.inode_get_block_size(ino, idx as u64);
 			self.blk_free(*bno, size as u64)?;
 		}
 
