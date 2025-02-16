@@ -417,4 +417,24 @@ impl Filesystem for Fs {
 			Err(e) => reply.error(e),
 		}
 	}
+
+	fn symlink(
+        &mut self,
+        req: &Request<'_>,
+        parent: u64,
+        link_name: &OsStr,
+        target: &std::path::Path,
+        reply: fuser::ReplyEntry,
+    ) {
+		let f = || {
+			let dinr = transino(parent)?;
+			let attr = self.ufs.symlink(dinr, link_name, target.as_os_str(), req.uid(), req.gid())?;
+			Ok((attr.gen, attr))
+		};
+
+		match run(f) {
+			Ok((g, a)) => reply.entry(&MAX_CACHE, &a.into(), g.into()),
+			Err(e) => reply.error(e),
+		}
+	}
 }
