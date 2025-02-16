@@ -203,6 +203,18 @@ impl<R: Backend> Ufs<R> {
 		x
 	}
 
+	pub(super) fn inode_data_zones(&self) -> (u64, u64, u64, u64) {
+		let nd = UFS_NDADDR as u64;
+		let pbp = self.superblock.bsize as u64 / size_of::<u64>() as u64;
+
+		(
+			nd,
+			nd + pbp,
+			nd + pbp + (pbp * pbp),
+			nd + pbp + (pbp * pbp) + (pbp * pbp * pbp),
+		)
+	}
+
 	fn inode_resolve_block(
 		&mut self,
 		inr: InodeNum,
@@ -212,7 +224,6 @@ impl<R: Backend> Ufs<R> {
 		let sb = &self.superblock;
 		let fs = sb.fsize as u64;
 		let bs = sb.bsize as u64;
-		let nd = UFS_NDADDR as u64;
 		let su64 = size_of::<UfsDaddr>() as u64;
 		let pbp = bs / su64;
 
@@ -221,10 +232,7 @@ impl<R: Backend> Ufs<R> {
 			return Err(err!(EIO));
 		};
 
-		let begin_indir1 = nd;
-		let begin_indir2 = nd + pbp;
-		let begin_indir3 = nd + pbp + pbp * pbp;
-		let begin_indir4 = nd + pbp + pbp * pbp + pbp * pbp * pbp;
+		let (begin_indir1, begin_indir2, begin_indir3, begin_indir4) = self.inode_data_zones();
 
 		if blkno < begin_indir1 {
 			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
