@@ -234,6 +234,19 @@ impl Filesystem for Fs {
 		}
 	}
 
+	fn rmdir(&mut self, _req: &Request<'_>, pinr: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
+		let f = || {
+			let pinr = transino(pinr)?;
+			self.ufs.rmdir(pinr, name)?;
+			Ok(())
+		};
+
+		match run(f) {
+			Ok(()) => reply.ok(),
+			Err(e) => reply.error(e),
+		}
+	}
+
 	fn setattr(
 		&mut self,
 		_req: &Request<'_>,
