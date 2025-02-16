@@ -48,12 +48,16 @@ impl<T: Backend> BlockReader<T> {
 		if self.dirty {
 			panic!("Cannot refill dirty BlockReader");
 		}
+		self.block.fill(0u8);
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.read(&mut self.block[num..])? {
 				0 => break,
 				n => num += n,
 			}
+		}
+		if num < self.block.len() {
+			log::error!("BlockReader::refill(): num={num}, eof?");
 		}
 		self.idx = 0;
 		Ok(())
