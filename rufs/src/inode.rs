@@ -79,10 +79,6 @@ impl Inode {
 		}
 	}
 
-	pub fn perm(&self) -> u16 {
-		self.mode & 0o7777
-	}
-
 	pub fn kind(&self) -> InodeType {
 		let mode = self.mode & S_IFMT;
 		match mode {

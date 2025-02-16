@@ -21,7 +21,7 @@ impl<R: Backend> Ufs<R> {
 				cp(h >> 2)? & mask == mask
 			}
 			1 => {
-				let mask = 0x01 << ((h & 0x07) << 0);
+				let mask = 0x01 << (h & 0x07);
 				cp(h >> 3)? & mask == mask
 			}
 			_ => unreachable!("invalid fragment size: {frag}"),
@@ -53,10 +53,10 @@ impl<R: Backend> Ufs<R> {
 		};
 
 		match frag {
-			8 => cp(h >> 0, 0xff),
+			8 => cp(h, 0xff),
 			4 => cp(h >> 1, 0x0f << ((h & 0x01) << 2)),
 			2 => cp(h >> 2, 0x03 << ((h & 0x03) << 1)),
-			1 => cp(h >> 3, 0x01 << ((h & 0x07) << 0)),
+			1 => cp(h >> 3, 0x01 << (h & 0x07)),
 			_ => unreachable!("invalid fragment size: {frag}"),
 		}
 	}
@@ -91,7 +91,7 @@ impl<R: Backend> Ufs<R> {
 			8 => cp(h)? == 0,
 			4 => (cp(h >> 1)? & (0x0f << ((h & 0x01) << 2))) == 0,
 			2 => (cp(h >> 2)? & (0x03 << ((h & 0x03) << 1))) == 0,
-			1 => (cp(h >> 3)? & (0x01 << ((h & 0x07) << 0))) == 0,
+			1 => (cp(h >> 3)? & (0x01 << (h & 0x07))) == 0,
 			_ => unreachable!("invalid fragment size: {frag}"),
 		};
 
