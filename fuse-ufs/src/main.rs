@@ -18,6 +18,12 @@ mod consts {
 	pub const S_IFSOCK: u32 = libc::S_IFSOCK as u32;
 }
 
+macro_rules! err {
+	($n:ident) => {
+		std::io::Error::from_raw_os_error(libc::$n)
+	};
+}
+
 mod cli;
 
 #[cfg(feature = "fuse3")]

@@ -11,12 +11,6 @@ use rufs::{InodeNum, InodeType};
 
 use crate::{consts::*, Fs};
 
-macro_rules! err {
-	($n:ident) => {
-		Error::from_raw_os_error(libc::$n)
-	};
-}
-
 fn path_split(path: &Path) -> Result<(&Path, &OsStr)> {
 	path.parent().zip(path.file_name()).ok_or(err!(EINVAL))
 }

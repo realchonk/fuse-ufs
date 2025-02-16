@@ -13,7 +13,10 @@ const MAX_CACHE: Duration = Duration::MAX;
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
 	f().map_err(|e| {
-		log::error!("Error: {e}");
+		// suppress xattr errors
+		if e.raw_os_error().map_or(true, |e| e != rufs::ENOATTR) {
+			log::error!("Error: {e}");
+		}
 		e.raw_os_error().unwrap_or(libc::EIO)
 	})
 }
@@ -24,7 +27,7 @@ fn transino(inr: u64) -> IoResult<InodeNum> {
 	} else {
 		let inr = inr
 			.try_into()
-			.map_err(|_| IoError::from_raw_os_error(libc::EINVAL))?;
+			.map_err(|_| err!(EINVAL))?;
 		Ok(unsafe { InodeNum::new(inr) })
 	}
 }
