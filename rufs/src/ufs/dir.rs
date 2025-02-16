@@ -250,7 +250,13 @@ impl<R: Backend> Ufs<R> {
 	/// Find a file named `name` in the directory referenced by `pinr`.
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
 		log::trace!("dir_lookup({pinr}, {name:?});");
-		self.dir_iter(
+
+		let q = (pinr, name.into());
+		if let Some(cached) = self.dcache.get(&q) {
+			return Ok(*cached);
+		}
+		
+		let inr = self.dir_iter(
 			pinr,
 			|name2, inr, _kind| {
 				if name == name2 {
@@ -260,7 +266,10 @@ impl<R: Backend> Ufs<R> {
 				}
 			},
 		)?
-		.ok_or(err!(ENOENT))
+		.ok_or(err!(ENOENT))?;
+		self.dcache.push(q, inr);
+
+		Ok(inr)
 	}
 
 	/// Iterate through a directory referenced by `inr`, and call `f` for each entry.
@@ -290,6 +299,8 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 		let mut dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
+
+		let _ = self.dcache.pop(&(dinr, name.into()));
 
 		let mut block = vec![0u8; DIRBLKSIZE];
 		let mut pos = 0;
