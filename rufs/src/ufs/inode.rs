@@ -7,6 +7,7 @@ impl<R: Backend> Ufs<R> {
 	/// Get metadata about an inode.
 	#[doc(alias("stat", "getattr"))]
 	pub fn inode_attr(&mut self, inr: InodeNum) -> IoResult<InodeAttr> {
+		log::trace!("inode_attr({inr});");
 		let ino = self.read_inode(inr)?;
 		Ok(ino.as_attr(inr))
 	}
@@ -146,6 +147,7 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	pub(super) fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
+		log::trace!("read_inode({inr});");
 		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;
 
@@ -158,6 +160,7 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	pub(super) fn write_inode(&mut self, inr: InodeNum, ino: &Inode) -> IoResult<()> {
+		log::trace!("write_inode({inr});");
 		self.assert_rw()?;
 		let off = self.superblock.ino_to_fso(inr);
 		self.file.encode_at(off, &ino)?;
