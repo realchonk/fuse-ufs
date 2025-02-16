@@ -2,6 +2,8 @@ Short Term:
 - more integration tests
 - more unit tests
 - BlockReader: make `Write` somehow optional
+- Edge cases for unlink_block()
+- Ufs::inode_free()
 
 Long Term:
 - read-write
