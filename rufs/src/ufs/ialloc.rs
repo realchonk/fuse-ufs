@@ -35,12 +35,12 @@ impl<R: Backend> Ufs<R> {
 				let inr = cgi as u64 * ipg + i * 8 + j as u64;
 				let inr = unsafe { InodeNum::new(inr as u32) };
 
-				let mut ino = self.read_inode(inr)?;
-				if ino.nlink != 0 {
-					panic!("inode_alloc(): use after free: inr={inr}, cgi={cgi}, cga={cga:08x}, i={i}, j={j}, ipg={ipg}");
+				if let Ok(ino) = self.read_inode(inr) {
+					if ino.nlink != 0 {
+						log::error!("inode_alloc(): use after free: inr={inr}, cgi={cgi}, cga={cga:08x}, i={i}, j={j}, ipg={ipg}");
+						return Err(err!(EIO));
+					}
 				}
-				ino.nlink = 1;
-				self.write_inode(inr, &ino)?;
 
 				// update free count in CG
 				cg.cs.nifree -= 1;
@@ -48,6 +48,7 @@ impl<R: Backend> Ufs<R> {
 
 				self.update_sb(|sb| sb.cstotal.nifree -= 1)?;
 
+				log::trace!("inode_alloc(): {inr}");
 				return Ok(inr);
 			}
 		}
