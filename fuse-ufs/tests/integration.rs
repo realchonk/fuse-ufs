@@ -29,6 +29,12 @@ use tempfile::{tempdir, TempDir};
 #[allow(unused_imports)]
 use xattr::FileExt;
 
+#[cfg(target_os = "openbsd")]
+const SUDO: &str = "doas";
+
+#[cfg(not(target_os = "openbsd"))]
+const SUDO: &str = "sudo";
+
 #[allow(dead_code)]
 fn errno() -> i32 {
 	nix::errno::Errno::last_raw()
@@ -162,14 +168,17 @@ fn harness_rw(img: &Path) -> Harness {
 	let h = harness(&img_copy, true);
 
 	let uid = unsafe { libc::getuid() };
-	// TODO: this prints No data available
-	let _ = Command::new("doas")
-		.arg("chown")
-		.arg("-R")
-		.arg(uid.to_string())
-		.arg(h.d.path())
-		.status()
-		.unwrap();
+
+
+	if unsafe { libc::geteuid() } != 0 {
+		let _ = Command::new(SUDO)
+			.arg("chown")
+			.arg("-R")
+			.arg(uid.to_string())
+			.arg(h.d.path())
+			.status()
+			.unwrap();
+	}
 
 	h
 }
