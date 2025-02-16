@@ -35,7 +35,7 @@ mount:
 	mkdir -p mp
 	rm -f resources/ufs-little.img
 	unzstd -k resources/ufs-little.img.zst
-	cargo r -p fuse-ufs -- -vvvforw,allow_other resources/ufs-little.img mp
+	RUST_BACKTRACE=1 cargo r -p fuse-ufs -- -vvvforw,allow_other resources/ufs-little.img mp
 
 clean:
 	rm -f fuse-ufs-bin
