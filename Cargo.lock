@@ -352,11 +352,12 @@ dependencies = [
 
 [[package]]
 name = "fuse2rs"
-version = "0.0.2"
+version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8316e54f1a37c6c64ce2a0f6393c61cbedcc8456e3dc76a1b824f69060a47afd"
+checksum = "5b1fd7f82a162077532597b3fd08082a2d2a098d5563aa729725bfb1871d152d"
 dependencies = [
  "bindgen",
+ "cfg-if",
  "libc",
 ]
 
