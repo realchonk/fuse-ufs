@@ -608,3 +608,20 @@ fn touch(#[case] harness: Harness) {
 	assert!(st.success());
 	assert!(std::fs::metadata(path).unwrap().is_file());
 }
+
+/// rm -rf mp/*
+#[apply(all_images_rw)]
+fn rm_rf_everything(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	for ent in std::fs::read_dir(d).unwrap() {
+		let ent = ent.unwrap();
+
+		if ent.file_type().unwrap().is_dir() {
+			std::fs::remove_dir_all(ent.path()).unwrap();
+		} else {
+			std::fs::remove_file(ent.path()).unwrap();
+		}
+	}
+}
+
