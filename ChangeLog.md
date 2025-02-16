@@ -9,12 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Add
 
 - A little more documentation
+- allow other configurations of UFS ([#93](https://github.com/realchonk/fuse-ufs/pull/93))
 
 ### Fix
 
-- calculation of fragment blocks (#89)
-- reading directories (#87)
-- inode reading (#92) (pending)
+- calculation of fragment blocks ([#89](https://github.com/realchonk/fuse-ufs/pull/89))
+- reading directories ([#87](https://github.com/realchonk/fuse-ufs/pull/87))
+- inode reading ([#92](https://github.com/realchonk/fuse-ufs/pull/92))
 - update dependencies
 
 ## [0.4.3] - 2024-10-25
