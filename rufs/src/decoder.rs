@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
+use std::io::{BufRead, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 
 use bincode::{
 	config::{BigEndian, Configuration, Fixint, LittleEndian, NoLimit},
@@ -104,10 +104,6 @@ impl<T: Read + Seek> Decoder<T> {
 		Ok(())
 	}
 
-	pub fn seek_relative(&mut self, off: i64) -> Result<()> {
-		self.inner.seek_relative(off)
-	}
-
 	pub fn align_to(&mut self, align: u64) -> Result<()> {
 		assert_eq!(align.count_ones(), 1);
 		let pos = self.inner.stream_position()?;
@@ -117,6 +113,12 @@ impl<T: Read + Seek> Decoder<T> {
 
 	pub fn pos(&mut self) -> Result<u64> {
 		self.inner.stream_position()
+	}
+}
+
+impl<T: BufRead + Seek> Decoder<T> {
+	pub fn seek_relative(&mut self, off: i64) -> Result<()> {
+		self.inner.seek_relative(off)
 	}
 }
 
