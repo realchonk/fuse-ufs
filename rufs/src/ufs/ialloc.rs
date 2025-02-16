@@ -210,8 +210,6 @@ impl<R: Backend> Ufs<R> {
 		log::trace!("inode_shrink(): blocks={blocks}, frags={frags}");
 		let blocks = blocks + (frags > 0) as u64;
 		let pbp = bs / size_of::<u64>() as u64;
-		let nd = UFS_NDADDR as u64;
-
 
 		let InodeData::Blocks(mut iblocks) = ino.data.clone() else {
 			return Err(err!(EINVAL));
@@ -220,7 +218,7 @@ impl<R: Backend> Ufs<R> {
 		let mut block = vec![0u64; bs as usize / size_of::<u64>()];
 
 		if blocks >= begin_indir3 {
-			let used = blocks - nd - pbp - (pbp * pbp);
+			let used = blocks - begin_indir3;
 			self.read_pblock(iblocks.indirect[2] as u64, &mut block)?;
 			let mut fst = block.clone();
 
@@ -261,7 +259,7 @@ impl<R: Backend> Ufs<R> {
 		self.inode_free_l3(ino, iblocks.indirect[2] as u64, &mut block)?;
 
 		if blocks >= begin_indir2 {
-			let used = blocks - nd - pbp;
+			let used = blocks - begin_indir2;
 			self.read_pblock(iblocks.indirect[1] as u64, &mut block)?;
 			let mut fst = block.clone();
 
@@ -294,7 +292,7 @@ impl<R: Backend> Ufs<R> {
 		self.inode_free_l2(ino, iblocks.indirect[1] as u64, &mut block)?;
 
 		if blocks >= begin_indir1 {
-			let used = blocks - nd;
+			let used = blocks - begin_indir1;
 			self.read_pblock(iblocks.indirect[0] as u64, &mut block)?;
 
 			for i in used..pbp {
