@@ -237,6 +237,19 @@ fn unlink_block(
 	Ok(None)
 }
 
+fn newdir(dinr: InodeNum, inr: InodeNum, config: Config) -> IoResult<[u8; DIRBLKSIZE]> {
+	let mut block = [0u8; DIRBLKSIZE];
+	let mut file = Decoder::new(Cursor::new(&mut block as &mut [u8]), config);
+
+	let h_self = Header::new(inr, InodeType::Directory, OsStr::new("."));
+	let mut h_parent = Header::new(dinr, InodeType::Directory, OsStr::new(".."));
+	h_parent.reclen = (DIRBLKSIZE as u16) - h_self.reclen;
+	h_self.write(&mut file)?;
+	h_parent.write(&mut file)?;
+
+	Ok(block)
+}
+
 impl<R: Backend> Ufs<R> {
 	/// Find a file named `name` in the directory referenced by `pinr`.
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
@@ -382,6 +395,35 @@ impl<R: Backend> Ufs<R> {
 		let mut ino = Inode::new(kind, perm, uid, gid, self.superblock.bsize as u32);
 		let inr = self.inode_alloc(&mut ino)?;
 		self.dir_newlink(dinr, inr, name, kind)?;
+		Ok(ino.as_attr(inr))
+	}
+
+	pub fn mkdir(
+		&mut self,
+		dinr: InodeNum,
+		name: &OsStr,
+		perm: u16,
+		uid: u32,
+		gid: u32,
+	) -> IoResult<InodeAttr> {
+		let inr = self
+			.mknod(dinr, name, InodeType::Directory, perm, uid, gid)?
+			.inr;
+
+		let mut dino = self.read_inode(dinr)?;
+		dino.nlink += 1;
+		self.write_inode(dinr, &dino)?;
+
+		// update nlink
+		let mut ino = self.read_inode(inr)?;
+		ino.nlink = 2;
+		self.write_inode(inr, &ino)?;
+
+		let block = newdir(dinr, inr, self.file.config())?;
+		self.inode_truncate(inr, block.len() as u64)?;
+		self.inode_write(inr, 0, &block)?;
+
+		let ino = self.read_inode(inr)?;
 		Ok(ino.as_attr(inr))
 	}
 }

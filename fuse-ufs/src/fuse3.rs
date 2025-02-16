@@ -437,4 +437,26 @@ impl Filesystem for Fs {
 			Err(e) => reply.error(e),
 		}
 	}
+
+	fn mkdir(
+        &mut self,
+        req: &Request<'_>,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+        reply: fuser::ReplyEntry,
+    ) {
+		let f = || {
+			let dinr = transino(parent)?;
+			let perm = mode & !libc::S_IFMT & !umask;
+			let attr = self.ufs.mkdir(dinr, name, perm as u16, req.uid(), req.gid())?;
+			Ok((attr.gen, attr))
+		};
+
+		match run(f) {
+			Ok((g, a)) => reply.entry(&MAX_CACHE, &a.into(), g.into()),
+			Err(e) => reply.error(e),
+		}
+	}
 }
