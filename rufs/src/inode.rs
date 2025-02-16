@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use bincode::{de::Decoder, error::DecodeError, Decode};
+use bincode::{de::Decoder, enc::Encoder, error::{DecodeError, EncodeError}, Decode, Encode};
 
 use crate::data::*;
 
@@ -147,6 +147,15 @@ impl Decode for Inode {
 		};
 
 		Ok(ino)
+	}
+}
+
+impl Encode for InodeData {
+	fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
+		match self {
+			Self::Blocks(blocks) => InodeBlocks::encode(blocks, encoder),
+			Self::Shortlink(link) => <[u8; UFS_SLLEN]>::encode(link, encoder),
+		}
 	}
 }
 
