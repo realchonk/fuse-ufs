@@ -7,18 +7,9 @@ use std::{
 use fuser::{FileAttr, Filesystem, KernelConfig, Request, TimeOrNow};
 use rufs::{InodeAttr, InodeNum, InodeType};
 
-use crate::Fs;
+use crate::{Fs, consts::*};
 
 const MAX_CACHE: Duration = Duration::MAX;
-
-const S_IFMT: u32 = libc::S_IFMT as u32;
-const S_IFREG: u32 = libc::S_IFREG as u32;
-const S_IFDIR: u32 = libc::S_IFDIR as u32;
-const S_IFCHR: u32 = libc::S_IFCHR as u32;
-const S_IFBLK: u32 = libc::S_IFBLK as u32;
-const S_IFLNK: u32 = libc::S_IFLNK as u32;
-const S_IFIFO: u32 = libc::S_IFIFO as u32;
-const S_IFSOCK: u32 = libc::S_IFSOCK as u32;
 
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
 	f().map_err(|e| {

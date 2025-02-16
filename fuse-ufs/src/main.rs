@@ -7,6 +7,17 @@ use rufs::Ufs;
 
 use crate::cli::Cli;
 
+mod consts {
+	pub const S_IFMT: u32 = libc::S_IFMT as u32;
+	pub const S_IFREG: u32 = libc::S_IFREG as u32;
+	pub const S_IFDIR: u32 = libc::S_IFDIR as u32;
+	pub const S_IFCHR: u32 = libc::S_IFCHR as u32;
+	pub const S_IFBLK: u32 = libc::S_IFBLK as u32;
+	pub const S_IFLNK: u32 = libc::S_IFLNK as u32;
+	pub const S_IFIFO: u32 = libc::S_IFIFO as u32;
+	pub const S_IFSOCK: u32 = libc::S_IFSOCK as u32;
+}
+
 mod cli;
 
 #[cfg(feature = "fuse3")]

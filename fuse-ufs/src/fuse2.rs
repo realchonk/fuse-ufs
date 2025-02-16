@@ -9,7 +9,7 @@ use std::{
 use fuse2rs::*;
 use rufs::{InodeNum, InodeType};
 
-use crate::Fs;
+use crate::{Fs, consts::*};
 
 macro_rules! err {
 	($n:ident) => {
@@ -199,19 +199,19 @@ impl Filesystem for Fs {
 	}
 	fn mknod(&mut self, req: &Request, path: &Path, mode: u32, _dev: u32) -> Result<()> {
 		let (dir, name) = path_split(path)?;
-		let kind = match mode & libc::S_IFMT {
-			libc::S_IFREG => InodeType::RegularFile,
-			libc::S_IFDIR => InodeType::Directory,
-			libc::S_IFLNK => InodeType::Symlink,
-			libc::S_IFCHR => InodeType::CharDevice,
-			libc::S_IFBLK => InodeType::BlockDevice,
-			libc::S_IFSOCK => InodeType::Socket,
-			libc::S_IFIFO => InodeType::NamedPipe,
+		let kind = match mode & S_IFMT {
+			S_IFREG => InodeType::RegularFile,
+			S_IFDIR => InodeType::Directory,
+			S_IFLNK => InodeType::Symlink,
+			S_IFCHR => InodeType::CharDevice,
+			S_IFBLK => InodeType::BlockDevice,
+			S_IFSOCK => InodeType::Socket,
+			S_IFIFO => InodeType::NamedPipe,
 			_ => return Err(err!(EINVAL)),
 		};
 
 		let dinr = self.lookup(dir)?;
-		let perm = mode & !libc::S_IFMT;
+		let perm = mode & !S_IFMT;
 		self.ufs.mknod(dinr, name, kind, perm as u16, req.uid, req.gid)?;
 		Ok(())
 	}
@@ -225,7 +225,7 @@ impl Filesystem for Fs {
 	fn mkdir(&mut self, req: &Request, path: &Path, mode: u32) -> Result<()> {
 		let (dir, name) = path_split(path)?;
 		let dinr = self.lookup(dir)?;
-		let perm = mode & !libc::S_IFMT;
+		let perm = mode & !S_IFMT;
 		self.ufs.mkdir(dinr, name, perm as u16, req.uid, req.gid)?;
 		Ok(())
 	}
