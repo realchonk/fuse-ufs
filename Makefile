@@ -20,6 +20,10 @@ fmt:
 lint:
 	cargo clippy --all-targets
 
+test:
+	cargo test -p rufs
+	cargo test -p fuse-ufs --no-default-features --features "$$(uname)"
+
 fuz:
 	mkdir -p fuzz/corpus/ufs/
 	unzstd -o fuzz/corpus/ufs/ufs-big.img -kf resources/ufs-big.img.zst
