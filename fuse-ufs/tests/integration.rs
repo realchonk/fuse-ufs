@@ -2,19 +2,21 @@ use std::{
 	ffi::{OsStr, OsString},
 	fmt,
 	fs::{self, File},
-	io::{ErrorKind, Read, Seek, SeekFrom},
+	io::{Error, ErrorKind, Read, Seek, SeekFrom},
 	os::{
 		fd::AsRawFd,
 		unix::{ffi::OsStringExt, fs::MetadataExt},
 	},
 	path::{Path, PathBuf},
-	process::{Child, Command},
+	process::{Child, Command, Output},
 	thread::sleep,
 	time::{Duration, Instant},
 };
 
+#[allow(unused_imports)]
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
+#[allow(unused_imports)]
 use cstr::cstr;
 use lazy_static::lazy_static;
 use nix::{
@@ -24,8 +26,10 @@ use nix::{
 use rstest::rstest;
 use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
+#[allow(unused_imports)]
 use xattr::FileExt;
 
+#[allow(dead_code)]
 fn errno() -> i32 {
 	nix::errno::Errno::last_raw()
 }
@@ -97,8 +101,19 @@ struct Harness {
 
 fn harness(img: &Path) -> Harness {
 	let d = tempdir().unwrap();
-	let child = Command::cargo_bin("fuse-ufs")
-		.unwrap()
+	let mut cmd;
+
+	cfg_if! {
+		if #[cfg(target_os = "openbsd")] {
+			cmd = Command::new("doas");
+			cmd.arg("../target/debug/fuse-ufs");
+			cmd.arg("-oallow_other");
+		} else {
+			cmd = Command::cargo_bin("fuse-ufs").unwrap();
+		}
+	}
+	
+	let child = cmd
 		.arg("-f")
 		.arg(img)
 		.arg(d.path())
@@ -106,26 +121,42 @@ fn harness(img: &Path) -> Harness {
 		.unwrap();
 
 	waitfor(Duration::from_secs(5), || {
-		let s = nix::sys::statfs::statfs(d.path()).unwrap();
+		let s = nix::sys::statfs::statfs(d.path()).expect("failed to statfs");
 		cfg_if! {
-			if #[cfg(any(target_os = "freebsd", target_os = "macos", target_os = "openbsd"))] {
+			if #[cfg(any(target_os = "freebsd", target_os = "macos"))] {
 				s.filesystem_type_name() == "fusefs.ufs"
 			} else if #[cfg(target_os = "linux")] {
 				s.filesystem_type() == nix::sys::statfs::FUSE_SUPER_MAGIC
+			} else if #[cfg(target_os = "openbsd")] {
+				s.filesystem_type_name() == "fuse"
 			}
 		}
 	})
-	.unwrap();
+	.expect("failed to wait for fuse-ufs");
 
 	Harness { d, child }
+}
+			
+#[cfg(target_os = "openbsd")]
+fn umount(path: &Path) -> Result<Output, Error> {
+	Command::new("doas")
+		.arg("umount")
+		.arg(path)
+		.output()
+}
+
+#[cfg(not(target_os = "openbsd"))]
+fn umount(path: &Path) -> Result<Output, Error> {
+	Command::new("umount")
+		.arg(path)
+		.output()
 }
 
 impl Drop for Harness {
 	#[allow(clippy::if_same_then_else)]
 	fn drop(&mut self) {
 		loop {
-			let cmd = Command::new("umount").arg(self.d.path()).output();
-			match cmd {
+			match umount(self.d.path()) {
 				Err(e) => {
 					eprintln!("Executing umount failed: {}", e);
 					if std::thread::panicking() {
@@ -261,7 +292,7 @@ fn statfs(#[case] harness: Harness) {
 	assert_eq!(sfs.blocks_available(), 430);
 	assert_eq!(sfs.files(), 1024);
 	assert_eq!(sfs.files_free(), 1006);
-	#[cfg(not(target_os = "macos"))]
+	#[cfg(not(any(target_os = "openbsd", target_os = "macos")))]
 	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
@@ -372,6 +403,7 @@ fn sparse3_issue54(#[case] harness: Harness) {
 	assert_eq!(buf, expected);
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn listxattr(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -399,6 +431,7 @@ fn listxattr_size(#[case] harness: Harness) {
 	assert_eq!(num, 5); // strlen("test\0")
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn getxattr(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -431,6 +464,7 @@ fn getxattr_size(#[case] harness: Harness) {
 	assert_eq!(num, expected.len() as isize);
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn noxattrs(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -477,6 +511,7 @@ fn noxattrs_get(#[case] harness: Harness) {
 	assert_eq!(errno(), libc::ENOATTR);
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn many_xattrs(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -497,6 +532,7 @@ fn many_xattrs(#[case] harness: Harness) {
 	}
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn big_xattr(#[case] harness: Harness) {
 	use std::io::Write;
