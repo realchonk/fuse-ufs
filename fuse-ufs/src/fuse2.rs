@@ -71,6 +71,19 @@ impl Filesystem for Fs {
 		Ok(num)
 	}
 
+	fn write(
+		&mut self,
+		_req: &Request,
+		path: &Path,
+		off: u64,
+		buf: &[u8],
+		_info: &FileInfo,
+	) -> Result<usize> {
+		let inr = self.lookup(path)?;
+		let num = self.ufs.inode_write(inr, off, buf)?;
+		Ok(num)
+	}
+
 	fn readlink(&mut self, _req: &Request, path: &Path, buf: &mut [u8]) -> Result<()> {
 		let inr = self.lookup(path)?;
 		let link = self.ufs.symlink_read(inr)?;
