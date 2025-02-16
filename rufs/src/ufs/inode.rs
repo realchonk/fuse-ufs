@@ -79,7 +79,7 @@ impl<R: Backend> Ufs<R> {
 			blockbuf[off..(off + num as usize)]
 				.copy_from_slice(&buffer[boff..(boff + num as usize)]);
 
-			self.inode_write_block(inr, &ino, block.blkidx, &blockbuf[0..(block.size as usize)])?;
+			self.inode_write_block(inr, &mut ino, block.blkidx, &blockbuf[0..(block.size as usize)])?;
 
 			offset += num;
 			boff += num as usize;
@@ -152,19 +152,20 @@ impl<R: Backend> Ufs<R> {
 	pub(super) fn inode_write_block(
 		&mut self,
 		inr: InodeNum,
-		ino: &Inode,
+		ino: &mut Inode,
 		blkidx: u64,
 		buf: &[u8],
 	) -> IoResult<()> {
 		log::trace!("inode_write_block({inr}, {blkidx})");
 		let fs = self.superblock.fsize as u64;
 		let size = self.inode_get_block_size(ino, blkidx);
-		match self.inode_resolve_block(inr, ino, blkidx)? {
-			Some(blkno) => {
-				self.file.write_at(blkno.get() * fs, &buf[0..size])?;
-			}
-			None => todo!("TODO: implement block allocation"),
-		}
+
+		let blkno = match self.inode_resolve_block(inr, ino, blkidx)? {
+			Some(blkno) => blkno,
+			None => self.inode_alloc_block(inr, ino, blkidx, size as u64)?.0,
+		};
+		
+		self.file.write_at(blkno.get() * fs, &buf[0..size])?;
 		Ok(())
 	}
 
@@ -213,6 +214,32 @@ impl<R: Backend> Ufs<R> {
 		)
 	}
 
+	pub(super) fn decode_blkidx(&self, blkidx: u64) -> IoResult<InodeBlock> {
+		let bs = self.superblock.bsize as u64;
+		let pbp = bs / size_of::<u64>() as u64;
+		let (begin_indir1, begin_indir2, begin_indir3, begin_indir4) = self.inode_data_zones();
+
+		if blkidx < begin_indir1 {
+			Ok(InodeBlock::Direct(blkidx as usize))
+		} else if blkidx < begin_indir2 {
+			let x = blkidx - begin_indir1;
+			Ok(InodeBlock::Indirect1(x as usize))
+		} else if blkidx < begin_indir3 {
+			let x = blkidx - begin_indir2;
+			let high = x / pbp;
+			let low = x % pbp;
+			Ok(InodeBlock::Indirect2(high as usize, low as usize))
+		} else if blkidx < begin_indir4 {
+			let x = blkidx - begin_indir3;
+			let high = x / pbp / pbp;
+			let mid = x / pbp % pbp;
+			let low = x % pbp;
+			Ok(InodeBlock::Indirect3(high as usize, mid as usize, low as usize))
+		} else {
+			Err(err!(EINVAL))
+		}
+	}
+
 	fn inode_resolve_block(
 		&mut self,
 		inr: InodeNum,
@@ -220,7 +247,6 @@ impl<R: Backend> Ufs<R> {
 		blkno: u64,
 	) -> IoResult<Option<NonZeroU64>> {
 		let sb = &self.superblock;
-		let fs = sb.fsize as u64;
 		let bs = sb.bsize as u64;
 		let su64 = size_of::<UfsDaddr>() as u64;
 		let pbp = bs / su64;
@@ -230,84 +256,54 @@ impl<R: Backend> Ufs<R> {
 			return Err(err!(EIO));
 		};
 
-		let (begin_indir1, begin_indir2, begin_indir3, begin_indir4) = self.inode_data_zones();
+		let mut data = vec![0u64; pbp as usize];
+		match self.decode_blkidx(blkno)? {
+			InodeBlock::Direct(off) => Ok(NonZeroU64::new(direct[off] as u64)),
+			InodeBlock::Indirect1(off) => {
+				let x1 = indirect[0] as u64;
+				if x1 == 0 {
+					return Ok(None);
+				}
 
-		if blkno < begin_indir1 {
-			Ok(NonZeroU64::new(direct[blkno as usize] as u64))
-		} else if blkno < begin_indir2 {
-			let low = blkno - begin_indir1;
-			assert!(low < pbp);
+				self.read_pblock(x1, &mut data)?;
+				Ok(NonZeroU64::new(data[off]))
+			},
+			InodeBlock::Indirect2(high, low) => {
+				let x1 = indirect[1] as u64;
+				if x1 == 0 {
+					return Ok(None);
+				}
 
-			log::trace!("inode_resolve_block({inr}, {blkno}): 1-indirect: low={low}");
+				self.read_pblock(x1, &mut data)?;
+				let x2 = data[high];
+				if x2 == 0 {
+					return Ok(None);
+				}
 
-			let first = indirect[0] as u64;
-			if first == 0 {
-				return Ok(None);
-			}
+				self.read_pblock(x2, &mut data)?;
+				Ok(NonZeroU64::new(data[low]))
+			},
+			InodeBlock::Indirect3(high, mid, low) => {
+				let x1 = indirect[2] as u64;
+				if x1 == 0 {
+					return Ok(None);
+				}
 
-			let pos = first * fs + low * su64;
-			let block: u64 = self.file.decode_at(pos)?;
-			log::trace!("first={first:#x} *{pos:#x} = {block:#x}");
-			Ok(NonZeroU64::new(block))
-		} else if blkno < begin_indir3 {
-			let x = blkno - begin_indir2;
-			let low = x % pbp;
-			let high = x / pbp;
-			assert!(high < pbp);
+				self.read_pblock(x1, &mut data)?;
+				let x2 = data[high];
+				if x2 == 0 {
+					return Ok(None);
+				}
 
-			log::trace!("inode_resolve_block({inr}, {blkno}): 2-indirect: high={high}, low={low}");
+				self.read_pblock(x2, &mut data)?;
+				let x3 = data[mid];
+				if x3 == 0 {
+					return Ok(None);
+				}
 
-			let first = indirect[1] as u64;
-			if first == 0 {
-				return Ok(None);
-			}
-			let pos = first * fs + high * su64;
-			let snd: u64 = self.file.decode_at(pos)?;
-			log::trace!("first={first:x} pos={pos:x} snd={snd:x}");
-			if snd == 0 {
-				return Ok(None);
-			}
-
-			let pos = snd * fs + low * su64;
-			let block: u64 = self.file.decode_at(pos)?;
-			log::trace!("*{pos:x} = {block:x}");
-			Ok(NonZeroU64::new(block))
-		} else if blkno < begin_indir4 {
-			let x = blkno - begin_indir3;
-			let low = x % pbp;
-			let mid = x / pbp % pbp;
-			let high = x / pbp / pbp;
-			assert!(high < pbp);
-
-			log::trace!(
-				"inode_resolve_block({inr}, {blkno}): 3-indirect: x={x:#x} high={high:#x}, mid={mid:#x}, low={low:#x}"
-			);
-
-			let first = indirect[2] as u64;
-			log::trace!("first = {first:#x}");
-			if first == 0 {
-				return Ok(None);
-			}
-
-			let pos = first * fs + high * su64;
-			let second: u64 = self.file.decode_at(pos)?;
-			log::trace!("second = {second:#x}");
-			if second == 0 {
-				return Ok(None);
-			}
-
-			let pos = second * fs + mid * su64;
-			let third: u64 = self.file.decode_at(pos)?;
-			log::trace!("third = {third:#x}");
-			if third == 0 {
-				return Ok(None);
-			}
-			let pos = third * fs + low * su64;
-			let block: u64 = self.file.decode_at(pos)?;
-			Ok(NonZeroU64::new(block))
-		} else {
-			log::warn!("block number too large: {blkno} >= {begin_indir4}");
-			Ok(None)
+				self.read_pblock(x3, &mut data)?;
+				Ok(NonZeroU64::new(data[low]))
+			},
 		}
 	}
 

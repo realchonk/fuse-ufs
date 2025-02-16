@@ -223,7 +223,7 @@ impl<R: Backend> Ufs<R> {
 
 	pub(super) fn dir_unlink(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
 		self.assert_rw()?;
-		let dino = self.read_inode(dinr)?;
+		let mut dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
 
 		let mut block = vec![0u8; self.superblock.bsize as usize];
@@ -233,7 +233,7 @@ impl<R: Backend> Ufs<R> {
 			let size = self.inode_read_block(dinr, &dino, blkidx, &mut block)?;
 
 			if let Some(inr) = unlink_block(dinr, &mut block[0..size], name, self.file.config())? {
-				self.inode_write_block(dinr, &dino, blkidx, &block)?;
+				self.inode_write_block(dinr, &mut dino, blkidx, &block)?;
 				return Ok(inr);
 			}
 		}

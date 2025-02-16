@@ -1,4 +1,4 @@
-use std::mem::{replace, size_of_val};
+use std::mem::replace;
 
 use super::*;
 use crate::{err, InodeNum};
@@ -55,26 +55,32 @@ impl<R: Backend> Ufs<R> {
 		Err(err!(ENOSPC))
 	}
 
-	fn read_pblock(&mut self, bno: u64, block: &mut [u64]) -> IoResult<()> {
+	pub(super) fn read_pblock(&mut self, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		let fs = self.superblock.fsize as u64;
-		let block = unsafe {
-			std::slice::from_raw_parts_mut(
-				block.as_mut_ptr() as *mut u8,
-				size_of_val(block),
-			)
-		};
-		self.file.read_at(bno * fs, block)
+		let bs = self.superblock.bsize as usize;
+		let pbp = bs / size_of::<u64>();
+
+		assert_eq!(block.len(), pbp);
+
+		self.file.seek(bno * fs)?;
+		for i in block.iter_mut() {
+			*i = self.file.decode()?;
+		}
+		Ok(())
 	}
 
-	fn write_pblock(&mut self, bno: u64, block: &[u64]) -> IoResult<()> {
+	pub(super) fn write_pblock(&mut self, bno: u64, block: &[u64]) -> IoResult<()> {
 		let fs = self.superblock.fsize as u64;
-		let block = unsafe {
-			std::slice::from_raw_parts(
-				block.as_ptr() as *const u8,
-				size_of_val(block),
-			)
-		};
-		self.file.write_at(bno * fs, block)
+		let bs = self.superblock.bsize as usize;
+		let pbp = bs / size_of::<u64>();
+
+		assert_eq!(block.len(), pbp);
+
+		self.file.seek(bno * fs)?;
+		for i in block.iter() {
+			self.file.encode(i)?;
+		}
+		Ok(())
 	}
 
 	fn inode_free_l1(&mut self, ino: &Inode, bno: u64, block: &mut Vec<u64>) -> IoResult<()> {
@@ -337,5 +343,107 @@ impl<R: Backend> Ufs<R> {
 		self.write_inode(inr, &ino)?;
 
 		Ok(())
+	}
+
+	fn inode_set_block(
+		&mut self,
+		inr: InodeNum,
+		ino: &mut Inode,
+		blkidx: u64,
+		block: NonZeroU64,
+	) -> IoResult<()> {
+		let sb = &self.superblock;
+		let bs = sb.bsize as u64;
+		let su64 = size_of::<UfsDaddr>() as u64;
+		let pbp = bs / su64;
+		let mut data = vec![0u64; pbp as usize];
+
+		let InodeData::Blocks(InodeBlocks { direct, indirect}) = &mut ino.data else {
+			log::warn!("inode_set_block({inr}, {blkidx}, {block}): inode doesn't haave data blocks");
+			return Err(err!(EIO));
+		};
+
+		let mut wb = false;
+
+		match self.decode_blkidx(blkidx)? {
+			InodeBlock::Direct(off) => {
+				direct[off] = block.get() as i64;
+				wb = true;
+			},
+			InodeBlock::Indirect1(off) => {
+				if indirect[0] == 0 {
+					indirect[0] = self.blk_alloc_full_zeroed()?.get() as i64;
+					wb = true;
+				}
+
+				let x1 = indirect[0] as u64;
+				self.read_pblock(x1, &mut data)?;
+				data[off] = block.get();
+				self.write_pblock(x1, &data)?;
+			},
+			InodeBlock::Indirect2(high, low) => {
+				if indirect[1] == 0 {
+					indirect[1] = self.blk_alloc_full_zeroed()?.get() as i64;
+					wb = true;
+				}
+
+				let x1 = indirect[1] as u64;
+				self.read_pblock(x1, &mut data)?;
+
+				if data[high] == 0 {
+					data[high] = self.blk_alloc_full_zeroed()?.get();
+					self.write_pblock(x1, &data)?;
+				}
+
+				let x2 = data[high];
+				self.read_pblock(x2, &mut data)?;
+				data[low] = block.get();
+				self.write_pblock(x2, &data)?;
+			},
+			InodeBlock::Indirect3(high, mid, low) => {
+				if indirect[2] == 0 {
+					indirect[2] = self.blk_alloc_full_zeroed()?.get() as i64;
+					wb = true;
+				}
+
+				let x1 = indirect[2] as u64;
+				self.read_pblock(x1, &mut data)?;
+
+				if data[high] == 0 {
+					data[high] = self.blk_alloc_full_zeroed()?.get();
+					self.write_pblock(x1, &data)?;
+				}
+
+				let x2 = data[high];
+				self.read_pblock(x2, &mut data)?;
+				if data[mid] == 0 {
+					data[mid] = self.blk_alloc_full_zeroed()?.get();
+					self.write_pblock(x2, &data)?;
+				}
+
+				let x3 = data[mid];
+				self.read_pblock(x3, &mut data)?;
+				data[low] = block.get();
+				self.write_pblock(x3, &data)?;
+			},
+		}
+
+		if wb {
+			self.write_inode(inr, ino)?;
+		}
+
+		Ok(())
+	}
+
+	pub(super) fn inode_alloc_block(
+		&mut self,
+		inr: InodeNum,
+		ino: &mut Inode,
+		blkidx: u64,
+		size: u64,
+	) -> IoResult<(NonZeroU64, u64)> {
+		let (block, size) = self.blk_alloc(size)?;
+		self.inode_set_block(inr, ino, blkidx, block)?;
+		Ok((block, size))
 	}
 }
