@@ -56,7 +56,10 @@ impl<R: Backend> Ufs<R> {
 	fn read_pblock(&mut self, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		let fs = self.superblock.fsize as u64;
 		let block = unsafe {
-			std::slice::from_raw_parts_mut(block.as_mut_ptr() as *mut u8, block.len() * size_of::<u64>())
+			std::slice::from_raw_parts_mut(
+				block.as_mut_ptr() as *mut u8,
+				block.len() * size_of::<u64>(),
+			)
 		};
 		self.file.read_at(bno * fs, block)
 	}
@@ -122,7 +125,7 @@ impl<R: Backend> Ufs<R> {
 					let size = self.inode_get_block_size(&ino, *bno);
 					self.blk_free(*bno, size as u64)?;
 				}
-				
+
 				self.blk_free(blocks.indirect[0] as u64, bs)?;
 			}
 
