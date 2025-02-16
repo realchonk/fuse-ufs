@@ -212,3 +212,20 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 }
+
+
+fn check_name_is_legal(name: &OsStr, allow_special: bool) -> IoResult<()> {
+	let b = name.as_encoded_bytes();
+
+	let x = b.contains(&b'/')
+		|| (name == "." && !allow_special)
+		|| (name == ".." && !allow_special)
+		|| b.contains(&b'\0')
+		;
+
+	if x {
+		Err(err!(EINVAL))
+	} else {
+		Ok(())
+	}
+}
