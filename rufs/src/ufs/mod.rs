@@ -3,7 +3,7 @@ use std::{
 	fs::File,
 	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
-	num::{NonZeroU64, NonZeroUsize},
+	num::NonZeroU64,
 	os::unix::ffi::{OsStrExt, OsStringExt},
 	path::Path,
 };
@@ -14,8 +14,6 @@ mod ialloc;
 mod inode;
 mod symlink;
 mod xattr;
-
-use lru::LruCache;
 
 use crate::{
 	blockreader::{Backend, BlockReader},
@@ -64,11 +62,14 @@ pub struct Info {
 pub struct Ufs<R: Backend> {
 	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
+
 	// inode cache
-	icache: LruCache<InodeNum, Inode>,
+	#[cfg(feature = "icache")]
+	icache: lru::LruCache<InodeNum, Inode>,
 
 	// directory name cache
-	dcache: LruCache<(InodeNum, OsString), InodeNum>,
+	#[cfg(feature = "dcache")]
+	dcache: lru::LruCache<(InodeNum, OsString), InodeNum>,
 }
 
 impl Ufs<File> {
@@ -111,8 +112,10 @@ impl<R: Backend> Ufs<R> {
 		let mut s = Self {
 			file,
 			superblock,
-			icache: LruCache::new(NonZeroUsize::new(crate::ICACHE_SIZE).unwrap()),
-			dcache: LruCache::new(NonZeroUsize::new(crate::DCACHE_SIZE).unwrap()),
+			#[cfg(feature = "icache")]
+			icache: crate::new_lru(crate::ICACHE_SIZE),
+			#[cfg(feature = "dcache")]
+			dcache: crate::new_lru(crate::DCACHE_SIZE),
 		};
 		s.check()?;
 		Ok(s)

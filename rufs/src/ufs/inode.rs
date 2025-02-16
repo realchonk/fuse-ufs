@@ -172,6 +172,7 @@ impl<R: Backend> Ufs<R> {
 	pub(super) fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
 		log::trace!("read_inode({inr});");
 
+		#[cfg(feature = "icache")]
 		if let Some(ino) = self.icache.get(&inr) {
 			return Ok(ino.clone());
 		}
@@ -184,6 +185,7 @@ impl<R: Backend> Ufs<R> {
 			return Err(err!(EINVAL));
 		}
 
+		#[cfg(feature = "icache")]
 		self.icache.push(inr, ino.clone());
 
 		Ok(ino)
@@ -194,6 +196,7 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 		let off = self.superblock.ino_to_fso(inr);
 		self.file.encode_at(off, &ino)?;
+		#[cfg(feature = "icache")]
 		self.icache.push(inr, ino.clone());
 		Ok(())
 	}

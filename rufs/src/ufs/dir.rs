@@ -251,7 +251,9 @@ impl<R: Backend> Ufs<R> {
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
 		log::trace!("dir_lookup({pinr}, {name:?});");
 
+		#[cfg(feature = "dcache")]
 		let q = (pinr, name.into());
+		#[cfg(feature = "dcache")]
 		if let Some(cached) = self.dcache.get(&q) {
 			return Ok(*cached);
 		}
@@ -267,6 +269,8 @@ impl<R: Backend> Ufs<R> {
 			},
 		)?
 		.ok_or(err!(ENOENT))?;
+
+		#[cfg(feature = "dcache")]
 		self.dcache.push(q, inr);
 
 		Ok(inr)
@@ -300,6 +304,7 @@ impl<R: Backend> Ufs<R> {
 		let mut dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
 
+		#[cfg(feature = "dcache")]
 		let _ = self.dcache.pop(&(dinr, name.into()));
 
 		let mut block = vec![0u8; DIRBLKSIZE];
