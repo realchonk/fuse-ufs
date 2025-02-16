@@ -8,13 +8,15 @@ use std::{
 	path::Path,
 };
 
+mod balloc;
 mod dir;
+mod ialloc;
 mod inode;
 mod symlink;
 mod xattr;
 
 use crate::{
-	blockreader::BlockReader,
+	blockreader::{Backend, BlockReader},
 	data::*,
 	decoder::{Config, Decoder},
 };
@@ -57,19 +59,19 @@ pub struct Info {
 }
 
 /// Berkley Unix (Fast) Filesystem v2
-pub struct Ufs<R: Read + Seek> {
+pub struct Ufs<R: Backend> {
 	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
 }
 
 impl Ufs<File> {
-	pub fn open(path: &Path) -> IoResult<Self> {
-		let file = BlockReader::open(path)?;
+	pub fn open(path: &Path, rw: bool) -> IoResult<Self> {
+		let file = BlockReader::open(path, rw)?;
 		Self::new(file)
 	}
 }
 
-impl<R: Read + Seek> Ufs<R> {
+impl<R: Backend> Ufs<R> {
 	pub fn new(mut file: BlockReader<R>) -> IoResult<Self> {
 		let pos = SBLOCK_UFS2 as u64 + MAGIC_OFFSET;
 		file.seek(SeekFrom::Start(pos))?;
@@ -102,6 +104,18 @@ impl<R: Read + Seek> Ufs<R> {
 		let mut s = Self { file, superblock };
 		s.check()?;
 		Ok(s)
+	}
+
+	pub fn write_enabled(&self) -> bool {
+		self.file.inner().write_enabled()
+	}
+
+	fn assert_rw(&self) -> IoResult<()> {
+		if self.write_enabled() {
+			Ok(())
+		} else {
+			Err(err!(EROFS))
+		}
 	}
 
 	/// Get filesystem metadata.
@@ -155,10 +169,13 @@ impl<R: Read + Seek> Ufs<R> {
 		sbassert!(sb.sbsize == sb.fsize);
 		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
 
+		let fpg = sb.fpg as u64;
+		let sblkno = sb.sblkno as u64;
+		let fs = sb.fsize as u64;
+
 		// check that all superblocks are ok.
 		for i in 0..sb.ncg {
-			let sb = &self.superblock;
-			let addr = ((sb.fpg + sb.sblkno) * sb.fsize) as u64;
+			let addr = (i as u64 * fpg + sblkno) * fs;
 			let csb: Superblock = self.file.decode_at(addr).unwrap();
 			if csb.magic != FS_UFS2_MAGIC {
 				log::error!("CG{i} has invalid superblock magic: {:x}", csb.magic);
@@ -168,8 +185,7 @@ impl<R: Read + Seek> Ufs<R> {
 
 		// check that all cylgroups are ok.
 		for i in 0..self.superblock.ncg {
-			let sb = &self.superblock;
-			let addr = ((sb.fpg + sb.cblkno) * sb.fsize) as u64;
+			let addr = self.cg_addr(i as u64);
 			let cg: CylGroup = self.file.decode_at(addr).unwrap();
 			if cg.magic != CG_MAGIC {
 				log::error!("CG{i} has invalid cg magic: {:x}", cg.magic);
@@ -177,6 +193,37 @@ impl<R: Read + Seek> Ufs<R> {
 			}
 		}
 		log::info!("OK");
+		Ok(())
+	}
+
+	fn cg_addr(&self, idx: u64) -> u64 {
+		let sb = &self.superblock;
+		let fpg = sb.fpg as u64;
+		let cblkno = sb.cblkno as u64;
+		let fs = sb.fsize as u64;
+
+		(idx * fpg + cblkno) * fs
+	}
+
+	fn update_sb(&mut self, f: impl FnOnce(&mut Superblock)) -> IoResult<()> {
+		// Only update the first superblock, because we're lazy.
+		f(&mut self.superblock);
+		self.file.encode_at(SBLOCK_UFS2 as u64, &self.superblock)?;
+		Ok(())
+	}
+}
+
+fn check_name_is_legal(name: &OsStr, allow_special: bool) -> IoResult<()> {
+	let b = name.as_encoded_bytes();
+
+	let x = b.contains(&b'/') ||
+		(name == "." && !allow_special) ||
+		(name == ".." && !allow_special) ||
+		b.contains(&b'\0');
+
+	if x {
+		Err(err!(EINVAL))
+	} else {
 		Ok(())
 	}
 }

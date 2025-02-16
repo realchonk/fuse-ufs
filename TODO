@@ -1,6 +1,11 @@
 Short Term:
 - more integration tests
 - more unit tests
+- BlockReader: make `Write` somehow optional
+- Edge cases for unlink_block()
+- Ufs::inode_free()
+- adapt test suite for write support
+- fuse-ufs/fuse3: setattr(): resizing
 
 Long Term:
 - read-write

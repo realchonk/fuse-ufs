@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
+## [0.5.0] - unreleased
+
+### Added 
+
+- write support (#84)
+- support for FUSE2 on Linux and FreeBSD (through fuse2rs) ([#84](https://github.com/realchonk/fuse-ufs/pull/84))
+
 ## [0.4.4] - 2025-02-16
 
 ### Add
@@ -81,7 +88,8 @@ This was the final release as part of [Google Summer of Code 2024](https://summe
 
 This was the first formal release of fuse-ufs.
 
-[unreleased]: https://github.com/realchonk/fuse-ufs/compare/0.4.3...HEAD
+[unreleased]: https://github.com/realchonk/fuse-ufs/compare/0.4.4...HEAD
+[0.4.4]: https://github.com/realchonk/fuse-ufs/compare/0.4.3...0.4.4
 [0.4.3]: https://github.com/realchonk/fuse-ufs/compare/0.4.2...0.4.3
 [0.4.2]: https://github.com/realchonk/fuse-ufs/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/realchonk/fuse-ufs/compare/0.4.0...0.4.1

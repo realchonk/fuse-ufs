@@ -1,6 +1,15 @@
-use std::time::{Duration, SystemTime};
+use std::{
+	io::Error,
+	time::{Duration, SystemTime},
+};
 
-use bincode::{de::Decoder, error::DecodeError, Decode};
+use bincode::{
+	de::Decoder,
+	enc::Encoder,
+	error::{DecodeError, EncodeError},
+	Decode,
+	Encode,
+};
 
 use crate::data::*;
 
@@ -19,7 +28,62 @@ fn timetosys(mut s: UfsTime, ns: u32) -> SystemTime {
 	time
 }
 
+fn systotime(t: SystemTime) -> (UfsTime, u32) {
+	let (diff, neg) = if t >= SystemTime::UNIX_EPOCH {
+		(t.duration_since(SystemTime::UNIX_EPOCH).unwrap(), 1)
+	} else {
+		(SystemTime::UNIX_EPOCH.duration_since(t).unwrap(), -1)
+	};
+
+	(neg * diff.as_secs() as UfsTime, diff.subsec_nanos())
+}
+
 impl Inode {
+	pub fn new(kind: InodeType, perm: u16, uid: u32, gid: u32, blksize: u32) -> Self {
+		let (now, nowsnsec) = systotime(SystemTime::now());
+		let data = match kind {
+			InodeType::Symlink => InodeData::Shortlink([0u8; UFS_SLLEN]),
+			_ => InodeData::Blocks(InodeBlocks::default()),
+		};
+		let kind = match kind {
+			InodeType::RegularFile => S_IFREG,
+			InodeType::Directory => S_IFDIR,
+			InodeType::Symlink => S_IFLNK,
+			InodeType::CharDevice => S_IFCHR,
+			InodeType::BlockDevice => S_IFBLK,
+			InodeType::Socket => S_IFSOCK,
+			InodeType::NamedPipe => S_IFIFO,
+		};
+		let mode = kind | (perm & !S_IFMT);
+		Self {
+			mode,
+			nlink: 0,
+			uid,
+			gid,
+			blksize,
+			size: 0,
+			blocks: 0,
+			atime: now,
+			mtime: now,
+			ctime: now,
+			birthtime: now,
+			atimensec: nowsnsec,
+			mtimensec: nowsnsec,
+			ctimensec: nowsnsec,
+			birthnsec: nowsnsec,
+			gen: 0,
+			kernflags: 0,
+			flags: 0,
+			extsize: 0,
+			extb: [0; UFS_NXADDR],
+			data,
+			modrev: 0,
+			ignored: 0,
+			ckhash: 0,
+			spare: [0; 2],
+		}
+	}
+
 	pub fn atime(&self) -> SystemTime {
 		timetosys(self.atime, self.atimensec)
 	}
@@ -34,6 +98,30 @@ impl Inode {
 
 	pub fn btime(&self) -> SystemTime {
 		timetosys(self.birthtime, self.birthnsec)
+	}
+
+	pub fn set_atime(&mut self, t: SystemTime) {
+		(self.atime, self.atimensec) = systotime(t);
+	}
+
+	pub fn set_mtime(&mut self, t: SystemTime) {
+		(self.mtime, self.mtimensec) = systotime(t);
+	}
+
+	pub fn set_ctime(&mut self, t: SystemTime) {
+		(self.ctime, self.ctimensec) = systotime(t);
+	}
+
+	pub fn set_btime(&mut self, t: SystemTime) {
+		(self.birthtime, self.birthnsec) = systotime(t);
+	}
+
+	pub fn assert_dir(&self) -> Result<(), Error> {
+		if self.kind() == InodeType::Directory {
+			Ok(())
+		} else {
+			Err(Error::from_raw_os_error(libc::ENOTDIR))
+		}
 	}
 
 	pub fn kind(&self) -> InodeType {
@@ -74,15 +162,14 @@ impl Inode {
 
 	pub fn size(&self, bs: u64, fs: u64) -> (u64, u64) {
 		let size = match self.kind() {
-			InodeType::Directory => self.blocks * fs,
-			InodeType::RegularFile | InodeType::Symlink => self.size,
+			InodeType::RegularFile | InodeType::Symlink | InodeType::Directory => self.size,
 			kind => todo!("Inode::size() is undefined for {kind:?}"),
 		};
 		Self::inode_size(bs, fs, size)
 	}
 
 	/// The number of blocks and fragments this inode needs.
-	fn inode_size(bs: u64, fs: u64, size: u64) -> (u64, u64) {
+	pub fn inode_size(bs: u64, fs: u64, size: u64) -> (u64, u64) {
 		let blocks = size / bs;
 		let frags = (size % bs).div_ceil(fs);
 
@@ -147,6 +234,15 @@ impl Decode for Inode {
 		};
 
 		Ok(ino)
+	}
+}
+
+impl Encode for InodeData {
+	fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
+		match self {
+			Self::Blocks(blocks) => InodeBlocks::encode(blocks, encoder),
+			Self::Shortlink(link) => <[u8; UFS_SLLEN]>::encode(link, encoder),
+		}
 	}
 }
 

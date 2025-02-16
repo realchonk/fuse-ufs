@@ -1,31 +1,41 @@
+#[cfg(target_os = "freebsd")]
+use std::os::fd::AsRawFd;
 use std::{
 	ffi::{OsStr, OsString},
 	fmt,
 	fs::{self, File},
-	io::{ErrorKind, Read, Seek, SeekFrom},
-	os::{
-		fd::AsRawFd,
-		unix::{ffi::OsStringExt, fs::MetadataExt},
-	},
+	io::{Error, ErrorKind, Read, Seek, SeekFrom, Write},
+	os::unix::{ffi::OsStringExt, fs::MetadataExt},
 	path::{Path, PathBuf},
-	process::{Child, Command},
+	process::{Child, Command, Output},
 	thread::sleep,
 	time::{Duration, Instant},
 };
 
+#[allow(unused_imports)]
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
+#[allow(unused_imports)]
 use cstr::cstr;
 use lazy_static::lazy_static;
 use nix::{
 	fcntl::OFlag,
 	sys::{stat::Mode, statvfs::FsFlags},
 };
+use rand::{distr::Alphanumeric, Rng};
 use rstest::rstest;
 use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
+#[allow(unused_imports)]
 use xattr::FileExt;
 
+#[cfg(target_os = "openbsd")]
+const SUDO: &str = "doas";
+
+#[cfg(not(target_os = "openbsd"))]
+const SUDO: &str = "sudo";
+
+#[allow(dead_code)]
 fn errno() -> i32 {
 	nix::errno::Errno::last_raw()
 }
@@ -35,6 +45,7 @@ fn prepare_image(filename: &str) -> PathBuf {
 	zimg.push("../resources");
 	zimg.push(filename);
 	zimg.set_extension("img.zst");
+
 	let mut img = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
 	img.push(filename);
 
@@ -91,41 +102,100 @@ where
 }
 
 struct Harness {
-	d:     TempDir,
-	child: Child,
+	d:      TempDir,
+	child:  Child,
+	img:    PathBuf,
+	delete: bool,
 }
 
-fn harness(img: &Path) -> Harness {
+fn harness(img: &Path, delete: bool) -> Harness {
 	let d = tempdir().unwrap();
-	let child = Command::cargo_bin("fuse-ufs")
-		.unwrap()
-		.arg("-f")
-		.arg(img)
-		.arg(d.path())
-		.spawn()
-		.unwrap();
+	let mut cmd;
+
+	cfg_if! {
+		if #[cfg(target_os = "openbsd")] {
+			cmd = Command::new("doas");
+			cmd.arg("../target/debug/fuse-ufs");
+		} else {
+			cmd = Command::cargo_bin("fuse-ufs").unwrap();
+		}
+	}
+
+	cmd.arg("-oallow_other");
+
+	if delete {
+		cmd.arg("-orw");
+	}
+
+	let child = cmd.arg("-f").arg(img).arg(d.path()).spawn().unwrap();
 
 	waitfor(Duration::from_secs(5), || {
-		let s = nix::sys::statfs::statfs(d.path()).unwrap();
+		let s = nix::sys::statfs::statfs(d.path()).expect("failed to statfs");
 		cfg_if! {
-			if #[cfg(any(target_os = "freebsd", target_os = "macos", target_os = "openbsd"))] {
+			if #[cfg(any(target_os = "freebsd", target_os = "macos"))] {
 				s.filesystem_type_name() == "fusefs.ufs"
 			} else if #[cfg(target_os = "linux")] {
 				s.filesystem_type() == nix::sys::statfs::FUSE_SUPER_MAGIC
+			} else if #[cfg(target_os = "openbsd")] {
+				s.filesystem_type_name() == "fuse"
 			}
 		}
 	})
-	.unwrap();
+	.expect("failed to wait for fuse-ufs");
 
-	Harness { d, child }
+	Harness {
+		d,
+		child,
+		img: img.into(),
+		delete,
+	}
+}
+
+fn rand_str(n: usize) -> String {
+	rand::rng()
+		.sample_iter(&Alphanumeric)
+		.map(char::from)
+		.take(n)
+		.collect()
+}
+
+fn harness_rw(img: &Path) -> Harness {
+	let stem = img.file_stem().unwrap().to_string_lossy();
+	let suffix = rand_str(6);
+	let img_copy = img.with_file_name(format!("{stem}-{suffix}.img"));
+
+	std::fs::copy(img, &img_copy).unwrap();
+	let h = harness(&img_copy, true);
+
+	let uid = unsafe { libc::getuid() };
+	if uid != 0 {
+		let _ = Command::new(SUDO)
+			.arg("chown")
+			.arg("-R")
+			.arg(uid.to_string())
+			.arg(h.d.path())
+			.status()
+			.unwrap();
+	}
+
+	h
+}
+
+#[cfg(target_os = "openbsd")]
+fn umount(path: &Path) -> Result<Output, Error> {
+	Command::new("doas").arg("umount").arg(path).output()
+}
+
+#[cfg(not(target_os = "openbsd"))]
+fn umount(path: &Path) -> Result<Output, Error> {
+	Command::new("umount").arg(path).output()
 }
 
 impl Drop for Harness {
 	#[allow(clippy::if_same_then_else)]
 	fn drop(&mut self) {
 		loop {
-			let cmd = Command::new("umount").arg(self.d.path()).output();
-			match cmd {
+			match umount(self.d.path()) {
 				Err(e) => {
 					eprintln!("Executing umount failed: {}", e);
 					if std::thread::panicking() {
@@ -156,14 +226,24 @@ impl Drop for Harness {
 			sleep(Duration::from_millis(50));
 		}
 		let _ = self.child.wait();
+
+		if self.delete {
+			let _ = std::fs::remove_file(&self.img);
+		}
 	}
 }
 
 #[template]
 #[rstest]
-#[case::le(harness(GOLDEN_LE.as_path()))]
-#[case::be(harness(GOLDEN_BE.as_path()))]
+#[case::le(harness(GOLDEN_LE.as_path(), false))]
+#[case::be(harness(GOLDEN_BE.as_path(), false))]
 fn all_images(harness: Harness) {}
+
+#[template]
+#[rstest]
+#[case::le(harness_rw(GOLDEN_LE.as_path()))]
+#[case::be(harness_rw(GOLDEN_BE.as_path()))]
+fn all_images_rw(harness: Harness) {}
 
 /// Mount and unmount the golden image
 #[apply(all_images)]
@@ -261,7 +341,7 @@ fn statfs(#[case] harness: Harness) {
 	assert_eq!(sfs.blocks_available(), 430);
 	assert_eq!(sfs.files(), 1024);
 	assert_eq!(sfs.files_free(), 1006);
-	#[cfg(not(target_os = "macos"))]
+	#[cfg(not(any(target_os = "openbsd", target_os = "macos")))]
 	assert_eq!(sfs.maximum_name_length(), 255);
 
 	#[cfg(target_os = "freebsd")]
@@ -372,6 +452,7 @@ fn sparse3_issue54(#[case] harness: Harness) {
 	assert_eq!(buf, expected);
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn listxattr(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -399,6 +480,7 @@ fn listxattr_size(#[case] harness: Harness) {
 	assert_eq!(num, 5); // strlen("test\0")
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn getxattr(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -431,6 +513,7 @@ fn getxattr_size(#[case] harness: Harness) {
 	assert_eq!(num, expected.len() as isize);
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn noxattrs(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -477,6 +560,7 @@ fn noxattrs_get(#[case] harness: Harness) {
 	assert_eq!(errno(), libc::ENOATTR);
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn many_xattrs(#[case] harness: Harness) {
 	let d = &harness.d;
@@ -497,6 +581,7 @@ fn many_xattrs(#[case] harness: Harness) {
 	}
 }
 
+#[cfg(not(target_os = "openbsd"))]
 #[apply(all_images)]
 fn big_xattr(#[case] harness: Harness) {
 	use std::io::Write;
@@ -513,4 +598,77 @@ fn big_xattr(#[case] harness: Harness) {
 	// first check for the size, to avoid spamming the output
 	assert_eq!(data.len(), expected.len());
 	assert_eq!(data, expected);
+}
+
+fn mkfile(path: &Path) -> File {
+	File::options()
+		.read(true)
+		.write(true)
+		.truncate(true)
+		.create_new(true)
+		.open(path)
+		.unwrap()
+}
+
+#[apply(all_images_rw)]
+fn new_file(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let path = d.path().join("new-file");
+	mkfile(&path).write_all(b"Hello World").unwrap();
+	assert_eq!(std::fs::read_to_string(path).unwrap(), "Hello World");
+}
+
+#[apply(all_images_rw)]
+fn new_dir(#[case] harness: Harness) {
+	let d = &harness.d;
+	let path = d
+		.path()
+		.join("newdir1")
+		.join("newdir2")
+		.join("newdir3")
+		.join("newdir4")
+		.join("newdir5");
+	std::fs::create_dir_all(path).unwrap();
+}
+
+#[apply(all_images_rw)]
+fn fatdir(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let dir = d.path().join("newdir");
+	std::fs::create_dir(&dir).unwrap();
+	// TODO: increase image sizes, then increase 32 to 1024 (or more)
+	for _ in 0..512 {
+		let name = rand_str(12);
+		let path = dir.join(name);
+		mkfile(&path);
+	}
+}
+
+/// rm -rf mp/*
+#[apply(all_images_rw)]
+fn rm_rf_everything(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	for ent in std::fs::read_dir(d).unwrap() {
+		let ent = ent.unwrap();
+
+		if ent.file_type().unwrap().is_dir() {
+			std::fs::remove_dir_all(ent.path()).unwrap();
+		} else {
+			std::fs::remove_file(ent.path()).unwrap();
+		}
+	}
+}
+
+#[apply(all_images_rw)]
+fn symlink(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let path = d.path().join("link123");
+	let target = Path::new("file1");
+	std::os::unix::fs::symlink(target, &path).unwrap();
+
+	assert_eq!(std::fs::read_link(path).unwrap(), target);
 }
