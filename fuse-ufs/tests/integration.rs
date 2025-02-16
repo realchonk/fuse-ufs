@@ -632,7 +632,7 @@ fn fatdir(#[case] harness: Harness) {
 	let dir = d.path().join("newdir");
 	std::fs::create_dir(&dir).unwrap();
 	// TODO: increase image sizes, then increase 32 to 1024 (or more)
-	for _ in 0..113 {
+	for _ in 0..512 {
 		let name = rand_str(12);
 		let path = dir.join(name);
 		mkfile(&path);
