@@ -11,6 +11,15 @@ use crate::Fs;
 
 const MAX_CACHE: Duration = Duration::MAX;
 
+const S_IFMT: u32 = libc::S_IFMT as u32;
+const S_IFREG: u32 = libc::S_IFREG as u32;
+const S_IFDIR: u32 = libc::S_IFDIR as u32;
+const S_IFCHR: u32 = libc::S_IFCHR as u32;
+const S_IFBLK: u32 = libc::S_IFBLK as u32;
+const S_IFLNK: u32 = libc::S_IFLNK as u32;
+const S_IFIFO: u32 = libc::S_IFIFO as u32;
+const S_IFSOCK: u32 = libc::S_IFSOCK as u32;
+
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
 	f().map_err(|e| {
 		log::error!("Error: {e}");
@@ -362,17 +371,17 @@ impl Filesystem for Fs {
 	) {
 		let f = || {
 			let dinr = transino(parent)?;
-			let kind = match mode & libc::S_IFMT {
-				libc::S_IFREG => InodeType::RegularFile,
-				libc::S_IFDIR => InodeType::Directory,
-				libc::S_IFLNK => InodeType::Symlink,
-				libc::S_IFCHR => InodeType::CharDevice,
-				libc::S_IFBLK => InodeType::BlockDevice,
-				libc::S_IFSOCK => InodeType::Socket,
-				libc::S_IFIFO => InodeType::NamedPipe,
+			let kind = match mode & S_IFMT {
+				S_IFREG => InodeType::RegularFile,
+				S_IFDIR => InodeType::Directory,
+				S_IFLNK => InodeType::Symlink,
+				S_IFCHR => InodeType::CharDevice,
+				S_IFBLK => InodeType::BlockDevice,
+				S_IFSOCK => InodeType::Socket,
+				S_IFIFO => InodeType::NamedPipe,
 				_ => return Err(IoError::from_raw_os_error(libc::EINVAL)),
 			};
-			let perm = (mode & !libc::S_IFMT) as u16;
+			let perm = (mode & !S_IFMT) as u16;
 
 			let attr = self.ufs.mknod(
 				dinr,
@@ -403,17 +412,17 @@ impl Filesystem for Fs {
 	) {
 		let f = || {
 			let dinr = transino(parent)?;
-			let kind = match mode & (libc::S_IFMT as u32) {
-				libc::S_IFREG => InodeType::RegularFile,
-				libc::S_IFDIR => InodeType::Directory,
-				libc::S_IFLNK => InodeType::Symlink,
-				libc::S_IFCHR => InodeType::CharDevice,
-				libc::S_IFBLK => InodeType::BlockDevice,
-				libc::S_IFSOCK => InodeType::Socket,
-				libc::S_IFIFO => InodeType::NamedPipe,
+			let kind = match mode & S_IFMT {
+				S_IFREG => InodeType::RegularFile,
+				S_IFDIR => InodeType::Directory,
+				S_IFLNK => InodeType::Symlink,
+				S_IFCHR => InodeType::CharDevice,
+				S_IFBLK => InodeType::BlockDevice,
+				S_IFSOCK => InodeType::Socket,
+				S_IFIFO => InodeType::NamedPipe,
 				_ => return Err(IoError::from_raw_os_error(libc::EINVAL)),
 			};
-			let perm = (mode & !(libc::S_IFMT as u32)) as u16;
+			let perm = (mode & !S_IFMT) as u16;
 
 			let attr = self.ufs.mknod(
 				dinr,
@@ -465,7 +474,7 @@ impl Filesystem for Fs {
 	) {
 		let f = || {
 			let dinr = transino(parent)?;
-			let perm = mode & !(libc::S_IFMT as u32) & !umask;
+			let perm = mode & !S_IFMT & !umask;
 			let attr = self
 				.ufs
 				.mkdir(dinr, name, perm as u16, req.uid(), req.gid())?;
