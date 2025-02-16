@@ -2,7 +2,7 @@ use std::{
 	ffi::{OsStr, OsString},
 	fmt,
 	fs::{self, File},
-	io::{Error, ErrorKind, Read, Seek, SeekFrom},
+	io::{Error, ErrorKind, Read, Seek, SeekFrom, Write},
 	os::unix::{ffi::OsStringExt, fs::MetadataExt},
 	path::{Path, PathBuf},
 	process::{Child, Command, Output},
@@ -159,7 +159,6 @@ fn harness_rw(img: &Path) -> Harness {
 		.to_string_lossy();
 	let img_copy = img.with_file_name(format!("{stem}-{suffix}.img"));
 
-	dbg!((&img_copy, img));
 	std::fs::copy(img, &img_copy).unwrap();
 	let h = harness(&img_copy, true);
 
@@ -596,17 +595,21 @@ fn big_xattr(#[case] harness: Harness) {
 }
 
 #[apply(all_images_rw)]
-fn touch(#[case] harness: Harness) {
+fn new_file(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let path = d.path().join("new-file");
-	let st = Command::new("touch")
-		.arg(&path)
-		.status()
+	File::options()
+		.read(true)
+		.write(true)
+		.truncate(true)
+		.create_new(true)
+		.open(&path)
+		.unwrap()
+		.write_all(b"Hello World")
 		.unwrap();
 
-	assert!(st.success());
-	assert!(std::fs::metadata(path).unwrap().is_file());
+	assert_eq!(std::fs::read_to_string(path).unwrap(), "Hello World");
 }
 
 /// rm -rf mp/*
