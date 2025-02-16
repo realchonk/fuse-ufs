@@ -8,7 +8,7 @@ use std::{
 		unix::{ffi::OsStringExt, fs::MetadataExt},
 	},
 	path::{Path, PathBuf},
-	process::{Child, Command, Output},
+	process::{Child, Command, Output, Stdio},
 	thread::sleep,
 	time::{Duration, Instant},
 };
@@ -23,6 +23,7 @@ use nix::{
 	fcntl::OFlag,
 	sys::{stat::Mode, statvfs::FsFlags},
 };
+use rand::{distr::Alphanumeric, Rng};
 use rstest::rstest;
 use rstest_reuse::{apply, template};
 use tempfile::{tempdir, TempDir};
@@ -39,6 +40,7 @@ fn prepare_image(filename: &str) -> PathBuf {
 	zimg.push("../resources");
 	zimg.push(filename);
 	zimg.set_extension("img.zst");
+
 	let mut img = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
 	img.push(filename);
 
@@ -97,9 +99,11 @@ where
 struct Harness {
 	d:     TempDir,
 	child: Child,
+	img: PathBuf,
+	delete: bool,
 }
 
-fn harness(img: &Path) -> Harness {
+fn harness(img: &Path, delete: bool) -> Harness {
 	let d = tempdir().unwrap();
 	let mut cmd;
 
@@ -107,10 +111,15 @@ fn harness(img: &Path) -> Harness {
 		if #[cfg(target_os = "openbsd")] {
 			cmd = Command::new("doas");
 			cmd.arg("../target/debug/fuse-ufs");
-			cmd.arg("-oallow_other");
 		} else {
 			cmd = Command::cargo_bin("fuse-ufs").unwrap();
 		}
+	}
+
+	cmd.arg("-oallow_other");
+
+	if delete {
+		cmd.arg("-orw");
 	}
 
 	let child = cmd.arg("-f").arg(img).arg(d.path()).spawn().unwrap();
@@ -129,7 +138,42 @@ fn harness(img: &Path) -> Harness {
 	})
 	.expect("failed to wait for fuse-ufs");
 
-	Harness { d, child }
+	Harness {
+		d,
+		child,
+		img: img.into(),
+		delete,
+	}
+}
+
+fn harness_rw(img: &Path) -> Harness {
+	let suffix: String = rand::rng()
+		.sample_iter(&Alphanumeric)
+		.map(char::from)
+		.take(6)
+		.collect();
+
+	let stem = img
+		.file_stem()
+		.unwrap()
+		.to_string_lossy();
+	let img_copy = img.with_file_name(format!("{stem}-{suffix}.img"));
+
+	dbg!((&img_copy, img));
+	std::fs::copy(img, &img_copy).unwrap();
+	let h = harness(&img_copy, true);
+
+	let uid = unsafe { libc::getuid() };
+	// TODO: this prints No data available
+	let _ = Command::new("doas")
+		.arg("chown")
+		.arg("-R")
+		.arg(uid.to_string())
+		.arg(h.d.path())
+		.status()
+		.unwrap();
+	
+	h
 }
 
 #[cfg(target_os = "openbsd")]
@@ -177,14 +221,24 @@ impl Drop for Harness {
 			sleep(Duration::from_millis(50));
 		}
 		let _ = self.child.wait();
+
+		if self.delete {
+			let _ = std::fs::remove_file(&self.img);
+		}
 	}
 }
 
 #[template]
 #[rstest]
-#[case::le(harness(GOLDEN_LE.as_path()))]
-#[case::be(harness(GOLDEN_BE.as_path()))]
+#[case::le(harness(GOLDEN_LE.as_path(), false))]
+#[case::be(harness(GOLDEN_BE.as_path(), false))]
 fn all_images(harness: Harness) {}
+
+#[template]
+#[rstest]
+#[case::le(harness_rw(GOLDEN_LE.as_path()))]
+#[case::be(harness_rw(GOLDEN_BE.as_path()))]
+fn all_images_rw(harness: Harness) {}
 
 /// Mount and unmount the golden image
 #[apply(all_images)]
@@ -539,4 +593,18 @@ fn big_xattr(#[case] harness: Harness) {
 	// first check for the size, to avoid spamming the output
 	assert_eq!(data.len(), expected.len());
 	assert_eq!(data, expected);
+}
+
+#[apply(all_images_rw)]
+fn touch(#[case] harness: Harness) {
+	let d = &harness.d;
+
+	let path = d.path().join("new-file");
+	let st = Command::new("touch")
+		.arg(&path)
+		.status()
+		.unwrap();
+
+	assert!(st.success());
+	assert!(std::fs::metadata(path).unwrap().is_file());
 }

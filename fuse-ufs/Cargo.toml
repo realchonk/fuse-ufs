@@ -38,6 +38,7 @@ cfg-if.workspace = true
 cstr.workspace = true
 lazy_static.workspace = true
 nix = { workspace = true, features = ["fs", "dir"] }
+rand.workspace = true
 rstest = { workspace = true, default-features = false }
 rstest_reuse.workspace = true
 tempfile.workspace = true

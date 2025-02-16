@@ -31,6 +31,12 @@ fuz:
 	# NOTE: Add -j if you want more fuzz jobs
 	cargo +nightly fuzz run ufs
 
+mount:
+	mkdir -p mp
+	rm -f resources/ufs-little.img
+	unzstd -k resources/ufs-little.img.zst
+	cargo r -p fuse-ufs -- -vvvforw,allow_other resources/ufs-little.img mp
+
 clean:
 	rm -f fuse-ufs-bin
 	cargo clean
