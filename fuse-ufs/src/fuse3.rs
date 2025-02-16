@@ -403,7 +403,7 @@ impl Filesystem for Fs {
 	) {
 		let f = || {
 			let dinr = transino(parent)?;
-			let kind = match mode & libc::S_IFMT {
+			let kind = match mode & (libc::S_IFMT as u32) {
 				libc::S_IFREG => InodeType::RegularFile,
 				libc::S_IFDIR => InodeType::Directory,
 				libc::S_IFLNK => InodeType::Symlink,
@@ -413,7 +413,7 @@ impl Filesystem for Fs {
 				libc::S_IFIFO => InodeType::NamedPipe,
 				_ => return Err(IoError::from_raw_os_error(libc::EINVAL)),
 			};
-			let perm = (mode & !libc::S_IFMT) as u16;
+			let perm = (mode & !(libc::S_IFMT as u32)) as u16;
 
 			let attr = self.ufs.mknod(
 				dinr,
@@ -465,7 +465,7 @@ impl Filesystem for Fs {
 	) {
 		let f = || {
 			let dinr = transino(parent)?;
-			let perm = mode & !libc::S_IFMT & !umask;
+			let perm = mode & !(libc::S_IFMT as u32) & !umask;
 			let attr = self
 				.ufs
 				.mkdir(dinr, name, perm as u16, req.uid(), req.gid())?;
