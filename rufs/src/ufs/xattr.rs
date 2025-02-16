@@ -69,11 +69,6 @@ impl<R: Backend> Ufs<R> {
 		xname: &OsStr,
 		mut f: impl FnMut(&ExtattrHeader, &[u8]) -> T,
 	) -> IoResult<T> {
-		#[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "macos"))]
-		const ERR: i32 = libc::ENOATTR;
-		#[cfg(target_os = "linux")]
-		const ERR: i32 = libc::ENODATA;
-
 		self.iter_xattr(ino, |hdr, n, data| {
 			let ns = hdr.namespace()?;
 			if xname == ns.with_name(n) {
@@ -82,7 +77,7 @@ impl<R: Backend> Ufs<R> {
 				None
 			}
 		})
-		.and_then(|r| r.ok_or(IoError::from_raw_os_error(ERR)))
+		.and_then(|r| r.ok_or(IoError::from_raw_os_error(crate::ENOATTR)))
 	}
 
 	/// Get the size of the extended attribute area of inode `inr`.
