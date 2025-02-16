@@ -193,4 +193,40 @@ impl Filesystem for Fs {
 		self.ufs.inode_truncate(inr, size)?;
 		Ok(())
 	}
+
+	fn create(&mut self, req: &Request, path: &Path, mode: u32, _info: &FileInfo) -> Result<()> {
+		self.mknod(req, path, mode, 0)
+	}
+	fn mknod(&mut self, req: &Request, path: &Path, mode: u32, _dev: u32) -> Result<()> {
+		let (dir, name) = path_split(path)?;
+		let kind = match mode & libc::S_IFMT {
+			libc::S_IFREG => InodeType::RegularFile,
+			libc::S_IFDIR => InodeType::Directory,
+			libc::S_IFLNK => InodeType::Symlink,
+			libc::S_IFCHR => InodeType::CharDevice,
+			libc::S_IFBLK => InodeType::BlockDevice,
+			libc::S_IFSOCK => InodeType::Socket,
+			libc::S_IFIFO => InodeType::NamedPipe,
+			_ => return Err(err!(EINVAL)),
+		};
+
+		let dinr = self.lookup(dir)?;
+		let perm = mode & !libc::S_IFMT;
+		self.ufs.mknod(dinr, name, kind, perm as u16, req.uid, req.gid)?;
+		Ok(())
+	}
+	fn symlink(&mut self, req: &Request, name1: &Path, name2: &Path) -> Result<()> {
+		let (dir, name) = path_split(name2)?;
+		let link = name1.as_os_str();
+		let dinr = self.lookup(dir)?;
+		self.ufs.symlink(dinr, name, link, req.uid, req.gid)?;
+		Ok(())
+	}
+	fn mkdir(&mut self, req: &Request, path: &Path, mode: u32) -> Result<()> {
+		let (dir, name) = path_split(path)?;
+		let dinr = self.lookup(dir)?;
+		let perm = mode & !libc::S_IFMT;
+		self.ufs.mkdir(dinr, name, perm as u16, req.uid, req.gid)?;
+		Ok(())
+	}
 }
