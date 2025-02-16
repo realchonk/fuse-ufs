@@ -149,7 +149,7 @@ impl Filesystem for Fs {
 	) {
 		let f = || {
 			let inr = transino(inr)?;
-			self.ufs.inode_write(inr, offset as u64, &data)
+			self.ufs.inode_write(inr, offset as u64, data)
 		};
 
 		match run(f) {

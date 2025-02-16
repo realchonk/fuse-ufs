@@ -334,7 +334,7 @@ impl<R: Backend> Ufs<R> {
 			assert_eq!(n, DIRBLKSIZE);
 
 			if newlink_block(&mut block, entry, self.file.config())? {
-				self.inode_write(dinr, pos, &mut block)?;
+				self.inode_write(dinr, pos, &block)?;
 				return Ok(());
 			}
 
@@ -345,7 +345,7 @@ impl<R: Backend> Ufs<R> {
 		self.inode_truncate(dinr, dino.size + DIRBLKSIZE as u64)?;
 		entry.reclen = DIRBLKSIZE as u16;
 		entry.write(&mut Decoder::new(Cursor::new(&mut block as &mut [u8]), self.file.config()))?;
-		self.inode_write(dinr, pos, &mut block)?;
+		self.inode_write(dinr, pos, &block)?;
 		Ok(())
 	}
 
