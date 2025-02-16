@@ -192,9 +192,38 @@ fn find(c: &mut Criterion) {
 	// similar to `lookup`, but also perform stat() on files
 	group.measurement_time(Duration::from_secs(30));
 	group.sample_size(50);
-	group.bench_function("lookup+stat", |b| {
-		b.iter(|| {
-			fn traverse(ufs: &mut Ufs<File>, path: &Path) {
+	group.bench_function("lookup+stat", |b| b.iter(|| {
+		fn traverse(ufs: &mut Ufs<File>, path: &Path) {
+			let inr = black_box(lookup(ufs, path));
+			let meta = black_box(ufs.inode_attr(inr).unwrap());
+
+			if meta.kind == InodeType::Directory {
+				let mut children = Vec::new();
+				let _ = ufs.dir_iter(inr, |name, _inr, _kind| {
+					let name = black_box(name);
+					if name != "." && name != ".." {
+						children.push(path.join(name));
+					}
+					None::<()>
+				}).unwrap();
+
+				for child in children {
+					traverse(ufs, &child);
+				}
+			}
+		}
+
+		let mut ufs = Ufs::open(&img, false).unwrap();
+		traverse(&mut ufs, Path::new("/"));
+	}));
+
+	// similar to `lookup+stat`, but also read files and links
+	group.measurement_time(Duration::from_secs(60));
+	group.sample_size(10);
+	for bs in [65536, 16384, 4096, 512] {
+		let mut buf = vec![0u8; bs];
+		group.bench_function(format!("lookup+stat+read-{bs}"), |b| b.iter(|| {
+			fn traverse(ufs: &mut Ufs<File>, path: &Path, buf: &mut [u8]) {
 				let inr = black_box(lookup(ufs, path));
 				let meta = black_box(ufs.inode_attr(inr).unwrap());
 
@@ -212,7 +241,7 @@ fn find(c: &mut Criterion) {
 							.unwrap();
 
 						for child in children {
-							traverse(ufs, &child);
+							traverse(ufs, &child, buf);
 						}
 					}
 					_ => {}
@@ -220,9 +249,9 @@ fn find(c: &mut Criterion) {
 			}
 
 			let mut ufs = Ufs::open(&img, false).unwrap();
-			traverse(&mut ufs, Path::new("/"));
-		})
-	});
+			traverse(&mut ufs, Path::new("/"), &mut buf);
+		}));
+	}
 
 	// similar to `lookup+stat`, but also read files and links
 	group.measurement_time(Duration::from_secs(60));
