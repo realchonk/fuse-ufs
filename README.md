@@ -1,12 +1,12 @@
 # FUSE driver for FreeBSD's UFSv2
 
 ## Features
-- Read support for FreeBSD UFSv2
+- Read and Write support for FreeBSD UFSv2
 - Extended Attributes (no ACLs)
 - Bi-Endian support (eg. mounting big endian FS on little endian system)
 
 ## Planned Features
-- Full Read & Write Support for FreeBSD & Sun UFSv2
+- Read & Write Support for Sun UFSv2
 - Softupdates
 
 ## Packages

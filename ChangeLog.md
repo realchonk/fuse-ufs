@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added 
 
+- fuse-ufs: add cargo features for specific platforms (#84)
 - write support (#84)
 - support for FUSE2 on Linux and FreeBSD (through fuse2rs) ([#84](https://github.com/realchonk/fuse-ufs/pull/84))
 
