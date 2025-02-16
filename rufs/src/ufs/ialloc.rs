@@ -4,7 +4,23 @@ use super::*;
 use crate::{err, InodeNum};
 
 impl<R: Backend> Ufs<R> {
-	pub(super) fn inode_alloc(&mut self) -> IoResult<InodeNum> {
+	fn inode_setup(&mut self, inr: InodeNum, ino: &mut Inode) -> IoResult<()> {
+		log::trace!("inode_setup({inr});");
+		let inp = self.superblock.ino_to_fso(inr);
+		let old_nlink: u16 = self.file.decode_at(inp + 2)?;
+		let old_gen: u32 = self.file.decode_at(inp + 80)?;
+
+		assert_eq!(old_nlink, 0);
+		assert_eq!(ino.nlink, 0);
+
+		ino.gen = old_gen + 1;
+		ino.nlink = 1;
+		self.write_inode(inr, ino)?;
+		self.file.seek(0)?;
+		let _ = self.read_inode(inr)?;
+		Ok(())
+	}
+	pub(super) fn inode_alloc(&mut self, ino: &mut Inode) -> IoResult<InodeNum> {
 		self.assert_rw()?;
 		let sb = &self.superblock;
 		let ipg = sb.ipg as u64;
@@ -19,28 +35,29 @@ impl<R: Backend> Ufs<R> {
 			}
 
 			let off = cga + cg.iusedoff as u64;
-			let end = off + ipg / 8;
 
-			for i in off..end {
-				let mut b: u8 = self.file.decode_at(i)?;
+			for i in 0..(ipg / 8) {
+				let addr = i + off;
+				let mut b: u8 = self.file.decode_at(addr)?;
+				log::debug!("addr={addr:#x} b = {b:#x}");
 				if b == 0xff {
 					continue;
 				}
 
-				let j = b.leading_ones();
-				assert!(j < 8);
+				let j = (0..8)
+					.enumerate()
+					.find(|(_, idx)| (b & (1 << idx)) == 0)
+					.unwrap()
+					.1;
+
 				b |= 1 << j;
-				self.file.encode_at(i, &b)?;
+				self.file.encode_at(addr, &b)?;
 
 				let inr = cgi as u64 * ipg + i * 8 + j as u64;
 				let inr = unsafe { InodeNum::new(inr as u32) };
 
-				if let Ok(ino) = self.read_inode(inr) {
-					if ino.nlink != 0 {
-						log::error!("inode_alloc(): use after free: inr={inr}, cgi={cgi}, cga={cga:08x}, i={i}, j={j}, ipg={ipg}");
-						return Err(err!(EIO));
-					}
-				}
+				log::trace!("inode_alloc(): {inr}");
+				self.inode_setup(inr, ino)?;
 
 				// update free count in CG
 				cg.cs.nifree -= 1;
@@ -48,7 +65,6 @@ impl<R: Backend> Ufs<R> {
 
 				self.update_sb(|sb| sb.cstotal.nifree -= 1)?;
 
-				log::trace!("inode_alloc(): {inr}");
 				return Ok(inr);
 			}
 		}
