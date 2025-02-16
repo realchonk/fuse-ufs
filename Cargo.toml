@@ -2,7 +2,7 @@
 members = [
 	"rufs",
 	"fuse-ufs",
-	"fuzz"
+	"fuzz",
 ]
 resolver = "2"
 

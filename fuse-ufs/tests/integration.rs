@@ -168,9 +168,7 @@ fn harness_rw(img: &Path) -> Harness {
 	let h = harness(&img_copy, true);
 
 	let uid = unsafe { libc::getuid() };
-
-
-	if unsafe { libc::geteuid() } != 0 {
+	if uid != 0 {
 		let _ = Command::new(SUDO)
 			.arg("chown")
 			.arg("-R")
