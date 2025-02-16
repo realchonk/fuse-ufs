@@ -1,5 +1,5 @@
 use std::{
-	ffi::CString,
+	ffi::{CString, OsStr},
 	io::{Error, Result},
 	os::unix::ffi::OsStrExt,
 	path::Path,
@@ -7,14 +7,27 @@ use std::{
 };
 
 use fuse2rs::*;
-use rufs::InodeNum;
+use rufs::{InodeNum, InodeType};
 
 use crate::Fs;
+
+macro_rules! err {
+	($n:ident) => {
+		Error::from_raw_os_error(libc::$n)
+	};
+}
+
+fn path_split(path: &Path) -> Result<(&Path, &OsStr)> {
+	path
+		.parent()
+		.zip(path.file_name())
+		.ok_or(err!(EINVAL))
+}
 
 impl Fs {
 	fn lookup(&mut self, path: &Path) -> Result<InodeNum> {
 		if !path.is_absolute() {
-			return Err(Error::from_raw_os_error(libc::EINVAL));
+			return Err(err!(EINVAL));
 		}
 
 		let mut inr = InodeNum::ROOT;
@@ -92,7 +105,7 @@ impl Filesystem for Fs {
 		let len = link.len();
 
 		if len >= buf.len() {
-			return Err(Error::from_raw_os_error(libc::ENAMETOOLONG));
+			return Err(err!(ENAMETOOLONG));
 		}
 
 		buf[0..len].copy_from_slice(&link[0..len]);
@@ -165,24 +178,14 @@ impl Filesystem for Fs {
 	}
 
 	fn unlink(&mut self, _req: &Request, path: &Path) -> Result<()> {
-		let Some(dir) = path.parent() else {
-			return Err(Error::from_raw_os_error(libc::EINVAL));
-		};
-		let Some(name) = path.file_name() else {
-			return Err(Error::from_raw_os_error(libc::EINVAL));
-		};
+		let (dir, name) = path_split(path)?;
 		let dinr = self.lookup(dir)?;
 		self.ufs.unlink(dinr, name)?;
 		Ok(())
 	}
 
 	fn rmdir(&mut self, _req: &Request, path: &Path) -> Result<()> {
-		let Some(dir) = path.parent() else {
-			return Err(Error::from_raw_os_error(libc::EINVAL));
-		};
-		let Some(name) = path.file_name() else {
-			return Err(Error::from_raw_os_error(libc::EINVAL));
-		};
+		let (dir, name) = path_split(path)?;
 		let dinr = self.lookup(dir)?;
 		self.ufs.rmdir(dinr, name)?;
 		Ok(())
