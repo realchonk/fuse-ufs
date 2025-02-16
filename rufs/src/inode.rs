@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime};
+use std::{io::Error, time::{Duration, SystemTime}};
 
 use bincode::{de::Decoder, enc::Encoder, error::{DecodeError, EncodeError}, Decode, Encode};
 
@@ -61,6 +61,14 @@ impl Inode {
 
 	pub fn set_btime(&mut self, t: SystemTime) {
 		(self.birthtime, self.birthnsec) = systotime(t);
+	}
+
+	pub fn assert_dir(&self) -> Result<(), Error> {
+		if self.kind() == InodeType::Directory {
+			Ok(())
+		} else {
+			Err(Error::from_raw_os_error(libc::ENOTDIR))
+		}
 	}
 
 	pub fn perm(&self) -> u16 {
