@@ -141,9 +141,6 @@ impl<R: Read + Seek> Ufs<R> {
 			};
 		}
 
-		sbassert!(sb.sblkno == 24);
-		sbassert!(sb.cblkno == 32);
-		sbassert!(sb.iblkno == 40);
 		sbassert!(sb.ncg > 0);
 		sbassert!(sb.ipg > 0);
 		sbassert!(sb.fpg > 0);
@@ -155,12 +152,8 @@ impl<R: Read + Seek> Ufs<R> {
 		sbassert!(Some(sb.frag) == 1i32.checked_shl(sb.fragshift as u32));
 		sbassert!(sb.bsize == (!sb.bmask + 1));
 		sbassert!(sb.fsize == (!sb.fmask + 1));
-		sbassert!(sb.sbsize == 4096);
+		sbassert!(sb.sbsize == sb.fsize);
 		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
-
-		// TODO: support other block/frag sizes
-		sbassert!(sb.bsize == 32768);
-		sbassert!(sb.fsize == 4096);
 
 		// check that all superblocks are ok.
 		for i in 0..sb.ncg {
