@@ -218,6 +218,7 @@ impl<R: Backend> Ufs<R> {
 			let size = self.inode_read_block(dinr, &dino, blkidx, &mut block)?;
 
 			if let Some(inr) = unlink_block(dinr, &mut block[0..size], name, self.file.config())? {
+				self.inode_write_block(dinr, &dino, blkidx, &block)?;
 				return Ok(inr);
 			}
 		}
