@@ -1,11 +1,11 @@
 #![no_main]
 
-use std::io::{Cursor, Read, Seek};
+use std::io::{Cursor, Read, Seek, Write};
 
 use libfuzzer_sys::fuzz_target;
 use rufs::*;
 
-fuzz_target!(|data: &[u8]| {
+fuzz_target!(|data: Vec<u8>| {
 	let rdr = BlockReader::new(Cursor::new(data), 4096);
 	let mut fs = match Ufs::new(rdr) {
 		Ok(fs) => fs,
@@ -15,7 +15,7 @@ fuzz_target!(|data: &[u8]| {
 	traverse(&mut fs, InodeNum::ROOT);
 });
 
-fn traverse<R: Read + Seek>(fs: &mut Ufs<R>, inr: InodeNum) {
+fn traverse<R: Read + Write + Seek>(fs: &mut Ufs<R>, inr: InodeNum) {
 	let mut children = Vec::new();
 	let _ = fs.dir_iter(inr, |name, inr, kind| {
 		children.push((name.to_owned(), inr, kind));
