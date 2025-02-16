@@ -10,7 +10,13 @@ impl<R: Backend> Ufs<R> {
 		let old_nlink: u16 = self.file.decode_at(inp + 2)?;
 		let old_gen: u32 = self.file.decode_at(inp + 80)?;
 
-		assert_eq!(old_nlink, 0);
+		if old_nlink != 0 {
+			log::error!("inode_setup({inr}): use after free");
+			if let Ok(ino) = self.read_inode(inr) {
+				log::error!("inode_setup({inr}): ino={ino:#?}");
+			}
+			return Err(err!(EFAULT));
+		}
 		assert_eq!(ino.nlink, 0);
 
 		ino.gen = old_gen + 1;
