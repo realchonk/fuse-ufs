@@ -145,4 +145,12 @@ impl Filesystem for Fs {
 		self.ufs.unlink(dinr, name)?;
 		Ok(())
 	}
+
+	fn rmdir(&mut self, _req: &Request, path: &Path) -> Result<()> {
+		let Some(dir) = path.parent() else { return Err(Error::from_raw_os_error(libc::EINVAL)) };
+		let Some(name) = path.file_name() else { return Err(Error::from_raw_os_error(libc::EINVAL)) };
+		let dinr = self.lookup(dir)?;
+		self.ufs.rmdir(dinr, name)?;
+		Ok(())
+	}
 }
