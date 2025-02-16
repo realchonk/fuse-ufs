@@ -203,4 +203,11 @@ impl<R: Backend> Ufs<R> {
 		
 		(idx * fpg + cblkno) * fs
 	}
+
+	fn update_sb(&mut self, f: impl FnOnce(&mut Superblock)) -> IoResult<()> {
+		// Only update the first superblock, because we're lazy.
+		f(&mut self.superblock);
+		self.file.encode_at(SBLOCK_UFS2 as u64, &self.superblock)?;
+		Ok(())
+	}
 }
