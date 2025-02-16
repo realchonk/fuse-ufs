@@ -216,14 +216,6 @@ impl<R: Backend> Ufs<R> {
 		Ok((blk, bsize))
 	}
 
-	pub(super) fn blk_alloc_zeroed(&mut self, size: u64) -> IoResult<(NonZeroU64, u64)> {
-		let fs = self.superblock.fsize as u64;
-		let (blkno, size) = self.blk_alloc(size)?;
-		let data = vec![0u8; size as usize];
-		self.file.encode_at(blkno.get() * fs, &data)?;
-		Ok((blkno, size))
-	}
-
 	pub(super) fn blk_alloc_full_zeroed(&mut self) -> IoResult<NonZeroU64> {
 		let bs = self.superblock.bsize as usize;
 		let fs = self.superblock.fsize as u64;
