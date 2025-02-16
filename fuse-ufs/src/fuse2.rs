@@ -1,6 +1,6 @@
 use std::{
 	ffi::{CString, OsStr},
-	io::{Error, Result},
+	io::Result,
 	os::unix::ffi::OsStrExt,
 	path::Path,
 	time::SystemTime,
