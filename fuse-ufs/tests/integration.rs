@@ -3,15 +3,15 @@ use std::{
 	fmt,
 	fs::{self, File},
 	io::{Error, ErrorKind, Read, Seek, SeekFrom},
-	os::{
-		fd::AsRawFd,
-		unix::{ffi::OsStringExt, fs::MetadataExt},
-	},
+	os::unix::{ffi::OsStringExt, fs::MetadataExt},
 	path::{Path, PathBuf},
-	process::{Child, Command, Output, Stdio},
+	process::{Child, Command, Output},
 	thread::sleep,
 	time::{Duration, Instant},
 };
+
+#[cfg(target_os = "freebsd")]
+use std::os::fd::AsRawFd;
 
 #[allow(unused_imports)]
 use assert_cmd::cargo::CommandCargoExt;
