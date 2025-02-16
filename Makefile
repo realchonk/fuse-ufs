@@ -24,6 +24,9 @@ test:
 	cargo test -p rufs
 	cargo test -p fuse-ufs --no-default-features --features "$$(uname)"
 
+bench:
+	cargo bench
+
 fuz:
 	mkdir -p fuzz/corpus/ufs/
 	unzstd -o fuzz/corpus/ufs/ufs-big.img -kf resources/ufs-big.img.zst
