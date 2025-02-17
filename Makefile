@@ -1,7 +1,7 @@
 PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 
-BENCH = cargo bench -p rufs
+BENCH = cargo bench -p rufs --bench bench
 
 SRC != find rufs/src fuse-ufs/src -name '*.rs'
 
@@ -32,6 +32,9 @@ bench:
 	${BENCH} --no-default-features -F dcache > bench.dcache
 	${BENCH} --no-default-features -F bcache > bench.bcache
 	${BENCH} > bench.cache
+
+flame:
+	${BENCH} -F 'bcache' -- --profile-time 5
 
 fuz:
 	mkdir -p fuzz/corpus/ufs/
