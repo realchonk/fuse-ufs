@@ -93,6 +93,20 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
+	pub(super) fn read_pblock_ptr(&mut self, bno: u64, idx: usize) -> IoResult<Option<NonZeroU64>> {
+		if bno == 0 {
+			return Ok(None);
+		}
+		let bs = self.superblock.bsize as usize;
+		let pbp = bs / size_of::<u64>();
+
+		let mut buf = vec![0u64; pbp];
+		self.read_pblock(bno, &mut buf)?;
+		let bno = buf[idx];
+
+		Ok(NonZeroU64::new(bno))
+	}
+
 	pub(super) fn write_pblock(&mut self, bno: u64, block: &[u64]) -> IoResult<()> {
 		let fs = self.superblock.fsize as u64;
 		let bs = self.superblock.bsize as usize;

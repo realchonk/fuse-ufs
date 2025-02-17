@@ -344,27 +344,16 @@ impl<R: Backend> Ufs<R> {
 		ino: &Inode,
 		blkno: u64,
 	) -> IoResult<Option<NonZeroU64>> {
-		let sb = &self.superblock;
-		let bs = sb.bsize as u64;
-		let su64 = size_of::<UfsDaddr>() as u64;
-		let pbp = bs / su64;
-
 		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &ino.data else {
 			log::warn!("inode_resolve_block({inr}, {blkno}): inode doesn't have blocks");
 			return Err(err!(EIO));
 		};
 
-		let mut data = vec![0u64; pbp as usize];
 		match self.decode_blkidx(blkno)? {
 			InodeBlock::Direct(off) => Ok(NonZeroU64::new(direct[off] as u64)),
 			InodeBlock::Indirect1(off) => {
 				let x1 = indirect[0] as u64;
-				if x1 == 0 {
-					return Ok(None);
-				}
-
-				self.read_pblock(x1, &mut data)?;
-				Ok(NonZeroU64::new(data[off]))
+				self.read_pblock_ptr(x1, off)
 			}
 			InodeBlock::Indirect2(high, low) => {
 				let x1 = indirect[1] as u64;
@@ -372,14 +361,11 @@ impl<R: Backend> Ufs<R> {
 					return Ok(None);
 				}
 
-				self.read_pblock(x1, &mut data)?;
-				let x2 = data[high];
-				if x2 == 0 {
+				let Some(x2) = self.read_pblock_ptr(x1, high)? else {
 					return Ok(None);
-				}
+				};
 
-				self.read_pblock(x2, &mut data)?;
-				Ok(NonZeroU64::new(data[low]))
+				self.read_pblock_ptr(x2.get(), low)
 			}
 			InodeBlock::Indirect3(high, mid, low) => {
 				let x1 = indirect[2] as u64;
@@ -387,20 +373,15 @@ impl<R: Backend> Ufs<R> {
 					return Ok(None);
 				}
 
-				self.read_pblock(x1, &mut data)?;
-				let x2 = data[high];
-				if x2 == 0 {
+				let Some(x2) = self.read_pblock_ptr(x1, high)? else {
 					return Ok(None);
-				}
+				};
 
-				self.read_pblock(x2, &mut data)?;
-				let x3 = data[mid];
-				if x3 == 0 {
+				let Some(x3) = self.read_pblock_ptr(x2.get(), mid)? else {
 					return Ok(None);
-				}
+				};
 
-				self.read_pblock(x3, &mut data)?;
-				Ok(NonZeroU64::new(data[low]))
+				self.read_pblock_ptr(x3.get(), low)
 			}
 		}
 	}
