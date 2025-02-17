@@ -18,8 +18,6 @@ pub struct BlockReader<T: Backend> {
 	idx:   usize,
 	dirty: bool,
 	rw:    bool,
-	#[cfg(feature = "bcache")]
-	cache: lru::LruCache<u64, Vec<u8>>,
 }
 
 impl BlockReader<File> {
@@ -39,8 +37,6 @@ impl<T: Backend> BlockReader<T> {
 			idx: bs,
 			dirty: false,
 			rw,
-			#[cfg(feature = "bcache")]
-			cache: crate::new_lru(crate::BCACHE_SIZE),
 		}
 	}
 
@@ -51,17 +47,6 @@ impl<T: Backend> BlockReader<T> {
 	fn refill(&mut self) -> IoResult<()> {
 		if self.dirty {
 			panic!("Cannot refill dirty BlockReader");
-		}
-
-		#[cfg(feature = "bcache")]
-		let pos = self.inner.stream_position()?;
-		#[cfg(feature = "bcache")]
-		if let Some(cached) = self.cache.get(&pos) {
-			self.block.copy_from_slice(cached);
-			self.inner
-				.seek(SeekFrom::Current(self.block.len() as i64))?;
-			self.idx = 0;
-			return Ok(());
 		}
 
 		self.block.fill(0u8);
@@ -75,8 +60,6 @@ impl<T: Backend> BlockReader<T> {
 		if num < self.block.len() {
 			log::error!("BlockReader::refill(): num={num}, eof?");
 		}
-		#[cfg(feature = "bcache")]
-		self.cache.push(pos, self.block.clone());
 		self.idx = 0;
 		Ok(())
 	}
@@ -134,9 +117,6 @@ impl<T: Backend> Write for BlockReader<T> {
 		let pos = self
 			.inner
 			.seek(SeekFrom::Current(-(self.block.len() as i64)))?;
-
-		#[cfg(feature = "bcache")]
-		self.cache.push(pos, self.block.clone());
 
 		let mut num = 0;
 		while num < self.block.len() {

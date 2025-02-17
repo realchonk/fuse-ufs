@@ -18,7 +18,6 @@ fuse2rs = ["dep:fuse2rs"]
 lru = ["dep:lru"]
 icache = ["lru"]
 dcache = ["lru"]
-bcache = ["lru"]
 
 [dependencies]
 bincode.workspace = true
