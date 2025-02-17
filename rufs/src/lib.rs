@@ -12,7 +12,7 @@ pub const ENOATTR: i32 = libc::ENOATTR;
 pub const ENOATTR: i32 = libc::ENODATA;
 
 pub use crate::{
-	blockreader::BlockReader,
+	blockreader::{BlockReader, Backend},
 	data::{InodeAttr, InodeNum, InodeType},
 	ufs::{Info, Ufs},
 };
