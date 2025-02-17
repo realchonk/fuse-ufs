@@ -33,12 +33,12 @@ impl<R: Backend> Ufs<R> {
 		let end = offset + len;
 
 		while offset < end {
-			let block = self.inode_find_block(inr, &ino, offset);
+			let block = self.inode_find_block(inr, ino, offset);
 			let num = (block.size - block.off).min(end - offset);
 
 			self.inode_read_block(
 				inr,
-				&ino,
+				ino,
 				block.blkidx,
 				&mut blockbuf[0..(block.size as usize)],
 			)?;
@@ -70,20 +70,20 @@ impl<R: Backend> Ufs<R> {
 
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
 		ino.size = ino.size.max(offset + buffer.len() as u64);
-		self.write_inode(inr, &ino)?;
+		self.write_inode(inr, ino)?;
 
 		let mut boff = 0;
 		let len = (buffer.len() as u64).min(ino.size - offset);
 		let end = offset + len;
 
 		while offset < end {
-			let block = self.inode_find_block(inr, &ino, offset);
+			let block = self.inode_find_block(inr, ino, offset);
 			let num = (block.size - block.off).min(end - offset);
 
 			// TODO: remove this read, if writing a full block
 			self.inode_read_block(
 				inr,
-				&ino,
+				ino,
 				block.blkidx,
 				&mut blockbuf[0..(block.size as usize)],
 			)?;
