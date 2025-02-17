@@ -370,7 +370,13 @@ impl<R: Backend> Ufs<R> {
 		let mut ino = self.read_inode(inr)?;
 		self.inode_do_truncate(inr, &mut ino, new_size)
 	}
-	pub(super) fn inode_do_truncate(&mut self, inr: InodeNum, ino: &mut Inode, new_size: u64) -> IoResult<()> {
+
+	pub(super) fn inode_do_truncate(
+		&mut self,
+		inr: InodeNum,
+		ino: &mut Inode,
+		new_size: u64,
+	) -> IoResult<()> {
 		log::trace!("inode_truncate({inr}, {new_size});");
 		self.assert_rw()?;
 

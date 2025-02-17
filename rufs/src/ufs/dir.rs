@@ -1,4 +1,7 @@
-use std::{io::{BufRead, Write}, path::Component};
+use std::{
+	io::{BufRead, Write},
+	path::Component,
+};
 
 use super::*;
 use crate::{err, InodeNum};
@@ -257,18 +260,19 @@ impl<R: Backend> Ufs<R> {
 		if let Some(cached) = self.dcache.get(&q) {
 			return Ok(*cached);
 		}
-		
-		let inr = self.dir_iter(
-			pinr,
-			|name2, inr, _kind| {
-				if name == name2 {
-					Some(inr)
-				} else {
-					None
-				}
-			},
-		)?
-		.ok_or(err!(ENOENT))?;
+
+		let inr = self
+			.dir_iter(
+				pinr,
+				|name2, inr, _kind| {
+					if name == name2 {
+						Some(inr)
+					} else {
+						None
+					}
+				},
+			)?
+			.ok_or(err!(ENOENT))?;
 
 		#[cfg(feature = "dcache")]
 		self.dcache.push(q, inr);
@@ -461,8 +465,8 @@ impl<R: Backend> Ufs<R> {
 			match c {
 				Component::Normal(name) => {
 					inr = self.dir_lookup(inr, name)?;
-				},
-				Component::CurDir => {},
+				}
+				Component::CurDir => {}
 				_ => {
 					log::error!("lookup({path:?}): invalid component: {c:?}");
 					return Err(err!(EINVAL));
