@@ -65,6 +65,7 @@ task:
     image: ghcr.io/cirruslabs/macos-runner:sonoma
   setup_script:
     - curl -s https://sh.rustup.rs | sh -s -- -y
+    - brew install --cask macfuse
   << : *TEST
 
 task:
