@@ -1,0 +1,12 @@
+image: openbsd/latest
+packages:
+  - rust
+  - zstd
+sources:
+  - https://github.com/realchonk/fuse-ufs
+tasks:
+  - install-llvm: |
+      pkg_info -Q llvm | grep '^llvm-16' | xargs doas pkg_add
+  - test: |
+      cd fuse-ufs
+      RUST_BACKTRACE=1 LIBCLANG_PATH=/usr/local/llvm16/lib make test
