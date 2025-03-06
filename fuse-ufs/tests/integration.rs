@@ -37,6 +37,20 @@ cfg_if! {
 	}
 }
 
+fn sudo(cmd: &str) -> Command {
+	if unsafe { libc::geteuid() } == 0 {
+		return Command::new(cmd);
+	}
+
+	let sudo = std::env::var("SUDO")
+		.ok()
+		.unwrap_or_else(|| SUDO.to_string());
+
+	let mut c = Command::new(sudo);
+	c.arg(cmd);
+	c
+}
+
 #[allow(dead_code)]
 fn errno() -> i32 {
 	nix::errno::Errno::last_raw()
@@ -116,8 +130,7 @@ fn harness(img: &Path, delete: bool) -> Harness {
 
 	cfg_if! {
 		if #[cfg(target_os = "openbsd")] {
-			cmd = Command::new("doas");
-			cmd.arg("../target/debug/fuse-ufs");
+			cmd = sudo("../target/debug/fuse-ufs")
 		} else {
 			cmd = Command::cargo_bin("fuse-ufs").unwrap();
 		}
@@ -171,8 +184,7 @@ fn harness_rw(img: &Path) -> Harness {
 
 	let uid = unsafe { libc::getuid() };
 	if uid != 0 {
-		let _ = Command::new(SUDO)
-			.arg("chown")
+		let _ = sudo("chown")
 			.arg("-R")
 			.arg(uid.to_string())
 			.arg(h.d.path())
@@ -186,7 +198,7 @@ fn harness_rw(img: &Path) -> Harness {
 fn umount(path: &Path) -> Result<Output, Error> {
 	cfg_if! {
 		if #[cfg(target_os = "openbsd")] {
-			Command::new("doas").arg("umount").arg(path).output()
+			sudo("umount").arg(path).output()
 		} else if #[cfg(all(target_os = "linux", target_env = "musl"))] {
 			Command::new("fusermount3").arg("-u").arg(path).output()
 		} else {
