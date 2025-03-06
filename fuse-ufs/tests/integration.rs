@@ -29,11 +29,13 @@ use tempfile::{tempdir, TempDir};
 #[allow(unused_imports)]
 use xattr::FileExt;
 
-#[cfg(target_os = "openbsd")]
-const SUDO: &str = "doas";
-
-#[cfg(not(target_os = "openbsd"))]
-const SUDO: &str = "sudo";
+cfg_if! {
+	if #[cfg(any(target_os = "openbsd", all(target_os = "linux", target_env = "musl")))] {
+		const SUDO: &str = "doas";
+	} else {
+		const SUDO: &str = "sudo";
+	}
+}
 
 #[allow(dead_code)]
 fn errno() -> i32 {
@@ -181,14 +183,14 @@ fn harness_rw(img: &Path) -> Harness {
 	h
 }
 
-#[cfg(target_os = "openbsd")]
 fn umount(path: &Path) -> Result<Output, Error> {
-	Command::new("doas").arg("umount").arg(path).output()
-}
-
-#[cfg(not(target_os = "openbsd"))]
-fn umount(path: &Path) -> Result<Output, Error> {
-	Command::new("umount").arg(path).output()
+	cfg_if! {
+		if #[cfg(target_os = "openbsd")] {
+			Command::new("doas").arg("umount").arg(path).output()
+		} else {
+			Command::new("fusermount3").arg("-u").arg(path).output()
+		}
+	}
 }
 
 impl Drop for Harness {
