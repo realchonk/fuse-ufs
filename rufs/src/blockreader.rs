@@ -48,6 +48,7 @@ impl<T: Backend> BlockReader<T> {
 		if self.dirty {
 			panic!("Cannot refill dirty BlockReader");
 		}
+
 		self.block.fill(0u8);
 		let mut num = 0;
 		while num < self.block.len() {
@@ -112,8 +113,11 @@ impl<T: Backend> Write for BlockReader<T> {
 			return Ok(());
 		}
 
-		self.inner
+		#[allow(unused_variables)]
+		let pos = self
+			.inner
 			.seek(SeekFrom::Current(-(self.block.len() as i64)))?;
+
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.write(&self.block[num..])? {
