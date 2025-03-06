@@ -1,0 +1,18 @@
+image: alpine/latest
+packages:
+  - cargo
+  - rust
+  - zstd
+  - fuse3
+  - fuse3-dev
+sources:
+  - https://github.com/realchonk/fuse-ufs
+tasks:
+  - modprobe: |
+      sudo modprobe fuse
+  - prepare: |
+      sudo sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
+      sudo chmod +rw /dev/fuse
+  - test: |
+      cd fuse-ufs
+      SUDO=sudo RUST_BACKTRACE=1 make test
