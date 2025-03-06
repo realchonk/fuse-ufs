@@ -187,8 +187,10 @@ fn umount(path: &Path) -> Result<Output, Error> {
 	cfg_if! {
 		if #[cfg(target_os = "openbsd")] {
 			Command::new("doas").arg("umount").arg(path).output()
-		} else {
+		} else if #[cfg(all(target_os = "linux", target_env = "musl"))]
 			Command::new("fusermount3").arg("-u").arg(path).output()
+		} else {
+			Command::new("umount").arg(path).output()
 		}
 	}
 }
