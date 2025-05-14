@@ -19,7 +19,7 @@ fmt:
 	./scripts/fmt-changelog.sh
 
 lint:
-	cargo clippy --all-targets
+	cargo clippy --all-targets -- -Dwarnings
 
 test:
 	cargo test -p rufs --ignore-rust-version
