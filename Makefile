@@ -1,6 +1,6 @@
 PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
-FUSE_UFS_FLAGS = -p fuse-ufs --ignore-rust-version --no-default-features -F $(uname)
+FUSE_UFS_FLAGS = -p fuse-ufs --ignore-rust-version --no-default-features -F $$(uname)
 
 SRC != find rufs/src fuse-ufs/src -name '*.rs'
 
