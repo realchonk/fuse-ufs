@@ -97,7 +97,7 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	/// Copy data within a file.
-	pub fn inode_copy_range(
+	pub(super) fn inode_copy_range(
 		&mut self,
 		inr: InodeNum,
 		ino: &Inode,
