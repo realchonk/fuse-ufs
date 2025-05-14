@@ -1,5 +1,6 @@
 PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
+FUSE_UFS_FLAGS = -p fuse-ufs --ignore-rust-version --no-default-features -F $(uname)
 
 SRC != find rufs/src fuse-ufs/src -name '*.rs'
 
@@ -22,7 +23,7 @@ lint:
 
 test:
 	cargo test -p rufs --ignore-rust-version
-	cargo test -p fuse-ufs --no-default-features --features "$$(uname)" --ignore-rust-version
+	cargo test ${FUSE_UFS_FLAGS}
 
 fuz:
 	mkdir -p fuzz/corpus/ufs/
@@ -46,6 +47,6 @@ clean:
 	rm -f .patch
 
 fuse-ufs-bin: Cargo.lock ${SRC}
-	cargo build --release -p fuse-ufs --no-default-features --features "$$(uname)"
+	cargo build --release ${FUSE_UFS_FLAGS}
 	cp -f target/release/fuse-ufs fuse-ufs-bin
 
