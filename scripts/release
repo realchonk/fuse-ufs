@@ -1,5 +1,7 @@
 #!/bin/sh
 
+FUSE_UFS_FLAGS="-p fuse-ufs --no-default-features -F $(uname)"
+
 ask() {
 	printf '%s [yN] ' "$1" >&2
 	read -r yesno || return 1
@@ -9,10 +11,34 @@ ask() {
 die() {
 	printf 'error: %s\n' "$*" >&2
 	if [ -e .got ] && ask 'Restore modified files?'; then
-		got rv ChangeLog.md rufs/Cargo.toml fuse-ufs/Cargo.toml
+		got rv ChangeLog.md rufs/Cargo.toml fuse-ufs/Cargo.toml Cargo.toml Cargo.lock
 	fi
 	exit 1
 }
+
+args=$(getopt 'n' $*)
+set -- $args
+
+nocommit=false
+
+while [ "$#" -ne 0 ]; do
+	case "$1" in
+	-n)
+		nocommit=true
+		shift
+		;;
+	--)
+		shift
+		break
+		;;
+	-*)
+		die "invalid option: $1"
+		;;
+	*)
+		die "unrecognized argument: $1"
+		;;
+	esac
+done
 
 ver=$(sed -n 's/^## \[\(.*\)\] - unreleased$/\1/p' ChangeLog.md)
 [ -z "$ver" ] && die "cannot find unreleased version in ChangeLog"
@@ -28,16 +54,18 @@ done
 sed -i "s/^rufs = { version = \".*\", path = \"rufs\" }\$/rufs = { version = \"$ver\", path = \"rufs\" }/" Cargo.toml || die 'failed to patch workspace Cargo.toml'
 
 cargo update || die 'failed to run `cargo update`'
-cargo test || die 'tests failed'
+cargo test ${FUSE_UFS_FLAGS} || die 'tests failed'
 
 [ -e .got ] || die 'repo is not a GameOfTrees repo'
 got di | bat -l patch
+
+"$nocommit" && exit 1
+
 ask 'Commit?' || exit 1
 got ci -m "Release of $ver" || die 'failed to commit'
 got tag -m "$ver" "$ver" || die 'failed to tag commit'
 got se -T || die 'failed to send'
 
-for p in rufs fuse-ufs; do
-	cargo publish -p "$p" || die "failed to dry publish $p"
-done
+cargo publish -p rufs || die "failed to dry publish rufs"
+cargo publish ${FUSE_UFS_FLAGS} || die "failed to dry publish fuse-ufs"
 
