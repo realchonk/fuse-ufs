@@ -177,8 +177,8 @@ impl Inode {
 	}
 }
 
-impl Decode for Inode {
-	fn decode<D: Decoder>(d: &mut D) -> Result<Self, DecodeError> {
+impl<Context> Decode<Context> for Inode {
+	fn decode<D: Decoder<Context = Context>>(d: &mut D) -> Result<Self, DecodeError> {
 		let mode = u16::decode(d)?;
 		let nlink = u16::decode(d)?;
 		let uid = u32::decode(d)?;

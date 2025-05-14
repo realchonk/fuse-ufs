@@ -27,7 +27,7 @@ impl Config {
 		Self::Big(cfg)
 	}
 
-	fn decode<T: Decode>(&self, rdr: &mut impl Read) -> Result<T> {
+	fn decode<T: Decode<()>>(&self, rdr: &mut impl Read) -> Result<T> {
 		match self {
 			Self::Little(cfg) => bincode::decode_from_std_read(rdr, *cfg),
 			Self::Big(cfg) => bincode::decode_from_std_read(rdr, *cfg),
@@ -59,7 +59,7 @@ impl<T: Read> Decoder<T> {
 		&self.inner
 	}
 
-	pub fn decode<X: Decode>(&mut self) -> Result<X> {
+	pub fn decode<X: Decode<()>>(&mut self) -> Result<X> {
 		self.config.decode(&mut self.inner)
 	}
 
@@ -95,7 +95,7 @@ impl<T: Read + Seek> Decoder<T> {
 		self.read(buf)
 	}
 
-	pub fn decode_at<X: Decode>(&mut self, pos: u64) -> Result<X> {
+	pub fn decode_at<X: Decode<()>>(&mut self, pos: u64) -> Result<X> {
 		self.seek(pos)?;
 		self.decode()
 	}
