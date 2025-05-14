@@ -21,8 +21,8 @@ lint:
 	cargo clippy --all-targets
 
 test:
-	cargo test -p rufs
-	cargo test -p fuse-ufs --no-default-features --features "$$(uname)"
+	cargo test -p rufs --ignore-rust-version
+	cargo test -p fuse-ufs --no-default-features --features "$$(uname)" --ignore-rust-version
 
 fuz:
 	mkdir -p fuzz/corpus/ufs/
