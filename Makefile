@@ -40,6 +40,10 @@ mount:
 clean:
 	rm -f fuse-ufs-bin
 	cargo clean
+	find . -name '*.core' -delete -print
+	find . -name '*.orig' -delete -print
+	find . -name '*.rej' -delete -print
+	rm -f .patch
 
 fuse-ufs-bin: Cargo.lock ${SRC}
 	cargo build --release -p fuse-ufs --no-default-features --features "$$(uname)"
