@@ -213,7 +213,7 @@ impl Drop for Harness {
 		loop {
 			match umount(self.d.path()) {
 				Err(e) => {
-					eprintln!("Executing umount failed: {}", e);
+					eprintln!("Executing umount failed: {e}");
 					if std::thread::panicking() {
 						// Can't double panic
 						return;
@@ -228,14 +228,14 @@ impl Drop for Harness {
 						// The daemon probably crashed.
 						break;
 					} else if errmsg.contains("Device busy") {
-						println!("{}", errmsg);
+						println!("{errmsg}");
 					} else {
 						if std::thread::panicking() {
 							// Can't double panic
-							println!("{}", errmsg);
+							println!("{errmsg}");
 							return;
 						}
-						panic!("{}", errmsg);
+						panic!("{errmsg}");
 					}
 				}
 			}
