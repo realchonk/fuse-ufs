@@ -14,10 +14,10 @@ test: &TEST
     fingerprint_script: cat Cargo.lock || echo ""
   build_script:
     - . $HOME/.cargo/env || true
-    - cargo build
+    - make
   test_script:
     - . $HOME/.cargo/env || true
-    - cargo test
+    - make test
 
 task:
   env:
