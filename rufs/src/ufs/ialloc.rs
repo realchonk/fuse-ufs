@@ -97,12 +97,11 @@ impl<R: Backend> Ufs<R> {
 		if bno == 0 {
 			return Ok(None);
 		}
-		let bs = self.superblock.bsize as usize;
-		let pbp = bs / size_of::<u64>();
+		let fs = self.superblock.fsize as u64;
+		let su64 = size_of::<u64>() as u64;
 
-		let mut buf = vec![0u64; pbp];
-		self.read_pblock(bno, &mut buf)?;
-		let bno = buf[idx];
+		let addr = bno * fs + (idx as u64) * su64;
+		let bno: u64 = self.file.decode_at(addr)?;
 
 		Ok(NonZeroU64::new(bno))
 	}
