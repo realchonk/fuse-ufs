@@ -31,8 +31,7 @@ bench:
 	${BENCH} --no-default-features > bench.baseline
 	${BENCH} --no-default-features -F icache > bench.icache
 	${BENCH} --no-default-features -F dcache > bench.dcache
-	${BENCH} --no-default-features -F bcache > bench.bcache
-	${BENCH} > bench.cache
+	${BENCH} > bench.all
 
 flame:
 	${BENCH} -F 'bcache' -- --profile-time 5

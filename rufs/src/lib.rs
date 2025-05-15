@@ -10,10 +10,6 @@ mod ufs;
 #[cfg(feature = "icache")]
 const ICACHE_SIZE: usize = 1024;
 
-/// Number of blocks cached.
-#[cfg(feature = "bcache")]
-const BCACHE_SIZE: usize = 16;
-
 /// Number of directory entries to cache.
 #[cfg(feature = "dcache")]
 const DCACHE_SIZE: usize = 1024;
