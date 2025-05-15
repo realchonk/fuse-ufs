@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
-## [0.5.0] - unreleased
+## [0.5.0] - 2025-05-15
 
 ### Added 
 
@@ -89,7 +89,8 @@ This was the final release as part of [Google Summer of Code 2024](https://summe
 
 This was the first formal release of fuse-ufs.
 
-[unreleased]: https://github.com/realchonk/fuse-ufs/compare/0.4.4...HEAD
+[unreleased]: https://github.com/realchonk/fuse-ufs/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/realchonk/fuse-ufs/compare/0.4.4...0.5.0
 [0.4.4]: https://github.com/realchonk/fuse-ufs/compare/0.4.3...0.4.4
 [0.4.3]: https://github.com/realchonk/fuse-ufs/compare/0.4.2...0.4.3
 [0.4.2]: https://github.com/realchonk/fuse-ufs/compare/0.4.1...0.4.2
