@@ -2,7 +2,7 @@ PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 FUSE_UFS_FLAGS = -p fuse-ufs --ignore-rust-version --no-default-features -F $$(uname)
 
-BENCH = cargo bench -p fuse-ufs
+BENCH = cargo bench -p rufs
 
 SRC != find rufs/src fuse-ufs/src -name '*.rs'
 
