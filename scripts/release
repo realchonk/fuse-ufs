@@ -43,7 +43,18 @@ done
 ver=$(sed -n 's/^## \[\(.*\)\] - unreleased$/\1/p' ChangeLog.md)
 [ -z "$ver" ] && die "cannot find unreleased version in ChangeLog"
 
-sed -i "s/^\\(## \\[$ver\\]\\) - unreleased$/\\1 - $(date +%F)/" ChangeLog.md || die "failed to patch ChangeLog"
+script=$(cat <<EOF
+s/^\(## \[$ver\]\) - unreleased\$/\1 - $(date +%F)/
+/^\[unreleased\]:/{
+	s/unreleased/$ver/
+	s/HEAD/$ver/
+	i\\
+[unreleased]: https://github.com/realchonk/fuse-ufs/compare/$ver...HEAD
+}
+EOF
+)
+
+sed -i "$script" ChangeLog.md || die "failed to patch ChangeLog"
 
 for f in rufs/Cargo.toml fuse-ufs/Cargo.toml; do
 	sed -i "s/^version = .*$/version = \"$ver\"/" "$f" || die "failed to patch $f"
