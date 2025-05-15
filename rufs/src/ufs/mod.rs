@@ -64,7 +64,11 @@ pub struct Info {
 pub struct Ufs<R: Backend> {
 	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
+	// inode cache
 	icache: LruCache<InodeNum, Inode>,
+
+	// directory name cache
+	dcache: LruCache<(InodeNum, OsString), InodeNum>,
 }
 
 impl Ufs<File> {
@@ -108,6 +112,7 @@ impl<R: Backend> Ufs<R> {
 			file,
 			superblock,
 			icache: LruCache::new(NonZeroUsize::new(crate::ICACHE_SIZE).unwrap()),
+			dcache: LruCache::new(NonZeroUsize::new(crate::DCACHE_SIZE).unwrap()),
 		};
 		s.check()?;
 		Ok(s)
