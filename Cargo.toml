@@ -20,6 +20,7 @@ libc = "0.2.155"
 log = "0.4.22"
 lru = "0.13.0"
 rufs = { version = "0.5.0", path = "rufs" }
+pprof = "0.14.0"
 
 # Dev dependencies
 assert_cmd = "2.0"

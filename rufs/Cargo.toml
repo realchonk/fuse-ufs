@@ -30,6 +30,7 @@ lru = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true, features = ["html_reports"] }
+pprof = { workspace = true, features = ["criterion", "flamegraph"] }
 tempfile.workspace = true
 
 [lints.rust]
