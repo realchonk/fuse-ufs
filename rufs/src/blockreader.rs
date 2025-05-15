@@ -1,5 +1,8 @@
 use std::{
-	fs::File, io::{self, BufRead, Read, Result as IoResult, Seek, SeekFrom, Write}, os::unix::fs::MetadataExt, path::Path
+	fs::File,
+	io::{self, BufRead, Read, Result as IoResult, Seek, SeekFrom, Write},
+	os::unix::fs::MetadataExt,
+	path::Path,
 };
 
 pub trait Backend: Read + Write + Seek {}
@@ -55,11 +58,12 @@ impl<T: Backend> BlockReader<T> {
 		#[cfg(feature = "bcache")]
 		if let Some(cached) = self.cache.get(&pos) {
 			self.block.copy_from_slice(cached);
-			self.inner.seek(SeekFrom::Current(self.block.len() as i64))?;
+			self.inner
+				.seek(SeekFrom::Current(self.block.len() as i64))?;
 			self.idx = 0;
-			return Ok(())
+			return Ok(());
 		}
-		
+
 		self.block.fill(0u8);
 		let mut num = 0;
 		while num < self.block.len() {
@@ -133,7 +137,7 @@ impl<T: Backend> Write for BlockReader<T> {
 
 		#[cfg(feature = "bcache")]
 		self.cache.push(pos, self.block.clone());
-		
+
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.write(&self.block[num..])? {

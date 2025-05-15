@@ -13,15 +13,11 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	/// Read data from an inode.
-	pub fn inode_read(
-		&mut self,
-		inr: InodeNum,
-		offset: u64,
-		buffer: &mut [u8],
-	) -> IoResult<usize> {
+	pub fn inode_read(&mut self, inr: InodeNum, offset: u64, buffer: &mut [u8]) -> IoResult<usize> {
 		let ino = self.read_inode(inr)?;
 		self.inode_do_read(inr, &ino, offset, buffer)
 	}
+
 	pub(super) fn inode_do_read(
 		&mut self,
 		inr: InodeNum,
@@ -57,15 +53,11 @@ impl<R: Backend> Ufs<R> {
 		Ok(boff)
 	}
 
-	pub fn inode_write(
-		&mut self,
-		inr: InodeNum,
-		offset: u64,
-		buffer: &[u8],
-	) -> IoResult<usize> {
+	pub fn inode_write(&mut self, inr: InodeNum, offset: u64, buffer: &[u8]) -> IoResult<usize> {
 		let mut ino = self.read_inode(inr)?;
 		self.inode_do_write(inr, &mut ino, offset, buffer)
 	}
+
 	pub(super) fn inode_do_write(
 		&mut self,
 		inr: InodeNum,
@@ -100,12 +92,7 @@ impl<R: Backend> Ufs<R> {
 			blockbuf[off..(off + num as usize)]
 				.copy_from_slice(&buffer[boff..(boff + num as usize)]);
 
-			self.inode_write_block(
-				inr,
-				 ino,
-				block.blkidx,
-				&blockbuf[0..(block.size as usize)],
-			)?;
+			self.inode_write_block(inr, ino, block.blkidx, &blockbuf[0..(block.size as usize)])?;
 
 			offset += num;
 			boff += num as usize;
@@ -176,7 +163,7 @@ impl<R: Backend> Ufs<R> {
 		if let Some(ino) = self.icache.get(&inr) {
 			return Ok(ino.clone());
 		}
-		
+
 		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;
 

@@ -1,5 +1,10 @@
 use std::{
-	fs::File, hint::black_box, os::raw::c_int, path::{Path, PathBuf}, process::Command, time::Duration
+	fs::File,
+	hint::black_box,
+	os::raw::c_int,
+	path::{Path, PathBuf},
+	process::Command,
+	time::Duration,
 };
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
@@ -173,30 +178,34 @@ fn find(c: &mut Criterion) {
 	// similar to `lookup`, but also perform stat() on files
 	group.measurement_time(Duration::from_secs(30));
 	group.sample_size(50);
-	group.bench_function("lookup+stat", |b| b.iter(|| {
-		fn traverse(ufs: &mut Ufs<File>, path: &Path) {
-			let inr = black_box(ufs.lookup(path).unwrap());
-			let meta = black_box(ufs.inode_attr(inr).unwrap());
+	group.bench_function("lookup+stat", |b| {
+		b.iter(|| {
+			fn traverse(ufs: &mut Ufs<File>, path: &Path) {
+				let inr = black_box(ufs.lookup(path).unwrap());
+				let meta = black_box(ufs.inode_attr(inr).unwrap());
 
-			if meta.kind == InodeType::Directory {
-				let mut children = Vec::new();
-				let _ = ufs.dir_iter(inr, |name, _inr, _kind| {
-					let name = black_box(name);
-					if name != "." && name != ".." {
-						children.push(path.join(name));
+				if meta.kind == InodeType::Directory {
+					let mut children = Vec::new();
+					let _ = ufs
+						.dir_iter(inr, |name, _inr, _kind| {
+							let name = black_box(name);
+							if name != "." && name != ".." {
+								children.push(path.join(name));
+							}
+							None::<()>
+						})
+						.unwrap();
+
+					for child in children {
+						traverse(ufs, &child);
 					}
-					None::<()>
-				}).unwrap();
-
-				for child in children {
-					traverse(ufs, &child);
 				}
 			}
-		}
 
-		let mut ufs = Ufs::open(&img, false).unwrap();
-		traverse(&mut ufs, Path::new("/"));
-	}));
+			let mut ufs = Ufs::open(&img, false).unwrap();
+			traverse(&mut ufs, Path::new("/"));
+		})
+	});
 
 	// similar to `lookup+stat`, but also read files and links
 	group.measurement_time(Duration::from_secs(60));
