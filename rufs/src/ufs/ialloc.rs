@@ -171,6 +171,7 @@ impl<R: Backend> Ufs<R> {
 			return Ok(());
 		}
 
+		#[cfg(feature = "icache")]
 		let _ = self.icache.pop(&inr);
 
 		let sb = &self.superblock;
