@@ -388,7 +388,7 @@ impl<R: Backend> Ufs<R> {
 
 		ino.size = new_size;
 
-		self.write_inode(inr, &ino)?;
+		self.write_inode(inr, ino)?;
 
 		Ok(())
 	}
