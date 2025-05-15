@@ -171,6 +171,8 @@ impl<R: Backend> Ufs<R> {
 			return Ok(());
 		}
 
+		let _ = self.icache.pop(&inr);
+
 		let sb = &self.superblock;
 
 		// clear the inode
