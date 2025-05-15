@@ -37,7 +37,7 @@ impl Filesystem for Fs {
 
 	fn destroy(&mut self) {}
 
-	fn getattr(&mut self, _req: &Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
+	fn getattr(&mut self, _req: &Request<'_>, ino: u64, _fh: Option<u64>, reply: fuser::ReplyAttr) {
 		let f = || {
 			let inr = transino(ino)?;
 			let st: FileAttr = self.ufs.inode_attr(inr)?.into();
