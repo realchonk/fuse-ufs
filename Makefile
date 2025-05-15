@@ -2,6 +2,8 @@ PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 FUSE_UFS_FLAGS = -p fuse-ufs --ignore-rust-version --no-default-features -F $$(uname)
 
+BENCH = cargo bench -p fuse-ufs
+
 SRC != find rufs/src fuse-ufs/src -name '*.rs'
 
 all: fuse-ufs-bin
@@ -26,7 +28,11 @@ test:
 	cargo test ${FUSE_UFS_FLAGS}
 
 bench:
-	cargo bench
+	${BENCH} --no-default-features > bench.baseline
+	${BENCH} --no-default-features -F icache > bench.icache
+	${BENCH} --no-default-features -F dcache > bench.dcache
+	${BENCH} --no-default-features -F bcache > bench.bcache
+	${BENCH} > bench.cache
 
 fuz:
 	mkdir -p fuzz/corpus/ufs/
