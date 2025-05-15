@@ -1,7 +1,7 @@
 use std::{
 	fs::File,
 	hint::black_box,
-	path::{Component, Path, PathBuf},
+	path::{Path, PathBuf},
 	process::Command,
 	time::Duration,
 };
@@ -39,22 +39,6 @@ fn prepare_image(filename: &str) -> PathBuf {
 	img
 }
 
-fn lookup(ufs: &mut Ufs<File>, path: &Path) -> InodeNum {
-	let mut comps = path.components();
-	assert_eq!(comps.next(), Some(Component::RootDir));
-	let mut inr = InodeNum::ROOT;
-	for c in comps {
-		match c {
-			Component::Normal(name) => {
-				inr = ufs.dir_lookup(inr, name).unwrap();
-			}
-			_ => unreachable!("unexpected path component: {c:?}"),
-		}
-	}
-
-	inr
-}
-
 /// just open the image
 fn open(c: &mut Criterion) {
 	let img = prepare_image(IMAGE);
@@ -72,7 +56,7 @@ fn read(c: &mut Criterion) {
 	let mut group = c.benchmark_group("read");
 
 	let mut ufs = Ufs::open(&img, false).unwrap();
-	let inr = lookup(&mut ufs, path);
+	let inr = ufs.lookup(path).unwrap();
 	let meta = ufs.inode_attr(inr).unwrap();
 
 	group.measurement_time(Duration::from_secs(30));
@@ -163,7 +147,7 @@ fn find(c: &mut Criterion) {
 		b.iter(|| {
 			fn traverse(ufs: &mut Ufs<File>, path: &Path) {
 				let mut subdirs = Vec::new();
-				let dinr = black_box(lookup(ufs, path));
+				let dinr = black_box(ufs.lookup(path).unwrap());
 				let _ = ufs
 					.dir_iter(dinr, |name, _inr, kind| {
 						let name = black_box(name);
@@ -194,7 +178,7 @@ fn find(c: &mut Criterion) {
 	group.sample_size(50);
 	group.bench_function("lookup+stat", |b| b.iter(|| {
 		fn traverse(ufs: &mut Ufs<File>, path: &Path) {
-			let inr = black_box(lookup(ufs, path));
+			let inr = black_box(ufs.lookup(path).unwrap());
 			let meta = black_box(ufs.inode_attr(inr).unwrap());
 
 			if meta.kind == InodeType::Directory {
@@ -225,7 +209,7 @@ fn find(c: &mut Criterion) {
 		group.bench_function(format!("lookup+stat+read-{bs}"), |b| {
 			b.iter(|| {
 				fn traverse(ufs: &mut Ufs<File>, path: &Path, buf: &mut [u8]) {
-					let inr = black_box(lookup(ufs, path));
+					let inr = black_box(ufs.lookup(path).unwrap());
 					let meta = black_box(ufs.inode_attr(inr).unwrap());
 
 					match meta.kind {
