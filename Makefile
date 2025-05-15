@@ -25,6 +25,9 @@ test:
 	cargo test -p rufs --ignore-rust-version
 	cargo test ${FUSE_UFS_FLAGS}
 
+bench:
+	cargo bench
+
 fuz:
 	mkdir -p fuzz/corpus/ufs/
 	unzstd -o fuzz/corpus/ufs/ufs-big.img -kf resources/ufs-big.img.zst
