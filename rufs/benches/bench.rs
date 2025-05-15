@@ -85,10 +85,36 @@ fn read(c: &mut Criterion) {
 	group.finish();
 }
 
+fn count_files(img: &Path) -> u64 {
+	fn traverse(ufs: &mut Ufs<File>, dinr: InodeNum, nfiles: &mut u64) {
+		let mut subdirs = Vec::new();
+		let _ = ufs.dir_iter(dinr, |name, inr, kind| {
+			if name == "." || name == ".." {
+				return None;
+			}
+
+			if kind == InodeType::Directory {
+				subdirs.push(inr);
+			}
+			*nfiles += 1;
+			None::<()>
+		});
+		for subdir in subdirs {
+			traverse(ufs, subdir, nfiles);
+		}
+	}
+	let mut ufs = Ufs::open(img, false).unwrap();
+	let mut nfiles = 1;
+	traverse(&mut ufs, InodeNum::ROOT, &mut nfiles);
+	nfiles
+}
+
 fn find(c: &mut Criterion) {
 	let img = prepare_image(IMAGE);
 	let mut group = c.benchmark_group("find");
+	let nfiles = count_files(&img);
 
+	group.throughput(Throughput::Elements(nfiles));
 
 	// traverse through the entire filesystem, equivalent to running `find -x mp`
 	group.measurement_time(Duration::from_secs(15));
