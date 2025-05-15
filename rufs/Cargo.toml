@@ -12,7 +12,7 @@ documentation = "https://docs.rs/rufs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["icache", "dcache", "bcache"]
+default = ["icache", "dcache"]
 fuser = ["dep:fuser"]
 fuse2rs = ["dep:fuse2rs"]
 lru = ["dep:lru"]
