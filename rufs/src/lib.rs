@@ -9,6 +9,9 @@ mod ufs;
 /// Number of inodes to store in a cache.
 const ICACHE_SIZE: usize = 1024;
 
+/// Number of blocks cached.
+const BCACHE_SIZE: usize = 16;
+
 #[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "macos"))]
 pub const ENOATTR: i32 = libc::ENOATTR;
 #[cfg(target_os = "linux")]

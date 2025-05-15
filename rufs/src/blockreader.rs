@@ -1,9 +1,8 @@
 use std::{
-	fs::File,
-	io::{self, BufRead, Read, Result as IoResult, Seek, SeekFrom, Write},
-	os::unix::fs::MetadataExt,
-	path::Path,
+	fs::File, io::{self, BufRead, Read, Result as IoResult, Seek, SeekFrom, Write}, num::NonZeroUsize, os::unix::fs::MetadataExt, path::Path
 };
+
+use lru::LruCache;
 
 pub trait Backend: Read + Write + Seek {}
 
@@ -18,6 +17,7 @@ pub struct BlockReader<T: Backend> {
 	idx:   usize,
 	dirty: bool,
 	rw:    bool,
+	cache: LruCache<u64, Vec<u8>>,
 }
 
 impl BlockReader<File> {
@@ -37,6 +37,7 @@ impl<T: Backend> BlockReader<T> {
 			idx: bs,
 			dirty: false,
 			rw,
+			cache: LruCache::new(NonZeroUsize::new(crate::BCACHE_SIZE).unwrap())
 		}
 	}
 
@@ -48,6 +49,15 @@ impl<T: Backend> BlockReader<T> {
 		if self.dirty {
 			panic!("Cannot refill dirty BlockReader");
 		}
+
+		let pos = self.inner.stream_position()?;
+		if let Some(cached) = self.cache.get(&pos) {
+			self.block.copy_from_slice(cached);
+			self.inner.seek(SeekFrom::Current(self.block.len() as i64))?;
+			self.idx = 0;
+			return Ok(())
+		}
+		
 		self.block.fill(0u8);
 		let mut num = 0;
 		while num < self.block.len() {
@@ -59,6 +69,7 @@ impl<T: Backend> BlockReader<T> {
 		if num < self.block.len() {
 			log::error!("BlockReader::refill(): num={num}, eof?");
 		}
+		self.cache.push(pos, self.block.clone());
 		self.idx = 0;
 		Ok(())
 	}
@@ -112,8 +123,12 @@ impl<T: Backend> Write for BlockReader<T> {
 			return Ok(());
 		}
 
-		self.inner
+		let pos = self
+			.inner
 			.seek(SeekFrom::Current(-(self.block.len() as i64)))?;
+
+		self.cache.push(pos, self.block.clone());
+		
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.write(&self.block[num..])? {
