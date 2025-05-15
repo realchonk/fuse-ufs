@@ -2,7 +2,6 @@ Short Term:
 - more integration tests
 - more unit tests
 - BlockReader: make `Write` somehow optional
-- update to fuser 0.15.1
 
 Long Term:
 - softupdates
