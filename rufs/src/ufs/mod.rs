@@ -62,6 +62,14 @@ pub struct Info {
 pub struct Ufs<R: Backend> {
 	file:       Decoder<BlockReader<R>>,
 	superblock: Superblock,
+
+	// inode cache
+	#[cfg(feature = "icache")]
+	icache: lru::LruCache<InodeNum, Inode>,
+
+	// directory name cache
+	#[cfg(feature = "dcache")]
+	dcache: lru::LruCache<(InodeNum, OsString), InodeNum>,
 }
 
 impl Ufs<File> {
@@ -101,7 +109,14 @@ impl<R: Backend> Ufs<R> {
 				superblock.magic
 			);
 		}
-		let mut s = Self { file, superblock };
+		let mut s = Self {
+			file,
+			superblock,
+			#[cfg(feature = "icache")]
+			icache: crate::new_lru(crate::ICACHE_SIZE),
+			#[cfg(feature = "dcache")]
+			dcache: crate::new_lru(crate::DCACHE_SIZE),
+		};
 		s.check()?;
 		Ok(s)
 	}

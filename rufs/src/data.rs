@@ -41,7 +41,7 @@ pub type UfsDaddr = i64;
 pub const DIRBLKSIZE: usize = 512;
 
 /// UFS-native inode number type
-#[derive(Debug, Decode, Encode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Decode, Encode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct InodeNum(u32);
 impl InodeNum {
@@ -336,7 +336,7 @@ pub enum InodeData {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Encode)]
+#[derive(Debug, Encode, Clone)]
 pub struct Inode {
 	pub mode:      u16,                    //   0: IFMT, permissions; see below.
 	pub nlink:     u16,                    //   2: File link count.

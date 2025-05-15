@@ -12,19 +12,29 @@ documentation = "https://docs.rs/rufs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["icache", "dcache"]
 fuser = ["dep:fuser"]
 fuse2rs = ["dep:fuse2rs"]
+lru = ["dep:lru"]
+icache = ["lru"]
+dcache = ["lru"]
 
 [dependencies]
 bincode.workspace = true
 fuse2rs = { workspace = true, optional = true }
-
 fuser = { workspace = true, optional = true }
 libc.workspace = true
 log.workspace = true
+lru = { workspace = true, optional = true }
 
 [dev-dependencies]
+criterion = { workspace = true, features = ["html_reports"] }
+pprof = { workspace = true, features = ["criterion", "flamegraph"] }
 tempfile.workspace = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
+[[bench]]
+name = "bench"
+harness = false

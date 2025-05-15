@@ -93,6 +93,19 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
+	pub(super) fn read_pblock_ptr(&mut self, bno: u64, idx: usize) -> IoResult<Option<NonZeroU64>> {
+		if bno == 0 {
+			return Ok(None);
+		}
+		let fs = self.superblock.fsize as u64;
+		let su64 = size_of::<u64>() as u64;
+
+		let addr = bno * fs + (idx as u64) * su64;
+		let bno: u64 = self.file.decode_at(addr)?;
+
+		Ok(NonZeroU64::new(bno))
+	}
+
 	pub(super) fn write_pblock(&mut self, bno: u64, block: &[u64]) -> IoResult<()> {
 		let fs = self.superblock.fsize as u64;
 		let bs = self.superblock.bsize as usize;
@@ -170,6 +183,9 @@ impl<R: Backend> Ufs<R> {
 		if ino.nlink > 0 {
 			return Ok(());
 		}
+
+		#[cfg(feature = "icache")]
+		let _ = self.icache.pop(&inr);
 
 		let sb = &self.superblock;
 
@@ -351,19 +367,28 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	pub fn inode_truncate(&mut self, inr: InodeNum, new_size: u64) -> IoResult<()> {
+		let mut ino = self.read_inode(inr)?;
+		self.inode_do_truncate(inr, &mut ino, new_size)
+	}
+
+	pub(super) fn inode_do_truncate(
+		&mut self,
+		inr: InodeNum,
+		ino: &mut Inode,
+		new_size: u64,
+	) -> IoResult<()> {
 		log::trace!("inode_truncate({inr}, {new_size});");
 		self.assert_rw()?;
 
-		let mut ino = self.read_inode(inr)?;
 		let old_size = ino.size;
 
 		if new_size < old_size {
-			self.inode_shrink(&mut ino, new_size)?;
+			self.inode_shrink(ino, new_size)?;
 		}
 
 		ino.size = new_size;
 
-		self.write_inode(inr, &ino)?;
+		self.write_inode(inr, ino)?;
 
 		Ok(())
 	}
