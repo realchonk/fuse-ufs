@@ -18,6 +18,7 @@ fuse2rs = "0.1.2"
 fuser = "0.15.1"
 libc = "0.2.155"
 log = "0.4.22"
+lru = "0.13.0"
 rufs = { version = "0.5.0", path = "rufs" }
 
 # Dev dependencies
