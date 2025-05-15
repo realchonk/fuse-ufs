@@ -1,7 +1,6 @@
 use std::{
 	fs::File,
 	hint::black_box,
-	os::raw::c_int,
 	path::{Path, PathBuf},
 	process::Command,
 	time::Duration,
