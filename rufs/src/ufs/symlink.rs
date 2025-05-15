@@ -19,6 +19,7 @@ impl<R: Backend> Ufs<R> {
 			}
 			InodeData::Blocks { .. } => {
 				// TODO: this has to be tested for other configurations, such as 4K/4K
+				// TODO: use inode_do_read()
 				assert!(ino.blocks <= 8);
 
 				let len = ino.size as usize;
