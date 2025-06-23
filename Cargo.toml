@@ -18,11 +18,14 @@ fuse2rs = "0.1.2"
 fuser = "0.15.1"
 libc = "0.2.158"
 log = "0.4.22"
+lru = "0.13.0"
 rufs = { version = "0.5.0", path = "rufs" }
+pprof = "0.14.0"
 
 # Dev dependencies
 assert_cmd = "2.0"
 cstr = "0.2.12"
+criterion = "0.5.1"
 lazy_static = "1.4.0"
 nix = { version = "0.28.0", features = ["fs", "dir"] }
 rstest = { version = "0.19.0", default-features = false }

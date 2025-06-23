@@ -13,27 +13,32 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	/// Read data from an inode.
-	pub fn inode_read(
+	pub fn inode_read(&mut self, inr: InodeNum, offset: u64, buffer: &mut [u8]) -> IoResult<usize> {
+		let ino = self.read_inode(inr)?;
+		self.inode_do_read(inr, &ino, offset, buffer)
+	}
+
+	pub(super) fn inode_do_read(
 		&mut self,
 		inr: InodeNum,
+		ino: &Inode,
 		mut offset: u64,
 		buffer: &mut [u8],
 	) -> IoResult<usize> {
 		log::trace!("inode_read({inr}, {offset}, {})", buffer.len());
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
-		let ino = self.read_inode(inr)?;
 
 		let mut boff = 0;
 		let len = (buffer.len() as u64).min(ino.size - offset);
 		let end = offset + len;
 
 		while offset < end {
-			let block = self.inode_find_block(inr, &ino, offset);
+			let block = self.inode_find_block(inr, ino, offset);
 			let num = (block.size - block.off).min(end - offset);
 
 			self.inode_read_block(
 				inr,
-				&ino,
+				ino,
 				block.blkidx,
 				&mut blockbuf[0..(block.size as usize)],
 			)?;
@@ -48,9 +53,15 @@ impl<R: Backend> Ufs<R> {
 		Ok(boff)
 	}
 
-	pub fn inode_write(
+	pub fn inode_write(&mut self, inr: InodeNum, offset: u64, buffer: &[u8]) -> IoResult<usize> {
+		let mut ino = self.read_inode(inr)?;
+		self.inode_do_write(inr, &mut ino, offset, buffer)
+	}
+
+	pub(super) fn inode_do_write(
 		&mut self,
 		inr: InodeNum,
+		ino: &mut Inode,
 		mut offset: u64,
 		buffer: &[u8],
 	) -> IoResult<usize> {
@@ -58,22 +69,21 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
-		let mut ino = self.read_inode(inr)?;
 		ino.size = ino.size.max(offset + buffer.len() as u64);
-		self.write_inode(inr, &ino)?;
+		self.write_inode(inr, ino)?;
 
 		let mut boff = 0;
 		let len = (buffer.len() as u64).min(ino.size - offset);
 		let end = offset + len;
 
 		while offset < end {
-			let block = self.inode_find_block(inr, &ino, offset);
+			let block = self.inode_find_block(inr, ino, offset);
 			let num = (block.size - block.off).min(end - offset);
 
 			// TODO: remove this read, if writing a full block
 			self.inode_read_block(
 				inr,
-				&ino,
+				ino,
 				block.blkidx,
 				&mut blockbuf[0..(block.size as usize)],
 			)?;
@@ -82,12 +92,7 @@ impl<R: Backend> Ufs<R> {
 			blockbuf[off..(off + num as usize)]
 				.copy_from_slice(&buffer[boff..(boff + num as usize)]);
 
-			self.inode_write_block(
-				inr,
-				&mut ino,
-				block.blkidx,
-				&blockbuf[0..(block.size as usize)],
-			)?;
+			self.inode_write_block(inr, ino, block.blkidx, &blockbuf[0..(block.size as usize)])?;
 
 			offset += num;
 			boff += num as usize;
@@ -153,6 +158,12 @@ impl<R: Backend> Ufs<R> {
 
 	pub(super) fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
 		log::trace!("read_inode({inr});");
+
+		#[cfg(feature = "icache")]
+		if let Some(ino) = self.icache.get(&inr) {
+			return Ok(ino.clone());
+		}
+
 		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;
 
@@ -160,6 +171,9 @@ impl<R: Backend> Ufs<R> {
 			log::warn!("invalid inode {inr}");
 			return Err(err!(EINVAL));
 		}
+
+		#[cfg(feature = "icache")]
+		self.icache.push(inr, ino.clone());
 
 		Ok(ino)
 	}
@@ -169,6 +183,8 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 		let off = self.superblock.ino_to_fso(inr);
 		self.file.encode_at(off, &ino)?;
+		#[cfg(feature = "icache")]
+		self.icache.push(inr, ino.clone());
 		Ok(())
 	}
 
@@ -315,27 +331,16 @@ impl<R: Backend> Ufs<R> {
 		ino: &Inode,
 		blkno: u64,
 	) -> IoResult<Option<NonZeroU64>> {
-		let sb = &self.superblock;
-		let bs = sb.bsize as u64;
-		let su64 = size_of::<UfsDaddr>() as u64;
-		let pbp = bs / su64;
-
 		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &ino.data else {
 			log::warn!("inode_resolve_block({inr}, {blkno}): inode doesn't have blocks");
 			return Err(err!(EIO));
 		};
 
-		let mut data = vec![0u64; pbp as usize];
 		match self.decode_blkidx(blkno)? {
 			InodeBlock::Direct(off) => Ok(NonZeroU64::new(direct[off] as u64)),
 			InodeBlock::Indirect1(off) => {
 				let x1 = indirect[0] as u64;
-				if x1 == 0 {
-					return Ok(None);
-				}
-
-				self.read_pblock(x1, &mut data)?;
-				Ok(NonZeroU64::new(data[off]))
+				self.read_pblock_ptr(x1, off)
 			}
 			InodeBlock::Indirect2(high, low) => {
 				let x1 = indirect[1] as u64;
@@ -343,14 +348,11 @@ impl<R: Backend> Ufs<R> {
 					return Ok(None);
 				}
 
-				self.read_pblock(x1, &mut data)?;
-				let x2 = data[high];
-				if x2 == 0 {
+				let Some(x2) = self.read_pblock_ptr(x1, high)? else {
 					return Ok(None);
-				}
+				};
 
-				self.read_pblock(x2, &mut data)?;
-				Ok(NonZeroU64::new(data[low]))
+				self.read_pblock_ptr(x2.get(), low)
 			}
 			InodeBlock::Indirect3(high, mid, low) => {
 				let x1 = indirect[2] as u64;
@@ -358,20 +360,15 @@ impl<R: Backend> Ufs<R> {
 					return Ok(None);
 				}
 
-				self.read_pblock(x1, &mut data)?;
-				let x2 = data[high];
-				if x2 == 0 {
+				let Some(x2) = self.read_pblock_ptr(x1, high)? else {
 					return Ok(None);
-				}
+				};
 
-				self.read_pblock(x2, &mut data)?;
-				let x3 = data[mid];
-				if x3 == 0 {
+				let Some(x3) = self.read_pblock_ptr(x2.get(), mid)? else {
 					return Ok(None);
-				}
+				};
 
-				self.read_pblock(x3, &mut data)?;
-				Ok(NonZeroU64::new(data[low]))
+				self.read_pblock_ptr(x3.get(), low)
 			}
 		}
 	}
