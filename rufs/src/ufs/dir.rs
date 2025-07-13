@@ -5,11 +5,11 @@ use crate::{err, InodeNum};
 
 #[derive(Debug, Clone, Copy)]
 struct Header {
-	inr:     InodeNum,
-	reclen:  u16,
-	kind:    Option<InodeType>,
+	inr: InodeNum,
+	reclen: u16,
+	kind: Option<InodeType>,
 	namelen: u8,
-	name:    [u8; UFS_MAXNAMELEN + 1],
+	name: [u8; UFS_MAXNAMELEN + 1],
 }
 
 impl Header {

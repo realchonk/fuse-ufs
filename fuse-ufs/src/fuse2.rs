@@ -109,13 +109,13 @@ impl Filesystem for Fs {
 		let info = self.ufs.info();
 
 		Ok(Statfs {
-			bsize:  info.bsize,
+			bsize: info.bsize,
 			frsize: info.fsize,
 			blocks: info.blocks,
-			bfree:  info.bfree,
+			bfree: info.bfree,
 			bavail: info.bfree,
-			files:  info.files,
-			ffree:  info.ffree,
+			files: info.files,
+			ffree: info.ffree,
 			favail: info.ffree,
 		})
 	}

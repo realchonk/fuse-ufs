@@ -7,8 +7,7 @@ use bincode::{
 	de::Decoder,
 	enc::Encoder,
 	error::{DecodeError, EncodeError},
-	Decode,
-	Encode,
+	Decode, Encode,
 };
 
 use crate::data::*;
@@ -286,21 +285,21 @@ mod f {
 	impl From<InodeAttr> for FileAttr {
 		fn from(a: InodeAttr) -> Self {
 			Self {
-				ino:     a.inr.get64(),
-				size:    a.size,
-				blocks:  a.blocks,
-				atime:   a.atime,
-				mtime:   a.mtime,
-				ctime:   a.ctime,
-				crtime:  a.btime,
-				kind:    a.kind.into(),
-				perm:    a.perm,
-				nlink:   a.nlink.into(),
-				uid:     a.uid,
-				gid:     a.gid,
-				rdev:    0,
+				ino: a.inr.get64(),
+				size: a.size,
+				blocks: a.blocks,
+				atime: a.atime,
+				mtime: a.mtime,
+				ctime: a.ctime,
+				crtime: a.btime,
+				kind: a.kind.into(),
+				perm: a.perm,
+				nlink: a.nlink.into(),
+				uid: a.uid,
+				gid: a.gid,
+				rdev: 0,
 				blksize: a.blksize,
-				flags:   a.flags,
+				flags: a.flags,
 			}
 		}
 	}
@@ -329,21 +328,21 @@ mod f2 {
 	impl From<InodeAttr> for FileAttr {
 		fn from(a: InodeAttr) -> Self {
 			Self {
-				ino:     a.inr.get64(),
-				size:    a.size,
-				blocks:  a.blocks,
-				atime:   a.atime,
-				mtime:   a.mtime,
-				ctime:   a.ctime,
-				btime:   a.btime,
-				kind:    a.kind.into(),
-				perm:    a.perm,
-				nlink:   a.nlink.into(),
-				uid:     a.uid,
-				gid:     a.gid,
-				rdev:    0,
+				ino: a.inr.get64(),
+				size: a.size,
+				blocks: a.blocks,
+				atime: a.atime,
+				mtime: a.mtime,
+				ctime: a.ctime,
+				btime: a.btime,
+				kind: a.kind.into(),
+				perm: a.perm,
+				nlink: a.nlink.into(),
+				uid: a.uid,
+				gid: a.gid,
+				rdev: 0,
 				blksize: a.blksize,
-				flags:   a.flags,
+				flags: a.flags,
 			}
 		}
 	}

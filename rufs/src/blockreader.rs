@@ -15,9 +15,9 @@ impl<T: Read + Write + Seek> Backend for T {}
 pub struct BlockReader<T: Backend> {
 	inner: T,
 	block: Vec<u8>,
-	idx:   usize,
+	idx: usize,
 	dirty: bool,
-	rw:    bool,
+	rw: bool,
 }
 
 impl BlockReader<File> {

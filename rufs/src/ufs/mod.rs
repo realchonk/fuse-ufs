@@ -60,7 +60,7 @@ pub struct Info {
 
 /// Berkley Unix (Fast) Filesystem v2
 pub struct Ufs<R: Backend> {
-	file:       Decoder<BlockReader<R>>,
+	file: Decoder<BlockReader<R>>,
 	superblock: Superblock,
 }
 
@@ -125,11 +125,11 @@ impl<R: Backend> Ufs<R> {
 		let cst = &sb.cstotal;
 		Info {
 			blocks: sb.dsize as u64,
-			bfree:  (cst.nbfree * sb.frag as i64 + cst.nffree) as u64,
-			files:  (sb.ipg * sb.ncg) as u64,
-			ffree:  cst.nifree as u64,
-			bsize:  sb.bsize as u32,
-			fsize:  sb.fsize as u32,
+			bfree: (cst.nbfree * sb.frag as i64 + cst.nffree) as u64,
+			files: (sb.ipg * sb.ncg) as u64,
+			ffree: cst.nifree as u64,
+			bsize: sb.bsize as u32,
+			fsize: sb.fsize as u32,
 		}
 	}
 
@@ -216,10 +216,10 @@ impl<R: Backend> Ufs<R> {
 fn check_name_is_legal(name: &OsStr, allow_special: bool) -> IoResult<()> {
 	let b = name.as_encoded_bytes();
 
-	let x = b.contains(&b'/') ||
-		(name == "." && !allow_special) ||
-		(name == ".." && !allow_special) ||
-		b.contains(&b'\0');
+	let x = b.contains(&b'/')
+		|| (name == "." && !allow_special)
+		|| (name == ".." && !allow_special)
+		|| b.contains(&b'\0');
 
 	if x {
 		Err(err!(EINVAL))

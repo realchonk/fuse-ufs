@@ -251,14 +251,14 @@ impl<R: Backend> Ufs<R> {
 		let x = if offset < (bs * blocks) {
 			BlockInfo {
 				blkidx: offset / bs,
-				off:    offset % bs,
-				size:   bs,
+				off: offset % bs,
+				size: bs,
 			}
 		} else if offset < (bs * blocks + fs * frags) {
 			BlockInfo {
 				blkidx: blocks,
-				off:    offset % bs,
-				size:   frags * fs,
+				off: offset % bs,
+				size: frags * fs,
 			}
 		} else {
 			panic!("inode_find_block({inr}, {offset}): out of bounds");
@@ -375,9 +375,9 @@ impl<R: Backend> Ufs<R> {
 			}
 		};
 
-        log::trace!("inode_resolve_block({inr}, {blkno}): bno={bno:?}");
+		log::trace!("inode_resolve_block({inr}, {blkno}): bno={bno:?}");
 
-        Ok(bno)
+		Ok(bno)
 	}
 
 	pub(super) fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> usize {
