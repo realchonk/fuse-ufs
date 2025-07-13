@@ -326,8 +326,8 @@ impl<R: Backend> Ufs<R> {
 		};
 
 		let mut data = vec![0u64; pbp as usize];
-		match self.decode_blkidx(blkno)? {
-			InodeBlock::Direct(off) => Ok(NonZeroU64::new(direct[off] as u64)),
+		let bno = match self.decode_blkidx(blkno)? {
+			InodeBlock::Direct(off) => NonZeroU64::new(direct[off] as u64),
 			InodeBlock::Indirect1(off) => {
 				let x1 = indirect[0] as u64;
 				if x1 == 0 {
@@ -335,7 +335,7 @@ impl<R: Backend> Ufs<R> {
 				}
 
 				self.read_pblock(x1, &mut data)?;
-				Ok(NonZeroU64::new(data[off]))
+				NonZeroU64::new(data[off])
 			}
 			InodeBlock::Indirect2(high, low) => {
 				let x1 = indirect[1] as u64;
@@ -350,7 +350,7 @@ impl<R: Backend> Ufs<R> {
 				}
 
 				self.read_pblock(x2, &mut data)?;
-				Ok(NonZeroU64::new(data[low]))
+				NonZeroU64::new(data[low])
 			}
 			InodeBlock::Indirect3(high, mid, low) => {
 				let x1 = indirect[2] as u64;
@@ -371,9 +371,13 @@ impl<R: Backend> Ufs<R> {
 				}
 
 				self.read_pblock(x3, &mut data)?;
-				Ok(NonZeroU64::new(data[low]))
+				NonZeroU64::new(data[low])
 			}
-		}
+		};
+
+        log::trace!("inode_resolve_block({inr}, {blkno}): bno={bno:?}");
+
+        Ok(bno)
 	}
 
 	pub(super) fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> usize {
