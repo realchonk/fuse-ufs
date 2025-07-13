@@ -161,6 +161,17 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
+	/// Increment the reference count of the Inode `inr`.
+	pub(super) fn inode_bump(&mut self, inr: InodeNum) -> IoResult<()> {
+		self.assert_rw()?;
+		let mut ino = self.read_inode(inr)?;
+		ino.nlink += 1;
+		self.write_inode(inr, &ino)?;
+		Ok(())
+	}
+
+	/// Decrement the reference count of the Inode `inr`
+	/// and delete the inode, if it hits 0.
 	pub(super) fn inode_free(&mut self, inr: InodeNum) -> IoResult<()> {
 		self.assert_rw()?;
 		let mut ino = self.read_inode(inr)?;
