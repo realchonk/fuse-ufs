@@ -4,7 +4,8 @@ use std::{
 	time::{Duration, SystemTime},
 };
 
-use fuser::{FileAttr, Filesystem, KernelConfig, Request, TimeOrNow};
+use fuser::{FileAttr, Filesystem, KernelConfig, ReplyEmpty, Request, TimeOrNow};
+use libc::RENAME_NOREPLACE;
 use rufs::{InodeAttr, InodeNum, InodeType};
 
 use crate::{consts::*, Fs};
@@ -475,6 +476,30 @@ impl Filesystem for Fs {
 
 		match run(f) {
 			Ok((g, a)) => reply.entry(&MAX_CACHE, &a.into(), g.into()),
+			Err(e) => reply.error(e),
+		}
+	}
+
+	fn rename(
+		&mut self,
+		_req: &Request<'_>,
+		parent: u64,
+		name: &OsStr,
+		newparent: u64,
+		newname: &OsStr,
+		flags: u32,
+		reply: ReplyEmpty,
+	) {
+		let f = || {
+			let s_pinr = transino(parent)?;
+			let d_pinr = transino(newparent)?;
+			let replace = (flags & RENAME_NOREPLACE) != RENAME_NOREPLACE;
+			self.ufs.rename(d_pinr, newname, s_pinr, name, replace)?;
+			Ok(())
+		};
+
+		match run(f) {
+			Ok(()) => reply.ok(),
 			Err(e) => reply.error(e),
 		}
 	}
