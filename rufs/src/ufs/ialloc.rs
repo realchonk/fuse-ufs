@@ -3,6 +3,8 @@ use std::mem::replace;
 use super::*;
 use crate::{err, InodeNum};
 
+const STAT_BLKSIZE: u64 = 512;
+
 impl<R: Backend> Ufs<R> {
 	fn inode_setup(&mut self, inr: InodeNum, ino: &mut Inode) -> IoResult<()> {
 		log::trace!("inode_setup({inr});");
@@ -107,7 +109,7 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
-	fn inode_free_l1(&mut self, ino: &Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
+	fn inode_free_l1(&mut self, ino: &mut Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		if bno == 0 {
 			return Ok(());
 		}
@@ -119,7 +121,7 @@ impl<R: Backend> Ufs<R> {
 				continue;
 			}
 			let size = self.inode_get_block_size(ino, idx as u64);
-			self.blk_free(*bno, size as u64)?;
+			self.inode_free_block(ino, *bno, size as u64)?;
 		}
 
 		self.blk_free(bno, self.superblock.bsize as u64)?;
@@ -127,7 +129,7 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
-	fn inode_free_l2(&mut self, ino: &Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
+	fn inode_free_l2(&mut self, ino: &mut Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		if bno == 0 {
 			return Ok(());
 		}
@@ -144,7 +146,7 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
-	fn inode_free_l3(&mut self, ino: &Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
+	fn inode_free_l3(&mut self, ino: &mut Inode, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		if bno == 0 {
 			return Ok(());
 		}
@@ -228,9 +230,10 @@ impl<R: Backend> Ufs<R> {
 				self.blk_free(bno, size as u64)?;
 			}
 
-			self.inode_free_l1(&ino, blocks.indirect[0] as u64, &mut block)?;
-			self.inode_free_l2(&ino, blocks.indirect[1] as u64, &mut block)?;
-			self.inode_free_l3(&ino, blocks.indirect[2] as u64, &mut block)?;
+			let blocks = blocks.clone();
+			self.inode_free_l1(&mut ino, blocks.indirect[0] as u64, &mut block)?;
+			self.inode_free_l2(&mut ino, blocks.indirect[1] as u64, &mut block)?;
+			self.inode_free_l3(&mut ino, blocks.indirect[2] as u64, &mut block)?;
 		}
 
 		Ok(())
@@ -272,7 +275,7 @@ impl<R: Backend> Ufs<R> {
 				}
 				let size = self
 					.inode_get_block_size(ino, begin_indir3 + off3 * pbp * pbp + off2 * pbp + i);
-				self.blk_free(bno, size as u64)?;
+				self.inode_free_block(ino, bno, size as u64)?;
 			}
 			self.write_pblock(snd[off2 as usize], &block)?;
 			for i in (off2 + 1)..pbp {
@@ -292,7 +295,7 @@ impl<R: Backend> Ufs<R> {
 			return Ok(());
 		}
 
-		self.inode_free_l3(ino, iblocks.indirect[2] as u64, &mut block)?;
+		self.inode_free_l3(ino, replace(&mut iblocks.indirect[2], 0) as u64, &mut block)?;
 
 		if blocks >= begin_indir2 {
 			let used = blocks - begin_indir2;
@@ -310,7 +313,7 @@ impl<R: Backend> Ufs<R> {
 					continue;
 				}
 				let size = self.inode_get_block_size(ino, begin_indir2 + off2 * pbp + i);
-				self.blk_free(bno, size as u64)?;
+				self.inode_free_block(ino, bno, size as u64)?;
 			}
 			self.write_pblock(fst[off1 as usize], &block)?;
 
@@ -325,7 +328,7 @@ impl<R: Backend> Ufs<R> {
 			return Ok(());
 		}
 
-		self.inode_free_l2(ino, iblocks.indirect[1] as u64, &mut block)?;
+		self.inode_free_l2(ino, replace(&mut iblocks.indirect[1], 0) as u64, &mut block)?;
 
 		if blocks >= begin_indir1 {
 			let used = blocks - begin_indir1;
@@ -337,7 +340,7 @@ impl<R: Backend> Ufs<R> {
 					continue;
 				}
 				let size = self.inode_get_block_size(ino, begin_indir1 + i);
-				self.blk_free(bno, size as u64)?;
+				self.inode_free_block(ino, bno, size as u64)?;
 			}
 
 			self.write_pblock(iblocks.indirect[0] as u64, &block)?;
@@ -346,7 +349,7 @@ impl<R: Backend> Ufs<R> {
 			return Ok(());
 		}
 
-		self.inode_free_l1(ino, iblocks.indirect[0] as u64, &mut block)?;
+		self.inode_free_l1(ino, replace(&mut iblocks.indirect[0], 0) as u64, &mut block)?;
 
 		for i in (blocks as usize)..UFS_NDADDR {
 			let bno = replace(&mut iblocks.direct[i], 0) as u64;
@@ -354,7 +357,7 @@ impl<R: Backend> Ufs<R> {
 				continue;
 			}
 			let size = self.inode_get_block_size(ino, i as u64);
-			self.blk_free(bno, size as u64)?;
+			self.inode_free_block(ino, bno, size as u64)?;
 		}
 
 		ino.data = InodeData::Blocks(iblocks);
@@ -478,8 +481,24 @@ impl<R: Backend> Ufs<R> {
 		blkidx: u64,
 		size: u64,
 	) -> IoResult<(NonZeroU64, u64)> {
-		let (block, size) = self.blk_alloc(size)?;
+		let (block, block_size) = self.blk_alloc(size)?;
+		log::trace!(
+			"inode_alloc_block({inr}): old_blocks: {}, block_size={block_size}",
+			ino.blocks
+		);
+		ino.blocks += block_size / STAT_BLKSIZE;
+		log::trace!("inode_alloc_block({inr}): new_blocks: {}", ino.blocks);
 		self.inode_set_block(inr, ino, blkidx, block)?;
-		Ok((block, size))
+		log::trace!(
+			"inode_alloc_block({inr}, {blkidx}, {size}): block={block}, block_size={block_size}"
+		);
+		Ok((block, block_size))
+	}
+
+	fn inode_free_block(&mut self, ino: &mut Inode, bno: u64, size: u64) -> IoResult<()> {
+		self.blk_free(bno, size)?;
+		log::trace!("inode_free_block({bno}, {size}): old_blocks={}", ino.blocks);
+		ino.blocks -= size / STAT_BLKSIZE;
+		Ok(())
 	}
 }
