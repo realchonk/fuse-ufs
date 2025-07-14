@@ -192,7 +192,9 @@ impl<R: Backend> Ufs<R> {
 				self.cg_setblock(cgo, &cg, bno, false)?;
 				cg.cs.nbfree -= 1;
 				self.file.encode_at(cgo, &cg)?;
+				self.update_sb(|sb| sb.cstotal.nbfree -= 1)?;
 				let blkno = NonZeroU64::new(i * fpg + bno).unwrap();
+				log::trace!("blk_alloc_full(): {blkno}");
 				return Ok(blkno);
 			}
 		}
