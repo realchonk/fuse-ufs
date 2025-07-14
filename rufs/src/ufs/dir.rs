@@ -362,6 +362,50 @@ impl<R: Backend> Ufs<R> {
 		Ok(())
 	}
 
+	pub fn rename(
+		&mut self,
+		d_dinr: InodeNum,
+		d_name: &OsStr,
+		s_dinr: InodeNum,
+		s_name: &OsStr,
+		replace: bool,
+	) -> IoResult<InodeNum> {
+		log::trace!("rename({d_dinr}, {d_name:?} {s_dinr}, {s_name:?}, {replace});");
+		self.assert_rw()?;
+
+		let inr = self.dir_lookup(s_dinr, s_name)?;
+
+		if !replace {
+			// User has requested to error if the destination already exists
+			match self.dir_lookup(s_dinr, s_name) {
+				Ok(_) => return Err(err!(EEXIST)),
+				// TODO: Need raw OS error here?
+				Err(e) if e.kind() == ErrorKind::NotFound => {}
+				// TODO: Might want to handle not a directory etc specially.
+				Err(e) => return Err(e),
+			}
+		} else {
+			// Not sure whether the kernel ensures for us that the file no longer exists,
+			// if this triggers we know we guessed wrong.
+			match self.unlink(d_dinr, d_name) {
+				    Ok(_) => log::warn!("rename({d_dinr}, {d_name:?} {s_dinr}, {s_name:?}, {replace}): Destination already exists, unlinked"),
+					// TODO: Need raw OS error here?
+					Err(e) if e.kind() == ErrorKind::NotFound => { },
+					// TODO: Handle not a directory etc.
+					Err(e) => return Err(e),
+				}
+		}
+
+		let kind = self.inode_attr(inr)?.kind;
+		// unlink decrements the refcount, if it reaches 0 the file may get removed.
+		// Bump the counter before to workaround.
+		self.inode_bump(inr)?;
+		self.dir_newlink(d_dinr, inr, d_name, kind)?;
+
+		self.unlink(s_dinr, s_name)?;
+		Ok(inr)
+	}
+
 	pub fn rmdir(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<()> {
 		self.assert_rw()?;
 		let inr = self.dir_lookup(dinr, name)?;
