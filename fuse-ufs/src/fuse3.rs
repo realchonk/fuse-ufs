@@ -296,12 +296,12 @@ impl Filesystem for Fs {
 			}
 		}
 
-		if size.is_some() {
-			todo!("TODO: resizing is not supported");
-		}
-
 		let f = || {
 			let inr = transino(inr)?;
+
+			if let Some(size) = size {
+				self.ufs.inode_truncate(inr, size)?;
+			}
 
 			let f = |mut attr: InodeAttr| {
 				if let Some(mode) = mode {
