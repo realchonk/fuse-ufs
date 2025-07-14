@@ -155,9 +155,10 @@ impl<R: Backend> Ufs<R> {
 		log::trace!("read_inode({inr});");
 		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;
+		let mode = ino.mode;
 
-		if (ino.mode & S_IFMT) == 0 {
-			log::warn!("invalid inode {inr}");
+		if (mode & S_IFMT) == 0 {
+			log::warn!("invalid inode {inr}: Mode {mode:#o}, S_IFMT is 0");
 			return Err(err!(EINVAL));
 		}
 
