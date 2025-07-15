@@ -4,8 +4,8 @@ use std::{
 	time::{Duration, SystemTime},
 };
 
+use cfg_if::cfg_if;
 use fuser::{FileAttr, Filesystem, KernelConfig, ReplyEmpty, Request, TimeOrNow};
-use libc::RENAME_NOREPLACE;
 use rufs::{InodeAttr, InodeNum, InodeType};
 
 use crate::{consts::*, Fs};
@@ -487,13 +487,23 @@ impl Filesystem for Fs {
 		name: &OsStr,
 		newparent: u64,
 		newname: &OsStr,
+		#[allow(unused)]    // Unused on some OSes but not all
 		flags: u32,
 		reply: ReplyEmpty,
 	) {
 		let f = || {
 			let s_pinr = transino(parent)?;
 			let d_pinr = transino(newparent)?;
-			let replace = (flags & RENAME_NOREPLACE) != RENAME_NOREPLACE;
+			cfg_if! {
+				if #[cfg(target_os = "linux")] {
+					use libc::RENAME_NOREPLACE;
+
+					let replace = (flags & RENAME_NOREPLACE) !=
+						RENAME_NOREPLACE;
+				} else {
+					let replace = true;
+				}
+			}
 			self.ufs.rename(d_pinr, newname, s_pinr, name, replace)?;
 			Ok(())
 		};
