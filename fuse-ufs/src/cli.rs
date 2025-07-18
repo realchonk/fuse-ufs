@@ -11,7 +11,7 @@ pub struct Cli {
 	pub options: Vec<String>,
 
 	/// Path to the device
-	pub device: PathBuf,
+	pub device:     PathBuf,
 	/// Path to the mount point
 	pub mountpoint: PathBuf,
 

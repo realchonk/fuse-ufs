@@ -252,14 +252,14 @@ impl<R: Backend> Ufs<R> {
 		let x = if offset < (bs * blocks) {
 			BlockInfo {
 				blkidx: offset / bs,
-				off: offset % bs,
-				size: bs,
+				off:    offset % bs,
+				size:   bs,
 			}
 		} else if offset < (bs * blocks + fs * frags) {
 			BlockInfo {
 				blkidx: blocks,
-				off: offset % bs,
-				size: frags * fs,
+				off:    offset % bs,
+				size:   frags * fs,
 			}
 		} else {
 			panic!("inode_find_block({inr}, {offset}): out of bounds");

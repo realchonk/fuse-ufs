@@ -2,7 +2,8 @@ use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 
 use bincode::{
 	config::{BigEndian, Configuration, Fixint, LittleEndian, NoLimit},
-	Decode, Encode,
+	Decode,
+	Encode,
 };
 
 #[derive(Clone, Copy)]
@@ -45,7 +46,7 @@ impl Config {
 }
 
 pub struct Decoder<T: Read> {
-	inner: T,
+	inner:  T,
 	config: Config,
 }
 

@@ -487,7 +487,7 @@ impl Filesystem for Fs {
 		name: &OsStr,
 		newparent: u64,
 		newname: &OsStr,
-		#[allow(unused)]    // Unused on some OSes but not all
+		#[allow(unused)] // Unused on some OSes but not all
 		flags: u32,
 		reply: ReplyEmpty,
 	) {
