@@ -162,7 +162,7 @@ pub const DT_WHT: u8 = 14;
 /// `struct csum` in FreeBSD
 #[derive(Debug, Decode, Encode)]
 pub struct Csum {
-	pub ndir: i32,   // number of directories
+	pub ndir:   i32, // number of directories
 	pub nbfree: i32, // number of free blocks
 	pub nifree: i32, // number of free inodes
 	pub nffree: i32, // number of free frags
@@ -171,161 +171,161 @@ pub struct Csum {
 /// `struct csum_total` in FreeBSD
 #[derive(Debug, Decode, Encode)]
 pub struct CsumTotal {
-	pub ndir: i64,        // number of directories
-	pub nbfree: i64,      // number of free blocks
-	pub nifree: i64,      // number of free inodes
-	pub nffree: i64,      // number of free frags
-	pub numclusters: i64, // number of free clusters
-	pub spare: [i64; 3],  // future expansion
+	pub ndir:        i64,      // number of directories
+	pub nbfree:      i64,      // number of free blocks
+	pub nifree:      i64,      // number of free inodes
+	pub nffree:      i64,      // number of free frags
+	pub numclusters: i64,      // number of free clusters
+	pub spare:       [i64; 3], // future expansion
 }
 
 /// Super block for an FFS filesystem.
 /// `struct fs` in FreeBSD
 #[derive(Debug, Decode, Encode)]
 pub struct Superblock {
-	pub firstfield: i32,   // historic filesystem linked list,
-	pub unused_1: i32,     // used for incore super blocks
-	pub sblkno: i32,       // offset of super-block in filesys
-	pub cblkno: i32,       // offset of cyl-block in filesys
-	pub iblkno: i32,       // offset of inode-blocks in filesys
-	pub dblkno: i32,       // offset of first data after cg
-	pub old_cgoffset: i32, // cylinder group offset in cylinder
-	pub old_cgmask: i32,   // used to calc mod fs_ntrak
-	pub old_time: i32,     // last time written
-	pub old_size: i32,     // number of blocks in fs
-	pub old_dsize: i32,    // number of data blocks in fs
-	pub ncg: u32,          // number of cylinder groups
-	pub bsize: i32,        // size of basic blocks in fs
-	pub fsize: i32,        // size of frag blocks in fs
-	pub frag: i32,         // number of frags in a block in fs
+	pub firstfield:       i32, // historic filesystem linked list,
+	pub unused_1:         i32, // used for incore super blocks
+	pub sblkno:           i32, // offset of super-block in filesys
+	pub cblkno:           i32, // offset of cyl-block in filesys
+	pub iblkno:           i32, // offset of inode-blocks in filesys
+	pub dblkno:           i32, // offset of first data after cg
+	pub old_cgoffset:     i32, // cylinder group offset in cylinder
+	pub old_cgmask:       i32, // used to calc mod fs_ntrak
+	pub old_time:         i32, // last time written
+	pub old_size:         i32, // number of blocks in fs
+	pub old_dsize:        i32, // number of data blocks in fs
+	pub ncg:              u32, // number of cylinder groups
+	pub bsize:            i32, // size of basic blocks in fs
+	pub fsize:            i32, // size of frag blocks in fs
+	pub frag:             i32, // number of frags in a block in fs
 	// these are configuration parameters
-	pub minfree: i32,      // minimum percentage of free blocks
-	pub old_rotdelay: i32, // num of ms for optimal next block
-	pub old_rps: i32,      // disk revolutions per second
+	pub minfree:          i32, // minimum percentage of free blocks
+	pub old_rotdelay:     i32, // num of ms for optimal next block
+	pub old_rps:          i32, // disk revolutions per second
 	// these fields can be computed from the others
-	pub bmask: i32,  // ``blkoff'' calc of blk offsets
-	pub fmask: i32,  // ``fragoff'' calc of frag offsets
-	pub bshift: i32, // ``lblkno'' calc of logical blkno
-	pub fshift: i32, // ``numfrags'' calc number of frags
+	pub bmask:            i32, // ``blkoff'' calc of blk offsets
+	pub fmask:            i32, // ``fragoff'' calc of frag offsets
+	pub bshift:           i32, // ``lblkno'' calc of logical blkno
+	pub fshift:           i32, // ``numfrags'' calc number of frags
 	// these are configuration parameters
-	pub fs_maxcontig: i32, // max number of contiguous blks
-	pub fs_maxbpg: i32,    // max number of blks per cyl group
+	pub fs_maxcontig:     i32, // max number of contiguous blks
+	pub fs_maxbpg:        i32, // max number of blks per cyl group
 	// these fields can be computed from the others
-	pub fragshift: i32,   // block to frag shift
-	pub fsbtodb: i32,     // fsbtodb and dbtofsb shift constant
-	pub sbsize: i32,      // actual size of super block
-	pub spare1: [i32; 2], // old fs_csmask
+	pub fragshift:        i32,      // block to frag shift
+	pub fsbtodb:          i32,      // fsbtodb and dbtofsb shift constant
+	pub sbsize:           i32,      // actual size of super block
+	pub spare1:           [i32; 2], // old fs_csmask
 	// old fs_csshift
-	pub nindir: i32,   // value of NINDIR
-	pub inopb: u32,    // value of INOPB
-	pub old_nspf: i32, // value of NSPF
+	pub nindir:           i32, // value of NINDIR
+	pub inopb:            u32, // value of INOPB
+	pub old_nspf:         i32, // value of NSPF
 	// yet another configuration parameter
-	pub optim: i32,          // optimization preference, see below
-	pub old_npsect: i32,     // # sectors/track including spares
-	pub old_interleave: i32, // hardware sector interleave
-	pub old_trackskew: i32,  // sector 0 skew, per track
-	pub id: [i32; 2],        // unique filesystem id
+	pub optim:            i32,      // optimization preference, see below
+	pub old_npsect:       i32,      // # sectors/track including spares
+	pub old_interleave:   i32,      // hardware sector interleave
+	pub old_trackskew:    i32,      // sector 0 skew, per track
+	pub id:               [i32; 2], // unique filesystem id
 	// sizes determined by number of cylinder groups and their sizes
-	pub old_csaddr: i32, // blk addr of cyl grp summary area
-	pub cssize: i32,     // size of cyl grp summary area
-	pub cgsize: i32,     // cylinder group size
-	pub spare2: i32,     // old fs_ntrak
-	pub old_nsect: i32,  // sectors per track
-	pub old_spc: i32,    // sectors per cylinder
-	pub old_ncyl: i32,   // cylinders in filesystem
-	pub old_cpg: i32,    // cylinders per group
-	pub ipg: u32,        // inodes per group
-	pub fpg: i32,        // blocks per group * fs_frag
+	pub old_csaddr:       i32, // blk addr of cyl grp summary area
+	pub cssize:           i32, // size of cyl grp summary area
+	pub cgsize:           i32, // cylinder group size
+	pub spare2:           i32, // old fs_ntrak
+	pub old_nsect:        i32, // sectors per track
+	pub old_spc:          i32, // sectors per cylinder
+	pub old_ncyl:         i32, // cylinders in filesystem
+	pub old_cpg:          i32, // cylinders per group
+	pub ipg:              u32, // inodes per group
+	pub fpg:              i32, // blocks per group * fs_frag
 	// this data must be re-computed after crashes
-	pub old_cstotal: Csum, // cylinder summary information
+	pub old_cstotal:      Csum, // cylinder summary information
 	// these fields are cleared at mount time
-	pub fmod: i8,                 // super block modified flag
-	pub clean: i8,                // filesystem is clean flag
-	pub ronly: i8,                // mounted read-only flag
-	pub old_flags: i8,            // old FS_ flags
-	pub fsmnt: [u8; MAXMNTLEN],   // name mounted on
-	pub volname: [u8; MAXVOLLEN], // volume name
-	pub swuid: u64,               // system-wide uid
-	pub pad: i32,                 // due to alignment of fs_swuid
+	pub fmod:             i8,              // super block modified flag
+	pub clean:            i8,              // filesystem is clean flag
+	pub ronly:            i8,              // mounted read-only flag
+	pub old_flags:        i8,              // old FS_ flags
+	pub fsmnt:            [u8; MAXMNTLEN], // name mounted on
+	pub volname:          [u8; MAXVOLLEN], // volume name
+	pub swuid:            u64,             // system-wide uid
+	pub pad:              i32,             // due to alignment of fs_swuid
 	// these fields retain the current block allocation info
-	pub cgrotor: i32,               // last cg searched
-	pub ocsp: [usize; NOCSPTRS],    // padding; was list of fs_cs buffers
-	pub si: usize,                  // In-core pointer to summary info
-	pub old_cpc: i32,               // cyl per cycle in postbl
-	pub maxbsize: i32,              // maximum blocking factor permitted
-	pub unrefs: i64,                // number of unreferenced inodes
-	pub providersize: i64,          // size of underlying GEOM provider
-	pub metaspace: i64,             // size of area reserved for metadata
-	pub sparecon64: [i64; 13],      // old rotation block list head
-	pub sblockactualloc: i64,       // byte offset of this superblock
-	pub sblockloc: i64,             // byte offset of standard superblock
-	pub cstotal: CsumTotal,         // (u) cylinder summary information
-	pub time: UfsTime,              // last time written
-	pub size: i64,                  // number of blocks in fs
-	pub dsize: i64,                 // number of data blocks in fs
-	pub csaddr: UfsDaddr,           // blk addr of cyl grp summary area
-	pub pendingblocks: i64,         // (u) blocks being freed
-	pub pendinginodes: u32,         // (u) inodes being freed
-	pub snapinum: [u32; FSMAXSNAP], // list of snapshot inode numbers
-	pub avgfilesize: u32,           // expected average file size
-	pub avgfpdir: u32,              // expected # of files per directory
-	pub save_cgsize: i32,           // save real cg size to use fs_bsize
-	pub mtime: UfsTime,             // Last mount or fsck time.
-	pub sujfree: i32,               // SUJ free list
-	pub sparecon32: [i32; 21],      // reserved for future constants
-	pub ckhash: u32,                // if CK_SUPERBLOCK, its check-hash
-	pub metackhash: u32,            // metadata check-hash, see CK_ below
-	pub flags: i32,                 // see FS_ flags below
-	pub contigsumsize: i32,         // size of cluster summary array
-	pub maxsymlinklen: i32,         // max length of an internal symlink
-	pub old_inodefmt: i32,          // format of on-disk inodes
-	pub maxfilesize: u64,           // maximum representable file size
-	pub qbmask: i64,                // ~fs_bmask for use with 64-bit size
-	pub qfmask: i64,                // ~fs_fmask for use with 64-bit size
-	pub state: i32,                 // validate fs_clean field
-	pub old_postblformat: i32,      // format of positional layout tables
-	pub old_nrpos: i32,             // number of rotational positions
-	pub spare5: [i32; 2],           // old fs_postbloff
+	pub cgrotor:          i32,               // last cg searched
+	pub ocsp:             [usize; NOCSPTRS], // padding; was list of fs_cs buffers
+	pub si:               usize,             // In-core pointer to summary info
+	pub old_cpc:          i32,               // cyl per cycle in postbl
+	pub maxbsize:         i32,               // maximum blocking factor permitted
+	pub unrefs:           i64,               // number of unreferenced inodes
+	pub providersize:     i64,               // size of underlying GEOM provider
+	pub metaspace:        i64,               // size of area reserved for metadata
+	pub sparecon64:       [i64; 13],         // old rotation block list head
+	pub sblockactualloc:  i64,               // byte offset of this superblock
+	pub sblockloc:        i64,               // byte offset of standard superblock
+	pub cstotal:          CsumTotal,         // (u) cylinder summary information
+	pub time:             UfsTime,           // last time written
+	pub size:             i64,               // number of blocks in fs
+	pub dsize:            i64,               // number of data blocks in fs
+	pub csaddr:           UfsDaddr,          // blk addr of cyl grp summary area
+	pub pendingblocks:    i64,               // (u) blocks being freed
+	pub pendinginodes:    u32,               // (u) inodes being freed
+	pub snapinum:         [u32; FSMAXSNAP],  // list of snapshot inode numbers
+	pub avgfilesize:      u32,               // expected average file size
+	pub avgfpdir:         u32,               // expected # of files per directory
+	pub save_cgsize:      i32,               // save real cg size to use fs_bsize
+	pub mtime:            UfsTime,           // Last mount or fsck time.
+	pub sujfree:          i32,               // SUJ free list
+	pub sparecon32:       [i32; 21],         // reserved for future constants
+	pub ckhash:           u32,               // if CK_SUPERBLOCK, its check-hash
+	pub metackhash:       u32,               // metadata check-hash, see CK_ below
+	pub flags:            i32,               // see FS_ flags below
+	pub contigsumsize:    i32,               // size of cluster summary array
+	pub maxsymlinklen:    i32,               // max length of an internal symlink
+	pub old_inodefmt:     i32,               // format of on-disk inodes
+	pub maxfilesize:      u64,               // maximum representable file size
+	pub qbmask:           i64,               // ~fs_bmask for use with 64-bit size
+	pub qfmask:           i64,               // ~fs_fmask for use with 64-bit size
+	pub state:            i32,               // validate fs_clean field
+	pub old_postblformat: i32,               // format of positional layout tables
+	pub old_nrpos:        i32,               // number of rotational positions
+	pub spare5:           [i32; 2],          // old fs_postbloff
 	// old fs_rotbloff
-	pub magic: i32, // magic number
+	pub magic:            i32, // magic number
 }
 
 #[derive(Debug, Decode, Encode)]
 #[allow(dead_code)]
 pub struct CylGroup {
-	pub firstfield: i32,       // historic cyl groups linked list
-	pub magic: i32,            // magic number
-	pub old_time: i32,         // time last written
-	pub cgx: u32,              // we are the cgx'th cylinder group
-	pub old_ncyl: i16,         // number of cyl's this cg
-	pub old_niblk: i16,        // number of inode blocks this cg
-	pub ndblk: u32,            // number of data blocks this cg
-	pub cs: Csum,              // cylinder summary information
-	pub rotor: u32,            // position of last used block
-	pub frotor: u32,           // position of last used frag
-	pub irotor: u32,           // position of last used inode
-	pub frsum: [u32; MAXFRAG], // counts of available frags
-	pub old_btotoff: i32,      // (int32) block totals per cylinder
-	pub old_boff: i32,         // (uint16) free block positions
-	pub iusedoff: u32,         // (ui8) used inode map
-	pub freeoff: u32,          // (ui8) free block map
-	pub nextfreeoff: u32,      // (ui8) next available space
-	pub clustersumoff: u32,    // (ui32) counts of avail clusters
-	pub clusteroff: u32,       // (ui8) free cluster map
-	pub nclusterblks: u32,     // number of clusters this cg
-	pub niblk: u32,            // number of inode blocks this cg
-	pub initediblk: u32,       // last initialized inode
-	pub unrefs: u32,           // number of unreferenced inodes
-	pub sparecon32: [i32; 1],  // reserved for future use
-	pub ckhash: u32,           // check-hash of this cg
-	pub time: UfsTime,         // time last written
-	pub sparecon64: [i64; 3],  // reserved for future use
-	                           // actually longer - space used for cylinder group maps
+	pub firstfield:    i32,            // historic cyl groups linked list
+	pub magic:         i32,            // magic number
+	pub old_time:      i32,            // time last written
+	pub cgx:           u32,            // we are the cgx'th cylinder group
+	pub old_ncyl:      i16,            // number of cyl's this cg
+	pub old_niblk:     i16,            // number of inode blocks this cg
+	pub ndblk:         u32,            // number of data blocks this cg
+	pub cs:            Csum,           // cylinder summary information
+	pub rotor:         u32,            // position of last used block
+	pub frotor:        u32,            // position of last used frag
+	pub irotor:        u32,            // position of last used inode
+	pub frsum:         [u32; MAXFRAG], // counts of available frags
+	pub old_btotoff:   i32,            // (int32) block totals per cylinder
+	pub old_boff:      i32,            // (uint16) free block positions
+	pub iusedoff:      u32,            // (ui8) used inode map
+	pub freeoff:       u32,            // (ui8) free block map
+	pub nextfreeoff:   u32,            // (ui8) next available space
+	pub clustersumoff: u32,            // (ui32) counts of avail clusters
+	pub clusteroff:    u32,            // (ui8) free cluster map
+	pub nclusterblks:  u32,            // number of clusters this cg
+	pub niblk:         u32,            // number of inode blocks this cg
+	pub initediblk:    u32,            // last initialized inode
+	pub unrefs:        u32,            // number of unreferenced inodes
+	pub sparecon32:    [i32; 1],       // reserved for future use
+	pub ckhash:        u32,            // check-hash of this cg
+	pub time:          UfsTime,        // time last written
+	pub sparecon64:    [i64; 3],       // reserved for future use
+	                                   // actually longer - space used for cylinder group maps
 }
 
 #[derive(Debug, Default, Clone, Decode, Encode)]
 pub struct InodeBlocks {
-	pub direct: [UfsDaddr; UFS_NDADDR],
+	pub direct:   [UfsDaddr; UFS_NDADDR],
 	pub indirect: [UfsDaddr; UFS_NIADDR],
 }
 
@@ -338,31 +338,31 @@ pub enum InodeData {
 #[allow(dead_code)]
 #[derive(Debug, Encode)]
 pub struct Inode {
-	pub mode: u16,                    //   0: IFMT, permissions; see below.
-	pub nlink: u16,                   //   2: File link count.
-	pub uid: u32,                     //   4: File owner.
-	pub gid: u32,                     //   8: File group.
-	pub blksize: u32,                 //  12: Inode blocksize.
-	pub size: u64,                    //  16: File byte count.
-	pub blocks: u64,                  //  24: Blocks actually held.
-	pub atime: UfsTime,               //  32: Last access time.
-	pub mtime: UfsTime,               //  40: Last modified time.
-	pub ctime: UfsTime,               //  48: Last inode change time.
-	pub birthtime: UfsTime,           //  56: Inode creation time.
-	pub mtimensec: u32,               //  64: Last modified time.
-	pub atimensec: u32,               //  68: Last access time.
-	pub ctimensec: u32,               //  72: Last inode change time.
-	pub birthnsec: u32,               //  76: Inode creation time.
-	pub gen: u32,                     //  80: Generation number.
-	pub kernflags: u32,               //  84: Kernel flags.
-	pub flags: u32,                   //  88: Status flags (chflags).
-	pub extsize: u32,                 //  92: External attributes size.
-	pub extb: [UfsDaddr; UFS_NXADDR], //  96: External attributes block.
-	pub data: InodeData,              // XXX: Blocks
-	pub modrev: u64,                  // 232: i_modrev for NFSv4
-	pub ignored: u32, // 240: (SUJ: Next unlinked inode) or (IFDIR: depth from root dir)
-	pub ckhash: u32,  // 244: if CK_INODE, its check-hash
-	pub spare: [u32; 2], // 248: Reserved; currently unused
+	pub mode:      u16,                    //   0: IFMT, permissions; see below.
+	pub nlink:     u16,                    //   2: File link count.
+	pub uid:       u32,                    //   4: File owner.
+	pub gid:       u32,                    //   8: File group.
+	pub blksize:   u32,                    //  12: Inode blocksize.
+	pub size:      u64,                    //  16: File byte count.
+	pub blocks:    u64,                    //  24: Blocks actually held.
+	pub atime:     UfsTime,                //  32: Last access time.
+	pub mtime:     UfsTime,                //  40: Last modified time.
+	pub ctime:     UfsTime,                //  48: Last inode change time.
+	pub birthtime: UfsTime,                //  56: Inode creation time.
+	pub mtimensec: u32,                    //  64: Last modified time.
+	pub atimensec: u32,                    //  68: Last access time.
+	pub ctimensec: u32,                    //  72: Last inode change time.
+	pub birthnsec: u32,                    //  76: Inode creation time.
+	pub gen:       u32,                    //  80: Generation number.
+	pub kernflags: u32,                    //  84: Kernel flags.
+	pub flags:     u32,                    //  88: Status flags (chflags).
+	pub extsize:   u32,                    //  92: External attributes size.
+	pub extb:      [UfsDaddr; UFS_NXADDR], //  96: External attributes block.
+	pub data:      InodeData,              // XXX: Blocks
+	pub modrev:    u64,                    // 232: i_modrev for NFSv4
+	pub ignored:   u32, // 240: (SUJ: Next unlinked inode) or (IFDIR: depth from root dir)
+	pub ckhash:    u32, // 244: if CK_INODE, its check-hash
+	pub spare:     [u32; 2], // 248: Reserved; currently unused
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -450,10 +450,10 @@ pub enum ExtattrNamespace {
 
 #[derive(Debug, Decode)]
 pub struct ExtattrHeader {
-	pub len: u32,
-	pub namespace: u8,
+	pub len:           u32,
+	pub namespace:     u8,
 	pub contentpadlen: u8,
-	pub namelen: u8,
+	pub namelen:       u8,
 }
 
 #[derive(Debug)]
@@ -477,15 +477,15 @@ impl Superblock {
 	/// Calculate the size of a cylinder group structure.
 	pub fn cgsize_struct(&self) -> usize {
 		// TODO: size_of() is not valid
-		size_of::<CylGroup>()
-			+ howmany(self.fpg as usize, 8)
-			+ howmany(self.ipg as usize, 8)
-			+ size_of::<i32>()
-			+ (if self.contigsumsize <= 0 {
+		size_of::<CylGroup>() +
+			howmany(self.fpg as usize, 8) +
+			howmany(self.ipg as usize, 8) +
+			size_of::<i32>() +
+			(if self.contigsumsize <= 0 {
 				0usize
 			} else {
-				self.contigsumsize as usize * size_of::<i32>()
-					+ howmany(self.fpg as usize >> (self.fshift as usize), 8)
+				self.contigsumsize as usize * size_of::<i32>() +
+					howmany(self.fpg as usize >> (self.fshift as usize), 8)
 			})
 	}
 
