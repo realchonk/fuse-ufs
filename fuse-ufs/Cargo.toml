@@ -24,7 +24,6 @@ anyhow.workspace = true
 cfg-if.workspace = true
 clap.workspace = true
 clap-verbosity-flag.workspace = true
-daemonize.workspace = true
 env_logger.workspace = true
 fuse2rs = { workspace = true, optional = true }
 fuser = { workspace = true, optional = true }

@@ -58,9 +58,7 @@ fn main() -> Result<()> {
 			if cli.foreground {
 				fuser::mount2(fs, mp, &opts)?;
 			} else {
-				daemonize::Daemonize::new()
-					.working_directory(std::env::current_dir()?)
-					.start()?;
+				nix::unistd::daemon(true, true)?;
 				fuser::mount2(fs, mp, &opts)?;
 			}
 		} else if #[cfg(feature = "fuse2")] {
