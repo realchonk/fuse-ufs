@@ -15,7 +15,10 @@ clap-verbosity-flag = "2.2.1"
 daemonize = "0.5.0"
 env_logger = { version = "0.11.3", default-features = false, features = ["auto-color", "humantime"] }
 fuse2rs = "0.1.2"
-fuser = "0.16.0"
+# Technically the libfuse dependency is only needed on FreeBSD,
+# but because of https://github.com/rust-lang/cargo/issues/1197
+# we're forced to also take the dependency on Linux.
+fuser = { version = "0.16.0", features = [ "libfuse" ] }
 libc = "0.2.158"
 log = "0.4.22"
 rufs = { version = "0.5.0", path = "rufs" }
