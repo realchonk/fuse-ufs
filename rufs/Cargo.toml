@@ -6,7 +6,7 @@ license = "BSD-2-Clause"
 authors = ["Benjamin Stürz <benni@stuerz.xyz>", "Alan Somers <asomers@gmail.com>", "Davids Paskevics <davids.paskevics@gmail.com>"]
 description = "FUSE implementation of FreeBSD's UFSv2"
 repository = "https://github.com/realchonk/fuse-ufs"
-rust-version = "1.74.0"
+rust-version = "1.85.0"
 documentation = "https://docs.rs/rufs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
