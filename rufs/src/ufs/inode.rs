@@ -202,7 +202,7 @@ impl<R: Backend> Ufs<R> {
 		blkidx: u64,
 		buf: &mut [u8],
 	) -> IoResult<usize> {
-		log::trace!("inode_read_block({inr}, {blkidx});");
+		log::trace!("inode_read_block({inr}, {blkidx}, [u8; {}]);", buf.len());
 		let fs = self.superblock.fsize as u64;
 		let size = self.inode_get_block_size(ino, blkidx);
 		match self.inode_resolve_block(inr, ino, blkidx)? {

@@ -93,10 +93,11 @@ impl Filesystem for Fs {
 		let inr = self.lookup(path)?;
 		let link = self.ufs.symlink_read(inr)?;
 
-		let len = link.len();
+		let mut len = link.len();
 
 		if len >= buf.len() {
-			return Err(err!(ENAMETOOLONG));
+			log::trace!("readlink(): truncating link from {} to {}", link.len(), buf.len());
+			len = buf.len() - 1;
 		}
 
 		buf[0..len].copy_from_slice(&link[0..len]);
