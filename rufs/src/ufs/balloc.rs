@@ -122,7 +122,7 @@ impl<R: Backend> Ufs<R> {
 		assert_ne!(size, 0);
 		assert!(size <= bsize);
 		assert!(size % fsize == 0);
-		assert!(bno % bsize / fsize + nfrag <= sb.frag as u64);
+		assert!(bno % (bsize / fsize) + nfrag <= sb.frag as u64);
 
 		let cgi = bno / fpg;
 		let cgo = self.cg_addr(cgi);
