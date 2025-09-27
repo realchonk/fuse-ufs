@@ -21,7 +21,7 @@ fuse2rs = "0.1.2"
 fuser = { version = "0.16.0", features = [ "libfuse" ] }
 libc = "0.2.176"
 log = "0.4.22"
-rufs = { version = "0.5.0", path = "rufs" }
+rufs = { version = "0.6.0", path = "rufs" }
 
 # Dev dependencies
 assert_cmd = "2.0"
