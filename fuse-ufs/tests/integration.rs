@@ -8,6 +8,7 @@ use std::{
 	os::unix::{ffi::OsStringExt, fs::MetadataExt},
 	path::{Path, PathBuf},
 	process::{Child, Command, Output},
+	sync::LazyLock,
 	thread::sleep,
 	time::{Duration, Instant},
 };
@@ -15,7 +16,6 @@ use std::{
 #[allow(unused_imports)]
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
-use lazy_static::lazy_static;
 use nix::{
 	fcntl::OFlag,
 	sys::{stat::Mode, statvfs::FsFlags},
@@ -81,11 +81,9 @@ fn prepare_image(filename: &str) -> PathBuf {
 	img
 }
 
-lazy_static! {
-	// TODO: GOLDEN_BIG and other configs, like 64K/8K, 4K/4k, etc.
-	pub static ref GOLDEN_LE: PathBuf = prepare_image("ufs-little.img");
-	pub static ref GOLDEN_BE: PathBuf = prepare_image("ufs-big.img");
-}
+// TODO: GOLDEN_BIG and other configs, like 64K/8K, 4K/4k, etc.
+pub static GOLDEN_LE: LazyLock<PathBuf> = LazyLock::new(|| prepare_image("ufs-little.img"));
+pub static GOLDEN_BE: LazyLock<PathBuf> = LazyLock::new(|| prepare_image("ufs-big.img"));
 
 #[derive(Clone, Copy, Debug)]
 pub struct WaitForError;
