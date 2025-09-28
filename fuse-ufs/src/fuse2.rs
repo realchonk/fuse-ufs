@@ -96,7 +96,11 @@ impl Filesystem for Fs {
 		let mut len = link.len();
 
 		if len >= buf.len() {
-			log::trace!("readlink(): truncating link from {} to {}", link.len(), buf.len());
+			log::trace!(
+				"readlink(): truncating link from {} to {}",
+				link.len(),
+				buf.len()
+			);
 			len = buf.len() - 1;
 		}
 
