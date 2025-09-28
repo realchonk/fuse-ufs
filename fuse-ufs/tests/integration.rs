@@ -1,7 +1,7 @@
 #[cfg(target_os = "freebsd")]
 use std::os::fd::AsRawFd;
 use std::{
-	ffi::{OsStr, OsString},
+	ffi::{CStr, OsStr, OsString},
 	fmt,
 	fs::{self, File},
 	io::{Error, ErrorKind, Read, Seek, SeekFrom, Write},
@@ -516,7 +516,7 @@ fn getxattr_size(#[case] harness: Harness) {
 	let expected = b"testvalue";
 
 	// Can't use c"test" syntax, because the apply macro doesn't like it
-	let name = cstr!(b"test");
+	let name = CStr::from_bytes_until_nul(b"test\0").unwrap();
 	let num = unsafe {
 		libc::extattr_get_fd(
 			file.as_raw_fd(),
@@ -562,7 +562,7 @@ fn noxattrs_get(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let file = File::open(d.path().join("file1")).unwrap();
-	let name = cstr!(b"test");
+	let name = CStr::from_bytes_until_nul(b"test\0").unwrap();
 	let num = unsafe {
 		libc::extattr_get_fd(
 			file.as_raw_fd(),
