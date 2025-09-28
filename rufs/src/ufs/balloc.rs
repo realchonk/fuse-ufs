@@ -223,6 +223,7 @@ impl<R: Backend> Ufs<R> {
 		let fs = self.superblock.fsize as u64;
 		let blkno = self.blk_alloc_full()?;
 		let data = vec![0u8; bs];
+		log::trace!("blk_alloc_full_zeroed(): blkno={blkno}, zeroing...");
 		self.file.encode_at(blkno.get() * fs, &data)?;
 		Ok(blkno)
 	}

@@ -54,7 +54,10 @@ impl<R: Backend> Ufs<R> {
 		mut offset: u64,
 		buffer: &[u8],
 	) -> IoResult<usize> {
-		log::trace!("inode_write({inr}, {offset}, {})", buffer.len());
+		log::trace!(
+			"inode_write(inr={inr}, offset={offset}, buflen={})",
+			buffer.len()
+		);
 		self.assert_rw()?;
 
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];

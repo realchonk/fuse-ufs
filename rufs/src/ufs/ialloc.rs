@@ -82,6 +82,8 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	pub(super) fn read_pblock(&mut self, bno: u64, block: &mut [u64]) -> IoResult<()> {
+		log::trace!("read_pblock(bno={bno});");
+
 		let fs = self.superblock.fsize as u64;
 		let bs = self.superblock.bsize as usize;
 		let pbp = bs / size_of::<u64>();
@@ -96,6 +98,8 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	pub(super) fn write_pblock(&mut self, bno: u64, block: &[u64]) -> IoResult<()> {
+		log::trace!("write_pblock(bno={bno});");
+
 		let fs = self.superblock.fsize as u64;
 		let bs = self.superblock.bsize as usize;
 		let pbp = bs / size_of::<u64>();
@@ -389,6 +393,7 @@ impl<R: Backend> Ufs<R> {
 		blkidx: u64,
 		block: NonZeroU64,
 	) -> IoResult<()> {
+		log::trace!("inode_set_block(inr={inr}, blkidx={blkidx}, block={block})");
 		let sb = &self.superblock;
 		let bs = sb.bsize as u64;
 		let su64 = size_of::<UfsDaddr>() as u64;
@@ -396,9 +401,7 @@ impl<R: Backend> Ufs<R> {
 		let mut data = vec![0u64; pbp as usize];
 
 		let InodeData::Blocks(InodeBlocks { direct, indirect }) = &mut ino.data else {
-			log::warn!(
-				"inode_set_block({inr}, {blkidx}, {block}): inode doesn't haave data blocks"
-			);
+			log::warn!("inode_set_block({inr}, {blkidx}, {block}): inode doesn't have data blocks");
 			return Err(err!(EIO));
 		};
 

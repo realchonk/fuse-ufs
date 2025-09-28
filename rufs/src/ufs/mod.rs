@@ -177,6 +177,7 @@ impl<R: Backend> Ufs<R> {
 		for i in 0..sb.ncg {
 			let addr = (i as u64 * fpg + sblkno) * fs;
 			let csb: Superblock = self.file.decode_at(addr).unwrap();
+			log::trace!("CSB: {csb:#?}");
 			if csb.magic != FS_UFS2_MAGIC {
 				log::error!("CG{i} has invalid superblock magic: {:x}", csb.magic);
 				return Err(err!(EIO));
