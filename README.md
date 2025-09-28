@@ -13,7 +13,7 @@
 [![Packaging status](https://repology.org/badge/vertical-allrepos/fusefs:ufs.svg)](https://repology.org/project/fusefs:ufs/versions)
 
 ## Dependencies
-- rust >= 1.74.0
+- rust >= 1.85.0
 - libfuse3 or libfuse2 (for fuse-ufs)
 
 ## Building from source
