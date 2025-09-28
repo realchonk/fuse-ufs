@@ -112,8 +112,7 @@ impl<T: Backend> Write for BlockReader<T> {
 			return Ok(());
 		}
 
-		self.inner
-			.seek(SeekFrom::Current(-(self.block.len() as i64)))?;
+		self.inner.seek_relative(-(self.block.len() as i64))?;
 		let mut num = 0;
 		while num < self.block.len() {
 			match self.inner.write(&self.block[num..])? {
@@ -227,7 +226,7 @@ mod t {
 			let idx = br.idx;
 			let real_pos = br.inner.stream_position().unwrap();
 
-			br.seek(SeekFrom::Current(0)).unwrap();
+			br.seek_relative(0).unwrap();
 			assert_eq!(real_pos, br.inner.stream_position().unwrap());
 			assert_eq!(idx, br.idx);
 		}
@@ -242,7 +241,7 @@ mod t {
 			let idx = br.idx as u64;
 			let real_pos = br.inner.stream_position().unwrap();
 
-			br.seek(SeekFrom::Current(-1)).unwrap();
+			br.seek_relative(-1).unwrap();
 			assert_eq!(
 				real_pos + idx - 1,
 				br.inner.stream_position().unwrap() + br.idx as u64
@@ -257,7 +256,7 @@ mod t {
 			let initial = bs + (bs >> 2);
 			br.seek(SeekFrom::Start(initial as u64)).unwrap();
 
-			let e = br.seek(SeekFrom::Current(-2 * initial as i64)).unwrap_err();
+			let e = br.seek_relative(-2 * initial as i64).unwrap_err();
 			assert_eq!(libc::EINVAL, e.raw_os_error().unwrap());
 		}
 
@@ -271,7 +270,7 @@ mod t {
 			let idx = br.idx as u64;
 			let real_pos = br.inner.stream_position().unwrap();
 
-			br.seek(SeekFrom::Current(1)).unwrap();
+			br.seek_relative(1).unwrap();
 			assert_eq!(
 				real_pos + idx + 1,
 				br.inner.stream_position().unwrap() + br.idx as u64
@@ -288,7 +287,7 @@ mod t {
 			let idx = br.idx as u64;
 			let real_pos = br.inner.stream_position().unwrap();
 
-			br.seek(SeekFrom::Current(bs as i64)).unwrap();
+			br.seek_relative(bs as i64).unwrap();
 			assert_eq!(
 				real_pos + idx + bs as u64,
 				br.inner.stream_position().unwrap() + br.idx as u64
