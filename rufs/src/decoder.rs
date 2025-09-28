@@ -117,7 +117,7 @@ impl<T: Read + Seek> Decoder<T> {
 	}
 
 	pub fn seek_relative(&mut self, off: i64) -> Result<()> {
-		self.inner.seek(SeekFrom::Current(off))?;
+		self.inner.seek_relative(off)?;
 		Ok(())
 	}
 }

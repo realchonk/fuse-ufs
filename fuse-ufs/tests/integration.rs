@@ -15,8 +15,6 @@ use std::{
 #[allow(unused_imports)]
 use assert_cmd::cargo::CommandCargoExt;
 use cfg_if::cfg_if;
-#[allow(unused_imports)]
-use cstr::cstr;
 use lazy_static::lazy_static;
 use nix::{
 	fcntl::OFlag,
