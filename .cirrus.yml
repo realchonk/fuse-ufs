@@ -60,6 +60,15 @@ task:
   before_cache_script: rm -rf $HOME/.cargo/registry/index
 
 task:
+  name: MacOS
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-runner:sonoma
+  setup_script:
+    - curl -s https://sh.rustup.rs | sh -s -- -y
+    - brew install --cask macfuse
+  << : *TEST
+
+task:
   name: Lint
   container:
     image: rustlang/rust:nightly
