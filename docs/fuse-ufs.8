@@ -4,7 +4,7 @@
 .Os
 .Sh NAME
 .Nm fuse-ufs
-.Nd FUSE3 implementation of FreeBSD's UFSv2
+.Nd FUSE3 implementation of FreeBSD UFSv2
 .Sh SYNOPSIS
 .Nm
 .Op Fl fqv
@@ -71,9 +71,14 @@ The same, but allow other users to access the mounted filesystem:
 .An Benjamin Stürz Aq Mt benni@stuerz.xyz
 .An Alan Somers Aq Mt asomers@freebsd.org
 .Sh CAVEATS
-Only 64-bit Linux & FreeBSD systems have been tested to work.
-Support for other systems (like MacOS) will be on a best-effort basis for now.
-
+64-bit Linux, FreeBSD, OpenBSD, and macOS systems are supported.
+.Pp
+.Sy macOS Support:
+On macOS, you must install macFUSE first:
+.Bd -literal
+brew install macfuse
+.Ed
+.Pp
 Missing features:
 .Bl -bullet -compact
 .It
