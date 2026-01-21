@@ -82,13 +82,13 @@ impl Header {
 			DT_LNK => Some(InodeType::Symlink),
 			DT_SOCK => Some(InodeType::Socket),
 			DT_WHT => {
-				log::warn!("DT_WHT for inode {inr}, ignoring");
+				log::debug!("DT_WHT (whiteout) for inode {inr}, skipping");
 				None
 			}
 			DT_UNKNOWN => {
-				// Real entry, but type must be determined from inode
-				log::debug!("DT_UNKNOWN for inode {inr}, type will be read from inode");
-				Some(InodeType::Socket)
+				// Type must be determined from inode - return None to signal this
+				log::trace!("DT_UNKNOWN for inode {inr}, type will be read from inode");
+				None
 			}
 			_ => {
 				log::warn!("Invalid filetype {kind} for inode {inr}, stopping directory parse");
@@ -162,25 +162,22 @@ fn readdir_block<T>(
 		}
 
 		let kind = match hdr.kind {
-			Some(InodeType::Socket) => {
-				// This is DT_UNKNOWN - look up actual type
+			Some(k) => k,
+			None => {
+				// None means either DT_UNKNOWN (need to lookup) or DT_WHT (skip)
+				// or invalid entry. Try to lookup the type from the inode.
 				match lookup_kind(hdr.inr) {
 					Ok(k) => k,
 					Err(e) => {
-						log::warn!(
-							"Failed to read inode {} for {:?}: {}, skipping",
-							hdr.inr,
+						log::debug!(
+							"Skipping entry {:?} (inode {}): {}",
 							hdr.name(),
+							hdr.inr,
 							e
 						);
 						continue;
 					}
 				}
-			}
-			Some(k) => k,
-			None => {
-				log::debug!("Skipping whiteout entry: {:?}", hdr.name());
-				continue;
 			}
 		};
 

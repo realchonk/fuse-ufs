@@ -141,9 +141,9 @@ impl Inode {
 			S_IFLNK => InodeType::Symlink,
 			S_IFSOCK => InodeType::Socket,
 			_ => {
-				log::error!("invalid file mode: {mode:o}");
-				// TODO: return socket type as fallback
-				InodeType::Socket
+				log::warn!("Invalid file mode {mode:#o} for inode, treating as regular file");
+				// Treat unknown types as regular files to avoid breaking directory listings
+				InodeType::RegularFile
 			}
 		}
 	}
