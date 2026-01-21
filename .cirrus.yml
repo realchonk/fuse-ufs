@@ -64,7 +64,7 @@ task:
   env:
     VERSION: 1.85.0
   macos_instance:
-    image: ghcr.io/cirruslabs/macos-sequoia-base:latest
+    image: ghcr.io/cirruslabs/macos-runner:tahoe
   setup_script:
     - brew install macfuse pkg-config
     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile=minimal --default-toolchain ${VERSION}
