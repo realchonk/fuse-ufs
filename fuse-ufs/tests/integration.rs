@@ -138,9 +138,9 @@ fn harness(img: &Path, delete: bool) -> Harness {
 		cmd.arg("-orw");
 	}
 
-	let child = cmd.arg("-f").arg(img).arg(d.path()).spawn().unwrap();
+	let mut child = cmd.arg("-f").arg(img).arg(d.path()).spawn().unwrap();
 
-	waitfor(Duration::from_secs(5), || {
+	match waitfor(Duration::from_secs(5), || {
 		let s = nix::sys::statfs::statfs(d.path()).expect("failed to statfs");
 		cfg_if! {
 			if #[cfg(any(target_os = "freebsd", target_os = "macos"))] {
@@ -151,8 +151,13 @@ fn harness(img: &Path, delete: bool) -> Harness {
 				s.filesystem_type_name() == "fuse"
 			}
 		}
-	})
-	.expect("failed to wait for fuse-ufs");
+	}) {
+		Ok(()) => {}
+		Err(err) => {
+			cleanup(&mut child, d.path(), img, delete);
+			panic!("failed to wait for fuse-ufs: {err}");
+		}
+	}
 
 	Harness {
 		d,
@@ -203,45 +208,50 @@ fn umount(path: &Path) -> Result<Output, Error> {
 	}
 }
 
+fn cleanup(child_process: &mut Child, tmp_dir: &Path, img: &Path, delete_img: bool) {
+	println!("Executing cleanup for {tmp_dir:?}");
+	loop {
+		match umount(tmp_dir) {
+			Err(e) => {
+				eprintln!("Executing umount failed: {e}");
+				if std::thread::panicking() {
+					// Can't double panic
+					return;
+				}
+				panic!("Executing umount failed");
+			}
+			Ok(output) => {
+				let errmsg = OsString::from_vec(output.stderr).into_string().unwrap();
+				if output.status.success() {
+					break;
+				} else if errmsg.contains("not a file system root directory") {
+					// The daemon probably crashed.
+					break;
+				} else if errmsg.contains("Device busy") {
+					println!("{errmsg}");
+				} else {
+					if std::thread::panicking() {
+						// Can't double panic
+						println!("{errmsg}");
+						return;
+					}
+					panic!("{errmsg}");
+				}
+			}
+		}
+		sleep(Duration::from_millis(50));
+	}
+	let _ = child_process.wait();
+
+	if delete_img {
+		let _ = std::fs::remove_file(img);
+	}
+}
+
 impl Drop for Harness {
 	#[allow(clippy::if_same_then_else)]
 	fn drop(&mut self) {
-		loop {
-			match umount(self.d.path()) {
-				Err(e) => {
-					eprintln!("Executing umount failed: {e}");
-					if std::thread::panicking() {
-						// Can't double panic
-						return;
-					}
-					panic!("Executing umount failed");
-				}
-				Ok(output) => {
-					let errmsg = OsString::from_vec(output.stderr).into_string().unwrap();
-					if output.status.success() {
-						break;
-					} else if errmsg.contains("not a file system root directory") {
-						// The daemon probably crashed.
-						break;
-					} else if errmsg.contains("Device busy") {
-						println!("{errmsg}");
-					} else {
-						if std::thread::panicking() {
-							// Can't double panic
-							println!("{errmsg}");
-							return;
-						}
-						panic!("{errmsg}");
-					}
-				}
-			}
-			sleep(Duration::from_millis(50));
-		}
-		let _ = self.child.wait();
-
-		if self.delete {
-			let _ = std::fs::remove_file(&self.img);
-		}
+		cleanup(&mut self.child, self.d.path(), &self.img, self.delete)
 	}
 }
 
