@@ -169,12 +169,7 @@ fn readdir_block<T>(
 				match lookup_kind(hdr.inr) {
 					Ok(k) => k,
 					Err(e) => {
-						log::debug!(
-							"Skipping entry {:?} (inode {}): {}",
-							hdr.name(),
-							hdr.inr,
-							e
-						);
+						log::debug!("Skipping entry {:?} (inode {}): {}", hdr.name(), hdr.inr, e);
 						continue;
 					}
 				}
