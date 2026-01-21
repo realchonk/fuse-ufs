@@ -115,8 +115,34 @@ pub const UFS_NIADDR: usize = 3;
 /// Length of a short link.
 pub const UFS_SLLEN: usize = (UFS_NDADDR + UFS_NIADDR) * size_of::<UfsDaddr>();
 
-/// Size of an on-disk inode.
+/// Size of an on-disk inode for UFS2.
 pub const UFS_INOSZ: usize = 256;
+
+/// UFSv1 Magic numbers and locations
+pub const UFS1_MAGIC: i32 = 0x00011954;
+pub const UFS1_MAGIC_BE: i32 = 0x54190100; // Byte-swapped
+
+/// Location of the superblock on UFSv1.
+pub const SBLOCK_UFS1: usize = 8192;
+
+/// Alternative superblock locations for special media
+pub const SBLOCK_FLOPPY: usize = 0;
+pub const SBLOCK_PIGGY: usize = 262144;
+
+/// HP-UX variant magic numbers
+pub const UFS_MAGIC_LFN: i32 = 0x00095014; // Long filenames
+pub const UFS_MAGIC_SEC: i32 = 0x00612195; // B1 security
+pub const UFS_MAGIC_FEA: i32 = 0x00195612; // Feature bits
+pub const UFS_MAGIC_4GB: i32 = 0x05231994; // Large filesystems
+
+/// Size of an on-disk inode for UFSv1.
+pub const UFS1_INOSZ: usize = 128;
+
+/// UFSv1 uses 32-bit block addresses
+pub type Ufs1Daddr = i32;
+
+/// UFSv1 uses 32-bit timestamps (seconds since epoch)
+pub type Ufs1Time = i32;
 
 /// Maximum length of an extattr name.
 pub const UFS_EXTATTR_MAXNAMELEN: usize = 64; // excluding null
@@ -179,10 +205,125 @@ pub struct CsumTotal {
 	pub spare:       [i64; 3], // future expansion
 }
 
-/// Super block for an FFS filesystem.
+/// Super block for UFSv1 filesystem (simplified for read-only support).
+/// Based on `struct fs` from 4.4BSD and Linux kernel ufs_fs.h
+#[derive(Debug, Decode, Encode)]
+pub struct SuperblockV1 {
+	pub link:       Ufs1Daddr,       // historic filesystem linked list
+	pub rlink:      Ufs1Daddr,       // used for incore super blocks
+	pub sblkno:     Ufs1Daddr,       // offset of super-block in filesys
+	pub cblkno:     Ufs1Daddr,       // offset of cyl-block in filesys
+	pub iblkno:     Ufs1Daddr,       // offset of inode-blocks in filesys
+	pub dblkno:     Ufs1Daddr,       // offset of first data after cg
+	pub cgoffset:   i32,             // cylinder group offset in cylinder
+	pub cgmask:     i32,             // used to calc mod fs_ntrak
+	pub time:       Ufs1Time,        // last time written
+	pub size:       Ufs1Daddr,       // number of blocks in fs
+	pub dsize:      Ufs1Daddr,       // number of data blocks in fs
+	pub ncg:        i32,             // number of cylinder groups
+	pub bsize:      i32,             // size of basic blocks in fs
+	pub fsize:      i32,             // size of frag blocks in fs
+	pub frag:       i32,             // number of frags in a block in fs
+	pub minfree:    i32,             // minimum percentage of free blocks
+	pub rotdelay:   i32,             // num of ms for optimal next block
+	pub rps:        i32,             // disk revolutions per second
+	pub bmask:      i32,             // ``blkoff'' calc of blk offsets
+	pub fmask:      i32,             // ``fragoff'' calc of frag offsets
+	pub bshift:     i32,             // ``lblkno'' calc of logical blkno
+	pub fshift:     i32,             // ``numfrags'' calc number of frags
+	pub maxcontig:  i32,             // max number of contiguous blks
+	pub maxbpg:     i32,             // max number of blks per cyl group
+	pub fragshift:  i32,             // block to frag shift
+	pub fsbtodb:    i32,             // fsbtodb and dbtofsb shift constant
+	pub sbsize:     i32,             // actual size of super block
+	pub csmask:     i32,             // csum block offset (old spare1[0])
+	pub csshift:    i32,             // csum block number (old spare1[1])
+	pub nindir:     i32,             // value of NINDIR
+	pub inopb:      i32,             // value of INOPB
+	pub nspf:       i32,             // value of NSPF
+	pub optim:      i32,             // optimization preference
+	pub npsect:     i32,             // # sectors/track including spares
+	pub interleave: i32,             // hardware sector interleave
+	pub trackskew:  i32,             // sector 0 skew, per track
+	pub id:         [i32; 2],        // unique filesystem id
+	pub csaddr:     Ufs1Daddr,       // blk addr of cyl grp summary area
+	pub cssize:     i32,             // size of cyl grp summary area
+	pub cgsize:     i32,             // cylinder group size
+	pub ntrak:      i32,             // tracks per cylinder
+	pub nsect:      i32,             // sectors per track
+	pub spc:        i32,             // sectors per cylinder
+	pub ncyl:       i32,             // cylinders in filesystem
+	pub cpg:        i32,             // cylinders per group
+	pub ipg:        i32,             // inodes per group
+	pub fpg:        i32,             // blocks per group * fs_frag
+	pub cstotal:    Csum,            // cylinder summary information
+	pub fmod:       i8,              // super block modified flag
+	pub clean:      i8,              // filesystem is clean flag
+	pub ronly:      i8,              // mounted read-only flag
+	pub flags:      i8,              // see FS_ flags below
+	pub fsmnt:      [u8; MAXMNTLEN], // name mounted on
+	// Additional fields follow but are less critical for basic read operations
+	pub magic:      i32, // magic number (at offset ~1372)
+	                     // Note: Actual UFSv1 superblock has more fields, but these are sufficient
+	                     // for basic read-only operations. Full structure varies by variant.
+}
+
+impl SuperblockV1 {
+	/// Get the block size
+	pub fn block_size(&self) -> u64 {
+		self.bsize as u64
+	}
+
+	/// Get the fragment size
+	pub fn fragment_size(&self) -> u64 {
+		self.fsize as u64
+	}
+
+	/// Get fragments per block
+	pub fn frag(&self) -> i32 {
+		self.frag
+	}
+
+	/// Get fragments per group
+	pub fn fragments_per_group(&self) -> i32 {
+		self.fpg
+	}
+
+	/// Get block shift value
+	pub fn bshift(&self) -> i32 {
+		self.bshift
+	}
+
+	/// Get fragment shift value
+	pub fn fshift(&self) -> i32 {
+		self.fshift
+	}
+
+	/// Get block mask
+	pub fn bmask(&self) -> i32 {
+		self.bmask
+	}
+
+	/// Get fragment mask
+	pub fn fmask(&self) -> i32 {
+		self.fmask
+	}
+
+	/// Get fragment shift
+	pub fn fragshift(&self) -> i32 {
+		self.fragshift
+	}
+
+	/// Get superblock size
+	pub fn sbsize(&self) -> i32 {
+		self.sbsize
+	}
+}
+
+/// Super block for UFSv2 filesystem.
 /// `struct fs` in FreeBSD
 #[derive(Debug, Decode, Encode)]
-pub struct Superblock {
+pub struct SuperblockV2 {
 	pub firstfield:       i32, // historic filesystem linked list,
 	pub unused_1:         i32, // used for incore super blocks
 	pub sblkno:           i32, // offset of super-block in filesys
@@ -335,9 +476,51 @@ pub enum InodeData {
 	Shortlink([u8; UFS_SLLEN]),
 }
 
+/// UFSv1 inode block addresses (32-bit)
+#[derive(Debug, Default, Clone, Decode, Encode)]
+pub struct InodeV1Blocks {
+	pub direct:   [Ufs1Daddr; UFS_NDADDR], // 12 direct block pointers
+	pub indirect: [Ufs1Daddr; UFS_NIADDR], // 3 indirect block pointers
+}
+
+/// UFSv1 inode data union
+#[derive(Debug, Clone, Encode, Decode)]
+pub enum InodeV1Data {
+	Blocks(InodeV1Blocks),
+	Shortlink([u8; 4 * (UFS_NDADDR + UFS_NIADDR)]), // 60 bytes for UFSv1
+}
+
+/// UFSv1 inode (128 bytes total)
+/// Based on `struct ufs_inode` from Linux kernel
+#[allow(dead_code)]
+#[derive(Debug, Encode, Decode)]
+pub struct InodeV1 {
+	pub mode:       u16,         //   0: IFMT, permissions
+	pub nlink:      u16,         //   2: File link count
+	pub uid_low:    u16,         //   4: Owner UID (low 16 bits)
+	pub gid_low:    u16,         //   6: Owner GID (low 16 bits)
+	pub size:       u64,         //   8: File byte count
+	pub atime:      Ufs1Time,    //  16: Last access time (seconds)
+	pub atime_usec: i32,         //  20: Last access time (microseconds)
+	pub mtime:      Ufs1Time,    //  24: Last modified time (seconds)
+	pub mtime_usec: i32,         //  28: Last modified time (microseconds)
+	pub ctime:      Ufs1Time,    //  32: Last inode change time (seconds)
+	pub ctime_usec: i32,         //  36: Last inode change time (microseconds)
+	pub data:       InodeV1Data, //  40: Block pointers or shortlink (60 bytes)
+	pub flags:      u32,         // 100: Status flags
+	pub blocks:     i32,         // 104: Blocks actually held
+	pub gen:        u32,         // 108: Generation number
+	pub uid:        u32,         // 112: Extended owner UID
+	pub gid:        u32,         // 116: Extended owner GID
+	pub spare:      [u32; 2],    // 120: Reserved (8 bytes)
+	                             // Total: 128 bytes
+}
+
+/// UFSv2 inode (256 bytes)
+/// `struct ufs2_dinode` in FreeBSD
 #[allow(dead_code)]
 #[derive(Debug, Encode)]
-pub struct Inode {
+pub struct InodeV2 {
 	pub mode:      u16,                    //   0: IFMT, permissions; see below.
 	pub nlink:     u16,                    //   2: File link count.
 	pub uid:       u32,                    //   4: File owner.
@@ -363,6 +546,378 @@ pub struct Inode {
 	pub ignored:   u32, // 240: (SUJ: Next unlinked inode) or (IFDIR: depth from root dir)
 	pub ckhash:    u32, // 244: if CK_INODE, its check-hash
 	pub spare:     [u32; 2], // 248: Reserved; currently unused
+}
+
+/// UFS filesystem version
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UfsVersion {
+	V1,
+	V2,
+}
+
+/// Unified superblock enum supporting both UFSv1 and UFSv2
+#[derive(Debug, Encode, Decode)]
+pub enum Superblock {
+	V1(SuperblockV1),
+	V2(SuperblockV2),
+}
+
+impl Superblock {
+	/// Get the block size
+	pub fn block_size(&self) -> u64 {
+		match self {
+			Self::V1(sb) => sb.bsize as u64,
+			Self::V2(sb) => sb.bsize as u64,
+		}
+	}
+
+	/// Get the fragment size
+	pub fn fragment_size(&self) -> u64 {
+		match self {
+			Self::V1(sb) => sb.fsize as u64,
+			Self::V2(sb) => sb.fsize as u64,
+		}
+	}
+
+	/// Get the magic number
+	pub fn magic(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.magic,
+			Self::V2(sb) => sb.magic,
+		}
+	}
+
+	/// Get inodes per group
+	pub fn inodes_per_group(&self) -> u32 {
+		match self {
+			Self::V1(sb) => sb.ipg as u32,
+			Self::V2(sb) => sb.ipg,
+		}
+	}
+
+	/// Get fragments per group
+	pub fn fragments_per_group(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.fpg,
+			Self::V2(sb) => sb.fpg,
+		}
+	}
+
+	/// Get number of cylinder groups
+	pub fn num_cylinder_groups(&self) -> u32 {
+		match self {
+			Self::V1(sb) => sb.ncg as u32,
+			Self::V2(sb) => sb.ncg,
+		}
+	}
+
+	/// Get inode block offset
+	pub fn inode_block_offset(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.iblkno,
+			Self::V2(sb) => sb.iblkno,
+		}
+	}
+
+	/// Calculate the size of a cylinder group
+	pub fn cgsize(&self) -> u64 {
+		match self {
+			Self::V1(sb) => sb.fpg as u64 * sb.fsize as u64,
+			Self::V2(sb) => sb.fpg as u64 * sb.fsize as u64,
+		}
+	}
+
+	/// Get fragment shift
+	pub fn fragshift(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.fragshift,
+			Self::V2(sb) => sb.fragshift,
+		}
+	}
+
+	/// Get the UFSv2 superblock if this is v2
+	pub fn as_v2(&self) -> Option<&SuperblockV2> {
+		match self {
+			Self::V2(sb) => Some(sb),
+			_ => None,
+		}
+	}
+
+	/// Get fragments per block
+	pub fn frag(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.frag,
+			Self::V2(sb) => sb.frag,
+		}
+	}
+
+	/// Get cylinder block number offset
+	pub fn cblkno(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.cblkno,
+			Self::V2(sb) => sb.cblkno,
+		}
+	}
+
+	/// Get superblock number offset
+	pub fn sblkno(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.sblkno,
+			Self::V2(sb) => sb.sblkno,
+		}
+	}
+
+	/// Get data block number offset
+	pub fn dblkno(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.dblkno,
+			Self::V2(sb) => sb.dblkno,
+		}
+	}
+
+	/// Get fragments per block (duplicated for compatibility)
+	pub fn fpb(&self) -> i32 {
+		self.frag()
+	}
+
+	/// Calculate the size of a cylinder group structure (UFSv2 only)
+	pub fn cgsize_struct(&self) -> usize {
+		match self {
+			Self::V1(_sb) => {
+				// UFSv1 doesn't have complex CG structure calculation
+				size_of::<CylGroup>()
+			}
+			Self::V2(sb) => sb.cgsize_struct(),
+		}
+	}
+
+	/// Convert inode number to cylinder group number
+	pub fn ino_to_cg(&self, inr: InodeNum) -> u64 {
+		let ipg = self.inodes_per_group() as u64;
+		inr.get64() / ipg
+	}
+
+	/// Convert inode number to cylinder group number and offset
+	pub fn ino_in_cg(&self, inr: InodeNum) -> (u64, u64) {
+		let ipg = self.inodes_per_group() as u64;
+		let inr = inr.get64();
+		(inr / ipg, inr % ipg)
+	}
+
+	/// Convert blocks to fragments
+	pub fn blocks_to_frags(&self, blocks: u64) -> u64 {
+		blocks << self.fragshift() as u32
+	}
+
+	/// Convert inode number to filesystem offset
+	pub fn ino_to_fso(&self, inr: InodeNum) -> u64 {
+		let ipg = self.inodes_per_group() as u64;
+		let fpg = self.fragments_per_group() as u64;
+		let fs = self.fragment_size();
+		let cgi = inr.get64() / ipg;
+		let off = inr.get64() % ipg;
+		let cgstart = cgi * fpg * fs;
+		let cgistart = cgstart + (self.inode_block_offset() as u64 * fs);
+
+		let inode_size = match self {
+			Self::V1(_) => UFS1_INOSZ as u64,
+			Self::V2(_) => UFS_INOSZ as u64,
+		};
+
+		cgistart + (off * inode_size)
+	}
+
+	/// Get block shift value
+	pub fn bshift(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.bshift,
+			Self::V2(sb) => sb.bshift,
+		}
+	}
+
+	/// Get fragment shift value
+	pub fn fshift(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.fshift,
+			Self::V2(sb) => sb.fshift,
+		}
+	}
+
+	/// Get block mask
+	pub fn bmask(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.bmask,
+			Self::V2(sb) => sb.bmask,
+		}
+	}
+
+	/// Get fragment mask
+	pub fn fmask(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.fmask,
+			Self::V2(sb) => sb.fmask,
+		}
+	}
+
+	/// Get superblock size
+	pub fn sbsize(&self) -> i32 {
+		match self {
+			Self::V1(sb) => sb.sbsize,
+			Self::V2(sb) => sb.sbsize,
+		}
+	}
+}
+
+/// Unified inode enum supporting both UFSv1 and UFSv2
+#[derive(Debug, Encode)]
+pub enum Inode {
+	V1(InodeV1),
+	V2(InodeV2),
+}
+
+impl Inode {
+	/// Get the inode mode
+	pub fn mode(&self) -> u16 {
+		match self {
+			Self::V1(i) => i.mode,
+			Self::V2(i) => i.mode,
+		}
+	}
+
+	/// Get the file size
+	pub fn size(&self) -> u64 {
+		match self {
+			Self::V1(i) => i.size,
+			Self::V2(i) => i.size,
+		}
+	}
+
+	/// Get number of hard links
+	pub fn nlink(&self) -> u16 {
+		match self {
+			Self::V1(i) => i.nlink,
+			Self::V2(i) => i.nlink,
+		}
+	}
+
+	/// Get user ID
+	pub fn uid(&self) -> u32 {
+		match self {
+			Self::V1(i) => i.uid,
+			Self::V2(i) => i.uid,
+		}
+	}
+
+	/// Get group ID
+	pub fn gid(&self) -> u32 {
+		match self {
+			Self::V1(i) => i.gid,
+			Self::V2(i) => i.gid,
+		}
+	}
+
+	/// Get generation number
+	pub fn gen(&self) -> u32 {
+		match self {
+			Self::V1(i) => i.gen,
+			Self::V2(i) => i.gen,
+		}
+	}
+
+	/// Get status flags
+	pub fn flags(&self) -> u32 {
+		match self {
+			Self::V1(i) => i.flags,
+			Self::V2(i) => i.flags,
+		}
+	}
+
+	/// Get access time
+	pub fn atime(&self) -> SystemTime {
+		use std::time::{Duration, UNIX_EPOCH};
+		match self {
+			Self::V1(i) => UNIX_EPOCH + Duration::from_secs(i.atime as u64),
+			Self::V2(i) => {
+				UNIX_EPOCH +
+					Duration::from_secs(i.atime as u64) +
+					Duration::from_nanos(i.atimensec as u64)
+			}
+		}
+	}
+
+	/// Get modification time
+	pub fn mtime(&self) -> SystemTime {
+		use std::time::{Duration, UNIX_EPOCH};
+		match self {
+			Self::V1(i) => UNIX_EPOCH + Duration::from_secs(i.mtime as u64),
+			Self::V2(i) => {
+				UNIX_EPOCH +
+					Duration::from_secs(i.mtime as u64) +
+					Duration::from_nanos(i.mtimensec as u64)
+			}
+		}
+	}
+
+	/// Get change time
+	pub fn ctime(&self) -> SystemTime {
+		use std::time::{Duration, UNIX_EPOCH};
+		match self {
+			Self::V1(i) => UNIX_EPOCH + Duration::from_secs(i.ctime as u64),
+			Self::V2(i) => {
+				UNIX_EPOCH +
+					Duration::from_secs(i.ctime as u64) +
+					Duration::from_nanos(i.ctimensec as u64)
+			}
+		}
+	}
+
+	/// Get blocks count
+	pub fn blocks(&self) -> u64 {
+		match self {
+			Self::V1(i) => i.blocks as u64,
+			Self::V2(i) => i.blocks,
+		}
+	}
+
+	/// Add to blocks count
+	pub fn add_blocks(&mut self, delta: u64) {
+		match self {
+			Self::V1(i) => i.blocks += delta as i32,
+			Self::V2(i) => i.blocks += delta,
+		}
+	}
+
+	/// Subtract from blocks count
+	pub fn sub_blocks(&mut self, delta: u64) {
+		match self {
+			Self::V1(i) => i.blocks -= delta as i32,
+			Self::V2(i) => i.blocks -= delta,
+		}
+	}
+
+	/// Get extended attribute size (UFSv2 only, returns 0 for V1)
+	pub fn extsize(&self) -> u32 {
+		match self {
+			Self::V1(_) => 0,
+			Self::V2(i) => i.extsize,
+		}
+	}
+
+	/// Get extended attribute block addresses (UFSv2 only, returns empty for V1)
+	pub fn extb(&self, idx: usize) -> i64 {
+		match self {
+			Self::V1(_) => 0,
+			Self::V2(i) => i.extb[idx],
+		}
+	}
+
+	/// Get the UFSv2 inode if this is v2
+	pub fn as_v2(&self) -> Option<&InodeV2> {
+		match self {
+			Self::V2(i) => Some(i),
+			_ => None,
+		}
+	}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -468,7 +1023,57 @@ pub struct BlockInfo {
 	pub size: u64,
 }
 
-impl Superblock {
+impl SuperblockV2 {
+	/// Get the block size
+	pub fn block_size(&self) -> u64 {
+		self.bsize as u64
+	}
+
+	/// Get the fragment size
+	pub fn fragment_size(&self) -> u64 {
+		self.fsize as u64
+	}
+
+	/// Get fragments per block
+	pub fn frag(&self) -> i32 {
+		self.frag
+	}
+
+	/// Get fragments per group
+	pub fn fragments_per_group(&self) -> i32 {
+		self.fpg
+	}
+
+	/// Get block shift value
+	pub fn bshift(&self) -> i32 {
+		self.bshift
+	}
+
+	/// Get fragment shift value
+	pub fn fshift(&self) -> i32 {
+		self.fshift
+	}
+
+	/// Get block mask
+	pub fn bmask(&self) -> i32 {
+		self.bmask
+	}
+
+	/// Get fragment mask
+	pub fn fmask(&self) -> i32 {
+		self.fmask
+	}
+
+	/// Get fragment shift
+	pub fn fragshift(&self) -> i32 {
+		self.fragshift
+	}
+
+	/// Get superblock size
+	pub fn sbsize(&self) -> i32 {
+		self.sbsize
+	}
+
 	/// Calculate the size of a cylinder group.
 	pub fn cgsize(&self) -> u64 {
 		self.fpg as u64 * self.fsize as u64

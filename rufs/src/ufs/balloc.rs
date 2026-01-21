@@ -5,7 +5,7 @@ impl<R: Backend> Ufs<R> {
 	/// See /sys/ufs/ffs/ffs_subr.c: ffs_isblock()
 	fn cg_isfreeblock(&mut self, cgo: u64, cg: &CylGroup, bno: u64) -> IoResult<bool> {
 		let sb = &self.superblock;
-		let frag = sb.frag as u64;
+		let frag = sb.frag() as u64;
 		let freeoff = cg.freeoff as u64;
 		let h = bno / frag;
 
@@ -45,7 +45,7 @@ impl<R: Backend> Ufs<R> {
 	/// See /sys/ufs/ffs/ffs_subr.c: ffs_setblock() and ffs_clrblock()
 	fn cg_setblock(&mut self, cgo: u64, cg: &CylGroup, bno: u64, free: bool) -> IoResult<()> {
 		let sb = &self.superblock;
-		let frag = sb.frag as u64;
+		let frag = sb.frag() as u64;
 		let freeoff = cg.freeoff as u64;
 		let h = bno / frag;
 
@@ -86,7 +86,7 @@ impl<R: Backend> Ufs<R> {
 	/// See /sys/ufs/ffs/ffs_subr.c: ffs_isfreeblock()
 	fn cg_isfullblock(&mut self, cgo: u64, cg: &CylGroup, bno: u64) -> IoResult<bool> {
 		let sb = &self.superblock;
-		let frag = sb.frag as u64;
+		let frag = sb.frag() as u64;
 		let freeoff = cg.freeoff as u64;
 		let h = bno / frag;
 
@@ -113,16 +113,16 @@ impl<R: Backend> Ufs<R> {
 		}
 
 		let sb = &self.superblock;
-		let fsize = sb.fsize as u64;
-		let bsize = sb.bsize as u64;
+		let fsize = sb.fragment_size();
+		let bsize = sb.block_size();
 		let nfrag = size / fsize;
-		let fpg = sb.fpg as u64;
-		let frag = sb.frag;
+		let fpg = sb.fragments_per_group() as u64;
+		let frag = sb.frag();
 
 		assert_ne!(size, 0);
 		assert!(size <= bsize);
 		assert!(size % fsize == 0);
-		assert!(bno % bsize / fsize + nfrag <= sb.frag as u64);
+		assert!(bno % bsize / fsize + nfrag <= sb.frag() as u64);
 
 		let cgi = bno / fpg;
 		let cgo = self.cg_addr(cgi);
@@ -140,7 +140,12 @@ impl<R: Backend> Ufs<R> {
 			self.cg_setblock(cgo, &cg, bno, true)?;
 
 			cg.cs.nbfree += 1;
-			self.update_sb(|sb| sb.cstotal.nbfree += 1)?;
+			self.update_sb(|sb| {
+				match sb {
+					Superblock::V1(s) => s.cstotal.nbfree += 1,
+					Superblock::V2(s) => s.cstotal.nbfree += 1,
+				}
+			})?;
 		} else {
 			// deallocate fragments
 			for i in 0..nfrag {
@@ -152,15 +157,28 @@ impl<R: Backend> Ufs<R> {
 			}
 
 			cg.cs.nffree += nfrag as i32;
-			self.update_sb(|sb| sb.cstotal.nffree += nfrag as i64)?;
+			self.update_sb(|sb| {
+				match sb {
+					Superblock::V1(s) => s.cstotal.nffree += nfrag as i32,
+					Superblock::V2(s) => s.cstotal.nffree += nfrag as i64,
+				}
+			})?;
 
 			// if a complete block has been reassembled, account for it
 			if self.cg_isfreeblock(cgo, &cg, bno)? {
 				cg.cs.nffree -= frag;
 				cg.cs.nbfree += 1;
 				self.update_sb(|sb| {
-					sb.cstotal.nffree -= frag as i64;
-					sb.cstotal.nbfree += 1;
+					match sb {
+						Superblock::V1(s) => {
+							s.cstotal.nffree -= frag;
+							s.cstotal.nbfree += 1;
+						}
+						Superblock::V2(s) => {
+							s.cstotal.nffree -= frag as i64;
+							s.cstotal.nbfree += 1;
+						}
+					}
 				})?;
 			}
 		}
@@ -172,10 +190,10 @@ impl<R: Backend> Ufs<R> {
 
 	pub(super) fn blk_alloc_full(&mut self) -> IoResult<NonZeroU64> {
 		let sb = &self.superblock;
-		let frag = sb.frag as u64;
-		let fpg = sb.fpg as u64;
+		let frag = sb.frag() as u64;
+		let fpg = sb.fragments_per_group() as u64;
 
-		for i in 0..(sb.ncg as u64) {
+		for i in 0..(sb.num_cylinder_groups() as u64) {
 			let cgo = self.cg_addr(i);
 			let mut cg: CylGroup = self.file.decode_at(cgo)?;
 			if cg.cs.nbfree <= 0 {
@@ -192,7 +210,12 @@ impl<R: Backend> Ufs<R> {
 				self.cg_setblock(cgo, &cg, bno, false)?;
 				cg.cs.nbfree -= 1;
 				self.file.encode_at(cgo, &cg)?;
-				self.update_sb(|sb| sb.cstotal.nbfree -= 1)?;
+				self.update_sb(|sb| {
+					match sb {
+						Superblock::V1(s) => s.cstotal.nbfree -= 1,
+						Superblock::V2(s) => s.cstotal.nbfree -= 1,
+					}
+				})?;
 				let blkno = NonZeroU64::new(i * fpg + bno).unwrap();
 				log::trace!("blk_alloc_full(): {blkno}");
 				return Ok(blkno);
@@ -206,8 +229,8 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 
 		let sb = &self.superblock;
-		let fsize = sb.fsize as u64;
-		let bsize = sb.bsize as u64;
+		let fsize = sb.fragment_size();
+		let bsize = sb.block_size();
 
 		assert!(size > 0);
 		assert!(size <= bsize);
@@ -219,8 +242,8 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	pub(super) fn blk_alloc_full_zeroed(&mut self) -> IoResult<NonZeroU64> {
-		let bs = self.superblock.bsize as usize;
-		let fs = self.superblock.fsize as u64;
+		let bs = self.superblock.block_size() as usize;
+		let fs = self.superblock.fragment_size();
 		let blkno = self.blk_alloc_full()?;
 		let data = vec![0u8; bs];
 		self.file.encode_at(blkno.get() * fs, &data)?;

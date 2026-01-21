@@ -11,21 +11,44 @@ impl<R: Backend> Ufs<R> {
 			return Err(err!(EINVAL));
 		}
 
-		match &ino.data {
-			InodeData::Shortlink(link) => {
-				assert_eq!(ino.blocks, 0);
-				let len = ino.size as usize;
-				Ok(link[0..len].to_vec())
-			}
-			InodeData::Blocks { .. } => {
-				// TODO: this has to be tested for other configurations, such as 4K/4K
-				assert!(ino.blocks <= 8);
+		match &ino {
+			Inode::V1(i) => {
+				match &i.data {
+					InodeV1Data::Shortlink(link) => {
+						assert_eq!(ino.blocks(), 0);
+						let len = ino.size() as usize;
+						Ok(link[0..len].to_vec())
+					}
+					InodeV1Data::Blocks { .. } => {
+						// TODO: this has to be tested for other configurations, such as 4K/4K
+						assert!(ino.blocks() <= 8);
 
-				let len = ino.size as usize;
-				let mut buf = vec![0u8; self.superblock.bsize as usize];
-				self.inode_read_block(inr, &ino, 0, &mut buf)?;
-				buf.resize(len, 0u8);
-				Ok(buf)
+						let len = ino.size() as usize;
+						let mut buf = vec![0u8; self.superblock.block_size() as usize];
+						self.inode_read_block(inr, &ino, 0, &mut buf)?;
+						buf.resize(len, 0u8);
+						Ok(buf)
+					}
+				}
+			}
+			Inode::V2(i) => {
+				match &i.data {
+					InodeData::Shortlink(link) => {
+						assert_eq!(ino.blocks(), 0);
+						let len = ino.size() as usize;
+						Ok(link[0..len].to_vec())
+					}
+					InodeData::Blocks { .. } => {
+						// TODO: this has to be tested for other configurations, such as 4K/4K
+						assert!(ino.blocks() <= 8);
+
+						let len = ino.size() as usize;
+						let mut buf = vec![0u8; self.superblock.block_size() as usize];
+						self.inode_read_block(inr, &ino, 0, &mut buf)?;
+						buf.resize(len, 0u8);
+						Ok(buf)
+					}
+				}
 			}
 		}
 	}
@@ -36,17 +59,28 @@ impl<R: Backend> Ufs<R> {
 			return Err(err!(EINVAL));
 		}
 
-		assert_eq!(ino.blocks, 0);
+		assert_eq!(ino.blocks(), 0);
 
 		let len = link.len();
 		if len < UFS_SLLEN {
 			let mut data = [0u8; UFS_SLLEN];
 			data[0..len].copy_from_slice(link.as_bytes());
-			ino.data = InodeData::Shortlink(data);
+			match &mut ino {
+				Inode::V1(i) => {
+					i.data = InodeV1Data::Shortlink([0u8; 4 * (UFS_NDADDR + UFS_NIADDR)]);
+					if let InodeV1Data::Shortlink(ref mut d) = i.data {
+						d[0..len].copy_from_slice(link.as_bytes());
+					}
+					i.size = len as u64;
+				}
+				Inode::V2(i) => {
+					i.data = InodeData::Shortlink(data);
+					i.size = len as u64;
+				}
+			}
 		} else {
 			todo!("creating long symlinks");
 		}
-		ino.size = len as u64;
 		self.write_inode(inr, &ino)?;
 		Ok(())
 	}

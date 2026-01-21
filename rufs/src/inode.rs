@@ -39,13 +39,14 @@ fn systotime(t: SystemTime) -> (UfsTime, u32) {
 }
 
 impl Inode {
+	/// Create a new UFSv2 inode (for write operations)
 	pub fn new(kind: InodeType, perm: u16, uid: u32, gid: u32, blksize: u32) -> Self {
 		let (now, nowsnsec) = systotime(SystemTime::now());
 		let data = match kind {
 			InodeType::Symlink => InodeData::Shortlink([0u8; UFS_SLLEN]),
 			_ => InodeData::Blocks(InodeBlocks::default()),
 		};
-		let kind = match kind {
+		let kind_bits = match kind {
 			InodeType::RegularFile => S_IFREG,
 			InodeType::Directory => S_IFDIR,
 			InodeType::Symlink => S_IFLNK,
@@ -54,8 +55,9 @@ impl Inode {
 			InodeType::Socket => S_IFSOCK,
 			InodeType::NamedPipe => S_IFIFO,
 		};
-		let mode = kind | (perm & !S_IFMT);
-		Self {
+		let mode = kind_bits | (perm & !S_IFMT);
+
+		let inode_v2 = InodeV2 {
 			mode,
 			nlink: 0,
 			uid,
@@ -67,8 +69,8 @@ impl Inode {
 			mtime: now,
 			ctime: now,
 			birthtime: now,
-			atimensec: nowsnsec,
 			mtimensec: nowsnsec,
+			atimensec: nowsnsec,
 			ctimensec: nowsnsec,
 			birthnsec: nowsnsec,
 			gen: 0,
@@ -81,39 +83,43 @@ impl Inode {
 			ignored: 0,
 			ckhash: 0,
 			spare: [0; 2],
-		}
-	}
+		};
 
-	pub fn atime(&self) -> SystemTime {
-		timetosys(self.atime, self.atimensec)
-	}
-
-	pub fn mtime(&self) -> SystemTime {
-		timetosys(self.mtime, self.mtimensec)
-	}
-
-	pub fn ctime(&self) -> SystemTime {
-		timetosys(self.ctime, self.ctimensec)
+		Inode::V2(inode_v2)
 	}
 
 	pub fn btime(&self) -> SystemTime {
-		timetosys(self.birthtime, self.birthnsec)
+		match self {
+			Inode::V1(_) => {
+				// UFSv1 doesn't have birth time, return epoch
+				SystemTime::UNIX_EPOCH
+			}
+			Inode::V2(i) => timetosys(i.birthtime, i.birthnsec),
+		}
 	}
 
 	pub fn set_atime(&mut self, t: SystemTime) {
-		(self.atime, self.atimensec) = systotime(t);
+		if let Inode::V2(i) = self {
+			(i.atime, i.atimensec) = systotime(t);
+		}
 	}
 
 	pub fn set_mtime(&mut self, t: SystemTime) {
-		(self.mtime, self.mtimensec) = systotime(t);
+		if let Inode::V2(i) = self {
+			(i.mtime, i.mtimensec) = systotime(t);
+		}
 	}
 
 	pub fn set_ctime(&mut self, t: SystemTime) {
-		(self.ctime, self.ctimensec) = systotime(t);
+		if let Inode::V2(i) = self {
+			(i.ctime, i.ctimensec) = systotime(t);
+		}
 	}
 
 	pub fn set_btime(&mut self, t: SystemTime) {
-		(self.birthtime, self.birthnsec) = systotime(t);
+		if let Inode::V2(i) = self {
+			(i.birthtime, i.birthnsec) = systotime(t);
+		}
 	}
 
 	pub fn assert_dir(&self) -> Result<(), Error> {
@@ -125,7 +131,7 @@ impl Inode {
 	}
 
 	pub fn kind(&self) -> InodeType {
-		let mode = self.mode & S_IFMT;
+		let mode = self.mode() & S_IFMT;
 		match mode {
 			S_IFIFO => InodeType::NamedPipe,
 			S_IFCHR => InodeType::CharDevice,
@@ -139,30 +145,55 @@ impl Inode {
 	}
 
 	pub fn as_attr(&self, inr: InodeNum) -> InodeAttr {
-		InodeAttr {
-			inr,
-			perm: self.mode & 0o7777,
-			kind: self.kind(),
-			size: self.size,
-			blocks: self.blocks,
-			atime: self.atime(),
-			mtime: self.mtime(),
-			ctime: self.ctime(),
-			btime: self.btime(),
-			nlink: self.nlink,
-			uid: self.uid,
-			gid: self.gid,
-			gen: self.gen,
-			blksize: self.blksize,
-			flags: self.flags,
-			kernflags: self.kernflags,
-			extsize: self.extsize,
+		match self {
+			Inode::V1(i) => {
+				InodeAttr {
+					inr,
+					perm: i.mode & 0o7777,
+					kind: self.kind(),
+					size: i.size,
+					blocks: i.blocks as u64,
+					atime: self.atime(),
+					mtime: self.mtime(),
+					ctime: self.ctime(),
+					btime: self.btime(),
+					nlink: i.nlink,
+					uid: i.uid,
+					gid: i.gid,
+					gen: i.gen,
+					blksize: 0, // UFSv1 doesn't store blksize in inode
+					flags: i.flags,
+					kernflags: 0, // UFSv1 doesn't have kernflags
+					extsize: 0,   // UFSv1 doesn't have extsize
+				}
+			}
+			Inode::V2(i) => {
+				InodeAttr {
+					inr,
+					perm: i.mode & 0o7777,
+					kind: self.kind(),
+					size: i.size,
+					blocks: i.blocks,
+					atime: self.atime(),
+					mtime: self.mtime(),
+					ctime: self.ctime(),
+					btime: self.btime(),
+					nlink: i.nlink,
+					uid: i.uid,
+					gid: i.gid,
+					gen: i.gen,
+					blksize: i.blksize,
+					flags: i.flags,
+					kernflags: i.kernflags,
+					extsize: i.extsize,
+				}
+			}
 		}
 	}
 
-	pub fn size(&self, bs: u64, fs: u64) -> (u64, u64) {
+	pub fn file_size(&self, bs: u64, fs: u64) -> (u64, u64) {
 		let size = match self.kind() {
-			InodeType::RegularFile | InodeType::Symlink | InodeType::Directory => self.size,
+			InodeType::RegularFile | InodeType::Symlink | InodeType::Directory => self.size(),
 			kind => todo!("Inode::size() is undefined for {kind:?}"),
 		};
 		Self::inode_size(bs, fs, size)
@@ -177,7 +208,7 @@ impl Inode {
 	}
 }
 
-impl<Context> Decode<Context> for Inode {
+impl<Context> Decode<Context> for InodeV2 {
 	fn decode<D: Decoder<Context = Context>>(d: &mut D) -> Result<Self, DecodeError> {
 		let mode = u16::decode(d)?;
 		let nlink = u16::decode(d)?;

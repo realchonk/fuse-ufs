@@ -7,21 +7,21 @@ impl<R: Backend> Ufs<R> {
 		ino: &Inode,
 		mut f: impl FnMut(&ExtattrHeader, &OsStr, &[u8]) -> Option<T>,
 	) -> IoResult<Option<T>> {
-		if ino.extsize == 0 {
+		if ino.extsize() == 0 {
 			return Ok(None);
 		}
 
-		let fs = self.superblock.fsize as u64;
-		let bs = self.superblock.bsize as usize;
-		let sz = ino.extsize as usize;
+		let fs = self.superblock.fragment_size();
+		let bs = self.superblock.block_size() as usize;
+		let sz = ino.extsize() as usize;
 		assert!(sz < UFS_NXADDR * bs);
 
-		let mut blocks = vec![0u8; ino.extsize as usize];
+		let mut blocks = vec![0u8; ino.extsize() as usize];
 		let mut nr = 0;
 		let mut blkidx = 0;
 
 		while nr < blocks.len() {
-			let pos = ino.extb[blkidx] as u64 * fs;
+			let pos = ino.extb(blkidx) as u64 * fs;
 			let num = bs.min(blocks.len() - nr);
 			self.file.read_at(pos, &mut blocks[nr..(nr + num)])?;
 			blkidx += 1;
@@ -83,7 +83,7 @@ impl<R: Backend> Ufs<R> {
 	/// Get the size of the extended attribute area of inode `inr`.
 	pub fn xattr_list_len(&mut self, inr: InodeNum) -> IoResult<u32> {
 		let ino = self.read_inode(inr)?;
-		Ok(ino.extsize)
+		Ok(ino.extsize())
 	}
 
 	/// Get the list of extended attribyte names.

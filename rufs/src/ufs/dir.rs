@@ -273,7 +273,7 @@ impl<R: Backend> Ufs<R> {
 		ino.assert_dir()?;
 		let mut block = [0u8; DIRBLKSIZE];
 		let mut pos = 0;
-		while pos < ino.size {
+		while pos < ino.size() {
 			let n = self.inode_read(inr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
 			if let Some(x) = readdir_block(inr, &block, self.file.config(), &mut f)? {
@@ -293,7 +293,7 @@ impl<R: Backend> Ufs<R> {
 
 		let mut block = vec![0u8; DIRBLKSIZE];
 		let mut pos = 0;
-		while pos < dino.size {
+		while pos < dino.size() {
 			let n = self.inode_read(dinr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
 
@@ -303,8 +303,8 @@ impl<R: Backend> Ufs<R> {
 				} else {
 					let n =
 						self.inode_copy_range(dinr, &dino, (pos + DIRBLKSIZE as u64).., pos..)?;
-					assert_eq!(n, dino.size - pos - DIRBLKSIZE as u64);
-					self.inode_truncate(dinr, dino.size - DIRBLKSIZE as u64)?;
+					assert_eq!(n, dino.size() - pos - DIRBLKSIZE as u64);
+					self.inode_truncate(dinr, dino.size() - DIRBLKSIZE as u64)?;
 				}
 				return Ok(inr);
 			}
@@ -331,7 +331,7 @@ impl<R: Backend> Ufs<R> {
 
 		let mut block = [0u8; DIRBLKSIZE];
 		let mut pos = 0;
-		while pos < dino.size {
+		while pos < dino.size() {
 			let n = self.inode_read(dinr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
 
@@ -344,7 +344,7 @@ impl<R: Backend> Ufs<R> {
 		}
 
 		log::trace!("dir_link({dinr}, {inr}, {name:?}, {kind:?}): extending directory for new entry: {entry:?}");
-		self.inode_truncate(dinr, dino.size + DIRBLKSIZE as u64)?;
+		self.inode_truncate(dinr, dino.size() + DIRBLKSIZE as u64)?;
 		entry.reclen = DIRBLKSIZE as u16;
 		entry.write(&mut Decoder::new(
 			Cursor::new(&mut block as &mut [u8]),
@@ -441,7 +441,7 @@ impl<R: Backend> Ufs<R> {
 	) -> IoResult<InodeAttr> {
 		self.assert_rw()?;
 		check_name_is_legal(name, false)?;
-		let mut ino = Inode::new(kind, perm, uid, gid, self.superblock.bsize as u32);
+		let mut ino = Inode::new(kind, perm, uid, gid, self.superblock.block_size() as u32);
 		let inr = self.inode_alloc(&mut ino)?;
 		self.dir_newlink(dinr, inr, name, kind)?;
 		Ok(ino.as_attr(inr))
@@ -460,12 +460,18 @@ impl<R: Backend> Ufs<R> {
 			.inr;
 
 		let mut dino = self.read_inode(dinr)?;
-		dino.nlink += 1;
+		match &mut dino {
+			Inode::V1(i) => i.nlink += 1,
+			Inode::V2(i) => i.nlink += 1,
+		}
 		self.write_inode(dinr, &dino)?;
 
 		// update nlink
 		let mut ino = self.read_inode(inr)?;
-		ino.nlink = 2;
+		match &mut ino {
+			Inode::V1(i) => i.nlink = 2,
+			Inode::V2(i) => i.nlink = 2,
+		}
 		self.write_inode(inr, &ino)?;
 
 		let block = newdir(dinr, inr, self.file.config())?;
