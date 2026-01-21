@@ -224,7 +224,7 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	fn check(&mut self) -> IoResult<()> {
-		log::debug!("Superblock: {:#?}", self.superblock);
+		log::debug!("Superblock: {:?}", self.superblock);
 		log::info!("UFS Version: {:?}", self.version);
 		log::info!("Summary:");
 		log::info!("Block Size: {}", self.superblock.block_size());

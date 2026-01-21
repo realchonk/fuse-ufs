@@ -1,5 +1,5 @@
 use std::{
-	io::Error,
+	io::{Error as IoError, Result as IoResult},
 	time::{Duration, SystemTime},
 };
 
@@ -122,11 +122,11 @@ impl Inode {
 		}
 	}
 
-	pub fn assert_dir(&self) -> Result<(), Error> {
+	pub fn assert_dir(&self) -> IoResult<()> {
 		if self.kind() == InodeType::Directory {
 			Ok(())
 		} else {
-			Err(Error::from_raw_os_error(libc::ENOTDIR))
+			Err(IoError::from_raw_os_error(libc::ENOTDIR))
 		}
 	}
 
@@ -140,7 +140,11 @@ impl Inode {
 			S_IFREG => InodeType::RegularFile,
 			S_IFLNK => InodeType::Symlink,
 			S_IFSOCK => InodeType::Socket,
-			_ => unreachable!("invalid file mode: {mode:o}"),
+			_ => {
+				log::error!("invalid file mode: {mode:o}");
+				// TODO: return socket type as fallback
+				InodeType::Socket
+			}
 		}
 	}
 
@@ -191,20 +195,72 @@ impl Inode {
 		}
 	}
 
-	pub fn file_size(&self, bs: u64, fs: u64) -> (u64, u64) {
-		let size = match self.kind() {
-			InodeType::RegularFile | InodeType::Symlink | InodeType::Directory => self.size(),
-			kind => todo!("Inode::size() is undefined for {kind:?}"),
-		};
-		Self::inode_size(bs, fs, size)
-	}
-
 	/// The number of blocks and fragments this inode needs.
 	pub fn inode_size(bs: u64, fs: u64, size: u64) -> (u64, u64) {
 		let blocks = size / bs;
 		let frags = (size % bs).div_ceil(fs);
 
 		(blocks, frags)
+	}
+}
+
+impl<Context> Decode<Context> for InodeV1 {
+	fn decode<D: Decoder<Context = Context>>(d: &mut D) -> Result<Self, DecodeError> {
+		let mode = u16::decode(d)?;
+		let nlink = u16::decode(d)?;
+		let uid_low = u16::decode(d)?;
+		let gid_low = u16::decode(d)?;
+		let size = u64::decode(d)?;
+		let atime = Ufs1Time::decode(d)?;
+		let atime_usec = i32::decode(d)?;
+		let mtime = Ufs1Time::decode(d)?;
+		let mtime_usec = i32::decode(d)?;
+		let ctime = Ufs1Time::decode(d)?;
+		let ctime_usec = i32::decode(d)?;
+		let flags: u32 = u32::decode(d)?;
+		let blocks = i32::decode(d)?;
+		let gen = u32::decode(d)?;
+		let uid = u32::decode(d)?;
+		let gid = u32::decode(d)?;
+		let spare = <[u32; 2]>::decode(d)?;
+
+		let data: InodeV1Data = if (mode & S_IFMT) == S_IFLNK && blocks == 0 {
+			InodeV1Data::Shortlink(Decode::decode(d)?)
+		} else {
+			InodeV1Data::Blocks(InodeV1Blocks::decode(d)?)
+		};
+
+		let ino = Self {
+			mode,
+			nlink,
+			uid_low,
+			gid_low,
+			size,
+			atime,
+			atime_usec,
+			mtime,
+			mtime_usec,
+			ctime,
+			ctime_usec,
+			data,
+			flags,
+			blocks,
+			gen,
+			uid,
+			gid,
+			spare,
+		};
+
+		Ok(ino)
+	}
+}
+
+impl Encode for InodeV1Data {
+	fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
+		match self {
+			Self::Blocks(blocks) => InodeV1Blocks::encode(blocks, encoder),
+			Self::Shortlink(link) => <[u8; 60]>::encode(link, encoder),
+		}
 	}
 }
 

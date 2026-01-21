@@ -263,9 +263,10 @@ pub struct SuperblockV1 {
 	pub flags:      i8,              // see FS_ flags below
 	pub fsmnt:      [u8; MAXMNTLEN], // name mounted on
 	// Additional fields follow but are less critical for basic read operations
-	pub magic:      i32, // magic number (at offset ~1372)
-	                     // Note: Actual UFSv1 superblock has more fields, but these are sufficient
-	                     // for basic read-only operations. Full structure varies by variant.
+	_padding:       [u8; 692], // Padding to reach offset 1372
+	pub magic:      i32,       // magic number (at offset ~1372)
+	                           // Note: Actual UFSv1 superblock has more fields, but these are sufficient
+	                           // for basic read-only operations. Full structure varies by variant.
 }
 
 impl SuperblockV1 {
@@ -484,7 +485,7 @@ pub struct InodeV1Blocks {
 }
 
 /// UFSv1 inode data union
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone)]
 pub enum InodeV1Data {
 	Blocks(InodeV1Blocks),
 	Shortlink([u8; 4 * (UFS_NDADDR + UFS_NIADDR)]), // 60 bytes for UFSv1
@@ -492,8 +493,7 @@ pub enum InodeV1Data {
 
 /// UFSv1 inode (128 bytes total)
 /// Based on `struct ufs_inode` from Linux kernel
-#[allow(dead_code)]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode)]
 pub struct InodeV1 {
 	pub mode:       u16,         //   0: IFMT, permissions
 	pub nlink:      u16,         //   2: File link count
@@ -723,6 +723,9 @@ impl Superblock {
 			Self::V1(_) => UFS1_INOSZ as u64,
 			Self::V2(_) => UFS_INOSZ as u64,
 		};
+
+		let result = cgistart + (off * inode_size);
+		log::debug!("ino_to_fso({inr}): ipg={ipg}, fpg={fpg}, fs={fs}, cgi={cgi}, off={off}, cgstart={cgstart}, cgistart={cgistart}, inode_size={inode_size}, result={result}");
 
 		cgistart + (off * inode_size)
 	}

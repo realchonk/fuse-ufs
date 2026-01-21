@@ -161,6 +161,19 @@ impl<R: Backend> Ufs<R> {
 		let ino = match self.version {
 			crate::ufs::UfsVersion::V1 => {
 				let i: InodeV1 = self.file.decode_at(off)?;
+				log::debug!("Decoded {i:?}");
+
+				// Validate the inode looks reasonable
+				if i.nlink == 0 || i.nlink > 10000 {
+					log::error!("Invalid nlink {} for inode {}", i.nlink, inr);
+					return Err(err!(EINVAL));
+				}
+				if i.size > (1u64 << 50) {
+					// 1 PB - reasonable max
+					log::error!("Invalid size {} for inode {}", i.size, inr);
+					return Err(err!(EINVAL));
+				}
+
 				Inode::V1(i)
 			}
 			crate::ufs::UfsVersion::V2 => {

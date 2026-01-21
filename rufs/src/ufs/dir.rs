@@ -30,11 +30,35 @@ impl Header {
 	fn parse<T: BufRead + Seek>(file: &mut Decoder<T>) -> IoResult<Option<Header>> {
 		let inr: InodeNum = file.decode()?;
 		let reclen: u16 = file.decode()?;
+
+		// Check for invalid reclen
 		if reclen == 0 {
 			return Ok(None);
 		}
+
+		if reclen < 8 || reclen > 512 {
+			log::warn!(
+				"Invalid reclen {} at inode {}, stopping directory parse",
+				reclen,
+				inr
+			);
+			return Ok(None);
+		}
+
 		let kind: u8 = file.decode()?;
 		let namelen: u8 = file.decode()?;
+
+		// Validate namelen
+		if namelen as u16 > reclen - 8 || namelen as usize > UFS_MAXNAMELEN {
+			log::warn!(
+				"Invalid namelen {} (reclen={}) at inode {}, stopping directory parse",
+				namelen,
+				reclen,
+				inr
+			);
+			return Ok(None);
+		}
+
 		let mut name = [0u8; UFS_MAXNAMELEN + 1];
 		file.read(&mut name[0..namelen.into()])?;
 
@@ -57,9 +81,19 @@ impl Header {
 			DT_REG => Some(InodeType::RegularFile),
 			DT_LNK => Some(InodeType::Symlink),
 			DT_SOCK => Some(InodeType::Socket),
-			DT_WHT => None,
-			DT_UNKNOWN => todo!("DT_UNKNOWN: {inr}"),
-			_ => panic!("invalid filetype: {kind}"),
+			DT_WHT => {
+				log::warn!("DT_WHT for inode {inr}, ignoring");
+				None
+			}
+			DT_UNKNOWN => {
+				// Real entry, but type must be determined from inode
+				log::debug!("DT_UNKNOWN for inode {inr}, type will be read from inode");
+				Some(InodeType::Socket)
+			}
+			_ => {
+				log::warn!("Invalid filetype {kind} for inode {inr}, stopping directory parse");
+				None
+			}
 		};
 
 		Ok(Some(Self {
@@ -111,9 +145,10 @@ impl Header {
 }
 
 fn readdir_block<T>(
-	inr: InodeNum,
+	_inr: InodeNum,
 	block: &[u8],
 	config: Config,
+	lookup_kind: &mut impl FnMut(InodeNum) -> IoResult<InodeType>,
 	mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 ) -> IoResult<Option<T>> {
 	let mut file = Decoder::new(Cursor::new(block), config);
@@ -127,12 +162,27 @@ fn readdir_block<T>(
 			break;
 		}
 
-		let Some(kind) = hdr.kind else {
-			log::warn!(
-				"readdir_block({inr}): encountered a whiteout entry: {:?}",
-				hdr.name()
-			);
-			continue;
+		let kind = match hdr.kind {
+			Some(InodeType::Socket) => {
+				// This is DT_UNKNOWN - look up actual type
+				match lookup_kind(hdr.inr) {
+					Ok(k) => k,
+					Err(e) => {
+						log::warn!(
+							"Failed to read inode {} for {:?}: {}, skipping",
+							hdr.inr,
+							hdr.name(),
+							e
+						);
+						continue;
+					}
+				}
+			}
+			Some(k) => k,
+			None => {
+				log::debug!("Skipping whiteout entry: {:?}", hdr.name());
+				continue;
+			}
 		};
 
 		let res = f(hdr.name(), hdr.inr, kind);
@@ -271,17 +321,27 @@ impl<R: Backend> Ufs<R> {
 	) -> IoResult<Option<T>> {
 		let ino = self.read_inode(inr)?;
 		ino.assert_dir()?;
+
+		let config = self.file.config();
 		let mut block = [0u8; DIRBLKSIZE];
 		let mut pos = 0;
+
 		while pos < ino.size() {
 			let n = self.inode_read(inr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
-			if let Some(x) = readdir_block(inr, &block, self.file.config(), &mut f)? {
+
+			let mut lookup_kind = |entry_inr: InodeNum| -> IoResult<InodeType> {
+				let inode = self.read_inode(entry_inr)?;
+				Ok(inode.kind())
+			};
+
+			if let Some(x) = readdir_block(inr, &block, config, &mut lookup_kind, &mut f)? {
 				return Ok(Some(x));
 			}
 
 			pos += DIRBLKSIZE as u64;
 		}
+
 		Ok(None)
 	}
 

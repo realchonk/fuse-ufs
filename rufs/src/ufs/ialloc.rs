@@ -15,7 +15,7 @@ impl<R: Backend> Ufs<R> {
 		if old_nlink != 0 {
 			log::error!("inode_setup({inr}): use after free");
 			if let Ok(ino) = self.read_inode(inr) {
-				log::error!("inode_setup({inr}): ino={ino:#?}");
+				log::error!("inode_setup({inr}): ino={ino:?}");
 			}
 			return Err(err!(EFAULT));
 		}
