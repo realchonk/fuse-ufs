@@ -97,13 +97,26 @@ impl<R: Backend> Ufs<R> {
 	pub(super) fn read_pblock(&mut self, bno: u64, block: &mut [u64]) -> IoResult<()> {
 		let fs = self.superblock.fragment_size() as u64;
 		let bs = self.superblock.block_size() as usize;
-		let pbp = bs / size_of::<u64>();
-
-		assert_eq!(block.len(), pbp);
 
 		self.file.seek(bno * fs)?;
-		for i in block.iter_mut() {
-			*i = self.file.decode()?;
+
+		// UFSv1 uses 32-bit block pointers, UFSv2 uses 64-bit
+		match self.version {
+			crate::ufs::UfsVersion::V1 => {
+				let pbp = bs / size_of::<u32>();
+				assert_eq!(block.len(), pbp);
+				for i in block.iter_mut() {
+					let val: u32 = self.file.decode()?;
+					*i = val as u64;
+				}
+			}
+			crate::ufs::UfsVersion::V2 => {
+				let pbp = bs / size_of::<u64>();
+				assert_eq!(block.len(), pbp);
+				for i in block.iter_mut() {
+					*i = self.file.decode()?;
+				}
+			}
 		}
 		Ok(())
 	}
@@ -111,13 +124,26 @@ impl<R: Backend> Ufs<R> {
 	pub(super) fn write_pblock(&mut self, bno: u64, block: &[u64]) -> IoResult<()> {
 		let fs = self.superblock.fragment_size() as u64;
 		let bs = self.superblock.block_size() as usize;
-		let pbp = bs / size_of::<u64>();
-
-		assert_eq!(block.len(), pbp);
 
 		self.file.seek(bno * fs)?;
-		for i in block.iter() {
-			self.file.encode(i)?;
+
+		// UFSv1 uses 32-bit block pointers, UFSv2 uses 64-bit
+		match self.version {
+			crate::ufs::UfsVersion::V1 => {
+				let pbp = bs / size_of::<u32>();
+				assert_eq!(block.len(), pbp);
+				for i in block.iter() {
+					let val = *i as u32;
+					self.file.encode(&val)?;
+				}
+			}
+			crate::ufs::UfsVersion::V2 => {
+				let pbp = bs / size_of::<u64>();
+				assert_eq!(block.len(), pbp);
+				for i in block.iter() {
+					self.file.encode(i)?;
+				}
+			}
 		}
 		Ok(())
 	}

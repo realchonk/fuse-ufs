@@ -31,13 +31,13 @@ impl Header {
 		let inr: InodeNum = file.decode()?;
 		let reclen: u16 = file.decode()?;
 
-		// Check for invalid reclen
-		if reclen == 0 {
+		// Check for end of directory entries (zero inode or zero reclen)
+		if inr.get() == 0 || reclen == 0 {
 			return Ok(None);
 		}
 
 		if reclen < 8 || reclen > 512 {
-			log::warn!(
+			log::debug!(
 				"Invalid reclen {} at inode {}, stopping directory parse",
 				reclen,
 				inr
@@ -145,7 +145,6 @@ impl Header {
 }
 
 fn readdir_block<T>(
-	_inr: InodeNum,
 	block: &[u8],
 	config: Config,
 	lookup_kind: &mut impl FnMut(InodeNum) -> IoResult<InodeType>,
@@ -335,7 +334,7 @@ impl<R: Backend> Ufs<R> {
 				Ok(inode.kind())
 			};
 
-			if let Some(x) = readdir_block(inr, &block, config, &mut lookup_kind, &mut f)? {
+			if let Some(x) = readdir_block(&block, config, &mut lookup_kind, &mut f)? {
 				return Ok(Some(x));
 			}
 

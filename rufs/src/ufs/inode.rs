@@ -161,7 +161,7 @@ impl<R: Backend> Ufs<R> {
 		let ino = match self.version {
 			crate::ufs::UfsVersion::V1 => {
 				let i: InodeV1 = self.file.decode_at(off)?;
-				log::debug!("Decoded {i:?}");
+				log::trace!("Decoded {i:?}");
 
 				// Validate the inode looks reasonable
 				if i.nlink == 0 || i.nlink > 10000 {
@@ -307,7 +307,11 @@ impl<R: Backend> Ufs<R> {
 
 	pub(super) fn inode_data_zones(&self) -> (u64, u64, u64, u64) {
 		let nd = UFS_NDADDR as u64;
-		let pbp = self.superblock.block_size() / size_of::<u64>() as u64;
+		// UFSv1 uses 32-bit pointers, UFSv2 uses 64-bit pointers
+		let pbp = match self.version {
+			crate::ufs::UfsVersion::V1 => self.superblock.block_size() / size_of::<u32>() as u64,
+			crate::ufs::UfsVersion::V2 => self.superblock.block_size() / size_of::<u64>() as u64,
+		};
 
 		(
 			nd,
@@ -319,7 +323,11 @@ impl<R: Backend> Ufs<R> {
 
 	pub(super) fn decode_blkidx(&self, blkidx: u64) -> IoResult<InodeBlock> {
 		let bs = self.superblock.block_size();
-		let pbp = bs / size_of::<u64>() as u64;
+		// UFSv1 uses 32-bit pointers, UFSv2 uses 64-bit pointers
+		let pbp = match self.version {
+			crate::ufs::UfsVersion::V1 => bs / size_of::<u32>() as u64,
+			crate::ufs::UfsVersion::V2 => bs / size_of::<u64>() as u64,
+		};
 		let (begin_indir1, begin_indir2, begin_indir3, begin_indir4) = self.inode_data_zones();
 
 		if blkidx < begin_indir1 {
@@ -355,8 +363,13 @@ impl<R: Backend> Ufs<R> {
 	) -> IoResult<Option<NonZeroU64>> {
 		let sb = &self.superblock;
 		let bs = sb.block_size();
-		let su64 = size_of::<UfsDaddr>() as u64;
-		let pbp = bs / su64;
+
+		// Calculate pointers per block based on filesystem version
+		// UFSv1 uses 32-bit pointers, UFSv2 uses 64-bit pointers
+		let pbp = match self.version {
+			crate::ufs::UfsVersion::V1 => bs / size_of::<u32>() as u64,
+			crate::ufs::UfsVersion::V2 => bs / size_of::<u64>() as u64,
+		};
 
 		let mut data = vec![0u64; pbp as usize];
 
@@ -364,7 +377,8 @@ impl<R: Backend> Ufs<R> {
 		let bno = match ino {
 			Inode::V1(i) => {
 				if let InodeV1Data::Blocks(ref blocks) = i.data {
-					match self.decode_blkidx(blkno)? {
+					let blkidx = self.decode_blkidx(blkno)?;
+					match blkidx {
 						InodeBlock::Direct(off) => NonZeroU64::new(blocks.direct[off] as u64),
 						InodeBlock::Indirect1(off) => {
 							let x1 = blocks.indirect[0] as u64;

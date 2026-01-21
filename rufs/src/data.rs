@@ -716,18 +716,44 @@ impl Superblock {
 		let fs = self.fragment_size();
 		let cgi = inr.get64() / ipg;
 		let off = inr.get64() % ipg;
-		let cgstart = cgi * fpg * fs;
-		let cgistart = cgstart + (self.inode_block_offset() as u64 * fs);
 
 		let inode_size = match self {
 			Self::V1(_) => UFS1_INOSZ as u64,
 			Self::V2(_) => UFS_INOSZ as u64,
 		};
 
-		let result = cgistart + (off * inode_size);
-		log::debug!("ino_to_fso({inr}): ipg={ipg}, fpg={fpg}, fs={fs}, cgi={cgi}, off={off}, cgstart={cgstart}, cgistart={cgistart}, inode_size={inode_size}, result={result}");
+		// Calculate inodes per fragment
+		let inopf = fs / inode_size;
 
-		cgistart + (off * inode_size)
+		// Calculate cylinder group base (fpg * cg_number)
+		let cgbase = fpg * cgi;
+
+		// For UFSv1, apply cylinder group offset for rotational optimization
+		// See Linux: ufs_cgstart(c) = ufs_cgbase(c) + s_cgoffset * ((c) & ~s_cgmask)
+		let cgstart_frag = match self {
+			Self::V1(sb) => {
+				let cgoffset = sb.cgoffset as i64;
+				let cgmask = sb.cgmask as i64;
+				let offset_adjust = cgoffset * ((cgi as i64) & !cgmask);
+				(cgbase as i64 + offset_adjust) as u64
+			}
+			Self::V2(_) => cgbase,
+		};
+
+		// Inode area start within CG (add iblkno to CG start)
+		let cgistart_frag = cgstart_frag + self.inode_block_offset() as u64;
+
+		// Fragment containing this inode
+		let inode_frag = cgistart_frag + off / inopf;
+
+		// Offset within that fragment
+		let inode_off_in_frag = off % inopf;
+
+		// Final byte offset
+		let result = inode_frag * fs + inode_off_in_frag * inode_size;
+
+		log::trace!("ino_to_fso({inr}): ipg={ipg}, fpg={fpg}, fs={fs}, cgi={cgi}, off={off}, inopf={inopf}, cgbase={cgbase}, cgstart_frag={cgstart_frag}, cgistart_frag={cgistart_frag}, inode_frag={inode_frag}, inode_off_in_frag={inode_off_in_frag}, inode_size={inode_size}, result={result}");
+		result
 	}
 
 	/// Get block shift value
