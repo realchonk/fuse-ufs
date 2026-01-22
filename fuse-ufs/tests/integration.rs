@@ -138,17 +138,22 @@ fn harness(img: &Path, delete: bool) -> Harness {
 		cmd.arg("-orw");
 	}
 
-	let mut child = cmd.arg("-f").arg(img).arg(d.path()).spawn().unwrap();
+	cmd.arg("-f").arg(img).arg(d.path());
+
+	println!("Executing command {cmd:?}");
+	let mut child = cmd.spawn().unwrap();
 
 	match waitfor(Duration::from_secs(5), || {
 		let s = nix::sys::statfs::statfs(d.path()).expect("failed to statfs");
 		cfg_if! {
-			if #[cfg(any(target_os = "freebsd", target_os = "macos"))] {
+			if #[cfg(target_os = "freebsd")] {
 				s.filesystem_type_name() == "fusefs.ufs"
 			} else if #[cfg(target_os = "linux")] {
 				s.filesystem_type() == nix::sys::statfs::FUSE_SUPER_MAGIC
 			} else if #[cfg(target_os = "openbsd")] {
 				s.filesystem_type_name() == "fuse"
+			} else if #[cfg(target_os = "macos")] {
+				s.filesystem_type_name() == "macfuse"
 			}
 		}
 	}) {

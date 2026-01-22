@@ -76,7 +76,7 @@ task:
     - make
   test_script:
     - . $HOME/.cargo/env
-    - make test
+    - sudo make test
   before_cache_script: rm -rf $HOME/.cargo/registry/index
 
 task:
