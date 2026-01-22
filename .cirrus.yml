@@ -30,11 +30,11 @@ task:
   before_cache_script: rm -rf $HOME/.cargo/registry/index
 
 task:
-  name: FreeBSD 14.3 nightly
+  name: FreeBSD 15.0 nightly
   env:
     VERSION: nightly
   freebsd_instance:
-    image: freebsd-14-3-release-amd64-ufs
+    image: freebsd-15-0-release-amd64-ufs
   << : *FREEBSD_SETUP
   << : *TEST
   clippy_script:
@@ -75,12 +75,12 @@ task:
   depends_on:
     - Linux MSRV
     - FreeBSD 13.5 MSRV
-    - FreeBSD 14.3 nightly
+    - FreeBSD 15.0 nightly
     - Lint
   env:
     VERSION: nightly
   freebsd_instance:
-    image: freebsd-14-3-release-amd64-ufs
+    image: freebsd-15-0-release-amd64-ufs
   << : *FREEBSD_SETUP
   audit_script:
     # install ca_root_nss due to https://github.com/rustsec/rustsec/issues/1137
