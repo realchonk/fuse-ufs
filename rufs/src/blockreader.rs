@@ -182,14 +182,14 @@ impl<T: Backend> Seek for BlockReader<T> {
 mod t {
 	use super::*;
 
-	const FSIZE: u64 = 1 << 20;
+	const FSIZE: u64 = 8 << 20;
 
 	fn harness(rw: bool) -> BlockReader<File> {
 		let f = tempfile::NamedTempFile::new().unwrap();
 		f.as_file().set_len(FSIZE).unwrap();
 		let br = BlockReader::open(f.path(), rw).unwrap();
 		let bs = br.blksize();
-		assert!(FSIZE > 2 * bs as u64);
+		assert!(FSIZE > 2 * bs as u64, "(FSIZE < 2 * bs) failed; FISZE = {FSIZE}, bs = {bs}");
 		br
 	}
 
