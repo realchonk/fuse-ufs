@@ -118,11 +118,7 @@ fn readdir_block<T>(
 ) -> IoResult<Option<T>> {
 	let mut file = Decoder::new(Cursor::new(block), config);
 
-	loop {
-		let Ok(Some(hdr)) = Header::parse(&mut file) else {
-			break;
-		};
-
+        while let Ok(Some(hdr)) = Header::parse(&mut file) {
 		if hdr.inr.get() == 0 {
 			break;
 		}
