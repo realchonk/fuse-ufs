@@ -189,7 +189,10 @@ mod t {
 		f.as_file().set_len(FSIZE).unwrap();
 		let br = BlockReader::open(f.path(), rw).unwrap();
 		let bs = br.blksize();
-		assert!(FSIZE > 2 * bs as u64, "(FSIZE < 2 * bs) failed; FISZE = {FSIZE}, bs = {bs}");
+		assert!(
+			FSIZE > 2 * bs as u64,
+			"(FSIZE < 2 * bs) failed; FISZE = {FSIZE}, bs = {bs}"
+		);
 		br
 	}
 
