@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - freebsd_version: "13.5"
+            rust_version: "1.85.0"
+          - freebsd_version: "15.0"
+            rust_version: "nightly"
+    name: FreeBSD ${{ matrix.freebsd_version }} ${{ matrix.rust_version }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Start VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: ${{ matrix.freebsd_version }}
+          usesh: true
+      - name: Install dependencies
+        shell: freebsd {0}
+        run: |
+          pkg install -y curl fusefs-libs3 pkgconf
+          kldload fusefs
+          fetch https://sh.rustup.rs -o rustup.sh
+          sh rustup.sh -y --profile=minimal --default-toolchain ${{ matrix.rust_version }}
+      - name: Build
+        shell: freebsd {0}
+        run: |
+          . $HOME/.cargo/env
+          make
+      - name: Test
+        shell: freebsd {0}
+        run: |
+          . $HOME/.cargo/env
+          make test
+      - name: Clippy
+        if: matrix.rust_version == 'nightly'
+        shell: freebsd {0}
+        run: |
+          . $HOME/.cargo/env
+          rustup component add clippy
+          cargo clippy --all-targets -- -D warnings
+      - name: Minver
+        if: matrix.rust_version == 'nightly'
+        shell: freebsd {0}
+        run: |
+          . $HOME/.cargo/env
+          cargo update -Zdirect-minimal-versions
+          cargo check --all-targets
+      - name: Fmt
+        if: matrix.rust_version == 'nightly'
+        shell: freebsd {0}
+        run: |
+          . $HOME/.cargo/env
+          rustup component add rustfmt
+          cargo fmt -- --check --color=never
+      - name: Audit
+        if: matrix.rust_version == 'nightly'
+        shell: freebsd {0}
+        run: |
+          . $HOME/.cargo/env
+          pkg install -y cargo-audit
+          cargo audit
+
+  linux-msrv:
+    name: Linux MSRV
+    runs-on: ubuntu-latest
+    container:
+      image: rust:1.85.0
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y zstd libfuse3-dev fuse kmod
+      - name: Build
+        run: make
+      - name: Test
+        run: make test
+
+  fmt:
+   name: Fmt
+    runs-on: ubuntu-latest
+    container:
+      image: rustlang/rust:nightly
+    steps:
+      - uses: actions/checkout@v6
+      - run: make fmt
+
+  # This task has a low probability of failure, so defer it until after other
+  # tasks have passed, to save compute resources.
+  audit:
+    name: Audit
+    needs: ["Linux MSRV", "FreeBSD 13.5 nightly", "FreeBSD 13.5 1.85.0", "Fmt"]
+    container:
+      image: rustlang/rust:nightly
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+        cargo install cargo-audit
+        cargo audit
