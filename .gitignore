@@ -2,3 +2,4 @@ target
 .*.swp
 resources/*.img
 fuse-ufs-bin
+/mp

@@ -30,11 +30,35 @@ impl Header {
 	fn parse<T: BufRead + Seek>(file: &mut Decoder<T>) -> IoResult<Option<Header>> {
 		let inr: InodeNum = file.decode()?;
 		let reclen: u16 = file.decode()?;
-		if reclen == 0 {
+
+		// Check for end of directory entries (zero inode or zero reclen)
+		if inr.get() == 0 || reclen == 0 {
 			return Ok(None);
 		}
+
+		if reclen < 8 || reclen > 512 {
+			log::debug!(
+				"Invalid reclen {} at inode {}, stopping directory parse",
+				reclen,
+				inr
+			);
+			return Ok(None);
+		}
+
 		let kind: u8 = file.decode()?;
 		let namelen: u8 = file.decode()?;
+
+		// Validate namelen
+		if namelen as u16 > reclen - 8 || namelen as usize > UFS_MAXNAMELEN {
+			log::warn!(
+				"Invalid namelen {} (reclen={}) at inode {}, stopping directory parse",
+				namelen,
+				reclen,
+				inr
+			);
+			return Ok(None);
+		}
+
 		let mut name = [0u8; UFS_MAXNAMELEN + 1];
 		file.read(&mut name[0..namelen.into()])?;
 
@@ -57,9 +81,19 @@ impl Header {
 			DT_REG => Some(InodeType::RegularFile),
 			DT_LNK => Some(InodeType::Symlink),
 			DT_SOCK => Some(InodeType::Socket),
-			DT_WHT => None,
-			DT_UNKNOWN => todo!("DT_UNKNOWN: {inr}"),
-			_ => panic!("invalid filetype: {kind}"),
+			DT_WHT => {
+				log::debug!("DT_WHT (whiteout) for inode {inr}, skipping");
+				None
+			}
+			DT_UNKNOWN => {
+				// Type must be determined from inode - return None to signal this
+				log::trace!("DT_UNKNOWN for inode {inr}, type will be read from inode");
+				None
+			}
+			_ => {
+				log::warn!("Invalid filetype {kind} for inode {inr}, stopping directory parse");
+				None
+			}
 		};
 
 		Ok(Some(Self {
@@ -111,9 +145,9 @@ impl Header {
 }
 
 fn readdir_block<T>(
-	inr: InodeNum,
 	block: &[u8],
 	config: Config,
+	lookup_kind: &mut impl FnMut(InodeNum) -> IoResult<InodeType>,
 	mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
 ) -> IoResult<Option<T>> {
 	let mut file = Decoder::new(Cursor::new(block), config);
@@ -123,12 +157,19 @@ fn readdir_block<T>(
 			break;
 		}
 
-		let Some(kind) = hdr.kind else {
-			log::warn!(
-				"readdir_block({inr}): encountered a whiteout entry: {:?}",
-				hdr.name()
-			);
-			continue;
+		let kind = match hdr.kind {
+			Some(k) => k,
+			None => {
+				// None means either DT_UNKNOWN (need to lookup) or DT_WHT (skip)
+				// or invalid entry. Try to lookup the type from the inode.
+				match lookup_kind(hdr.inr) {
+					Ok(k) => k,
+					Err(e) => {
+						log::debug!("Skipping entry {:?} (inode {}): {}", hdr.name(), hdr.inr, e);
+						continue;
+					}
+				}
+			}
 		};
 
 		let res = f(hdr.name(), hdr.inr, kind);
@@ -267,17 +308,27 @@ impl<R: Backend> Ufs<R> {
 	) -> IoResult<Option<T>> {
 		let ino = self.read_inode(inr)?;
 		ino.assert_dir()?;
+
+		let config = self.file.config();
 		let mut block = [0u8; DIRBLKSIZE];
 		let mut pos = 0;
-		while pos < ino.size {
+
+		while pos < ino.size() {
 			let n = self.inode_read(inr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
-			if let Some(x) = readdir_block(inr, &block, self.file.config(), &mut f)? {
+
+			let mut lookup_kind = |entry_inr: InodeNum| -> IoResult<InodeType> {
+				let inode = self.read_inode(entry_inr)?;
+				Ok(inode.kind())
+			};
+
+			if let Some(x) = readdir_block(&block, config, &mut lookup_kind, &mut f)? {
 				return Ok(Some(x));
 			}
 
 			pos += DIRBLKSIZE as u64;
 		}
+
 		Ok(None)
 	}
 
@@ -289,7 +340,7 @@ impl<R: Backend> Ufs<R> {
 
 		let mut block = vec![0u8; DIRBLKSIZE];
 		let mut pos = 0;
-		while pos < dino.size {
+		while pos < dino.size() {
 			let n = self.inode_read(dinr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
 
@@ -299,8 +350,8 @@ impl<R: Backend> Ufs<R> {
 				} else {
 					let n =
 						self.inode_copy_range(dinr, &dino, (pos + DIRBLKSIZE as u64).., pos..)?;
-					assert_eq!(n, dino.size - pos - DIRBLKSIZE as u64);
-					self.inode_truncate(dinr, dino.size - DIRBLKSIZE as u64)?;
+					assert_eq!(n, dino.size() - pos - DIRBLKSIZE as u64);
+					self.inode_truncate(dinr, dino.size() - DIRBLKSIZE as u64)?;
 				}
 				return Ok(inr);
 			}
@@ -327,7 +378,7 @@ impl<R: Backend> Ufs<R> {
 
 		let mut block = [0u8; DIRBLKSIZE];
 		let mut pos = 0;
-		while pos < dino.size {
+		while pos < dino.size() {
 			let n = self.inode_read(dinr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
 
@@ -340,7 +391,7 @@ impl<R: Backend> Ufs<R> {
 		}
 
 		log::trace!("dir_link({dinr}, {inr}, {name:?}, {kind:?}): extending directory for new entry: {entry:?}");
-		self.inode_truncate(dinr, dino.size + DIRBLKSIZE as u64)?;
+		self.inode_truncate(dinr, dino.size() + DIRBLKSIZE as u64)?;
 		entry.reclen = DIRBLKSIZE as u16;
 		entry.write(&mut Decoder::new(
 			Cursor::new(&mut block as &mut [u8]),
@@ -437,7 +488,7 @@ impl<R: Backend> Ufs<R> {
 	) -> IoResult<InodeAttr> {
 		self.assert_rw()?;
 		check_name_is_legal(name, false)?;
-		let mut ino = Inode::new(kind, perm, uid, gid, self.superblock.bsize as u32);
+		let mut ino = Inode::new(kind, perm, uid, gid, self.superblock.block_size() as u32);
 		let inr = self.inode_alloc(&mut ino)?;
 		self.dir_newlink(dinr, inr, name, kind)?;
 		Ok(ino.as_attr(inr))
@@ -456,12 +507,18 @@ impl<R: Backend> Ufs<R> {
 			.inr;
 
 		let mut dino = self.read_inode(dinr)?;
-		dino.nlink += 1;
+		match &mut dino {
+			Inode::V1(i) => i.nlink += 1,
+			Inode::V2(i) => i.nlink += 1,
+		}
 		self.write_inode(dinr, &dino)?;
 
 		// update nlink
 		let mut ino = self.read_inode(inr)?;
-		ino.nlink = 2;
+		match &mut ino {
+			Inode::V1(i) => i.nlink = 2,
+			Inode::V2(i) => i.nlink = 2,
+		}
 		self.write_inode(inr, &ino)?;
 
 		let block = newdir(dinr, inr, self.file.config())?;

@@ -4,7 +4,7 @@
 .Os
 .Sh NAME
 .Nm fuse-ufs
-.Nd FUSE3 implementation of FreeBSD's UFSv2
+.Nd FUSE3 implementation of FreeBSD UFS (UFSv1 and UFSv2)
 .Sh SYNOPSIS
 .Nm
 .Op Fl fqv
@@ -15,8 +15,10 @@
 .Fl -help
 .Sh DESCRIPTION
 .Nm
-allows you to mount a FreeBSD UFSv2 filesystem.
-.\" TODO: expand + mention bi-endian support
+allows you to mount FreeBSD UFS filesystems (UFSv1 read-only, UFSv2 read-write).
+Supports UFSv1 variants from FreeBSD, Solaris/SunOS, NeXTStep, OpenStep, and HP-UX.
+Bi-endian support allows mounting filesystems created on systems with different byte order.
+.\" TODO: expand
 
 The following options are available:
 .Bl -tag -width indent
@@ -71,17 +73,22 @@ The same, but allow other users to access the mounted filesystem:
 .An Benjamin Stürz Aq Mt benni@stuerz.xyz
 .An Alan Somers Aq Mt asomers@freebsd.org
 .Sh CAVEATS
-Only 64-bit Linux & FreeBSD systems have been tested to work.
-Support for other systems (like MacOS) will be on a best-effort basis for now.
-
+64-bit Linux, FreeBSD, OpenBSD, and macOS systems are supported.
+.Pp
+.Sy macOS Support:
+On macOS, you must install macFUSE first:
+.Bd -literal
+brew install macfuse
+.Ed
+.Pp
 Missing features:
 .Bl -bullet -compact
 .It
-Write Support (TODO)
+Write Support for UFSv1 (not planned - forensics/recovery use case)
+.It
+Write Support for UFSv2 (experimental, in development)
 .It
 Soft-Updates (TODO)
-.It
-Sun/Solaris UFS (TODO)
 .It
 Journaling
 .It

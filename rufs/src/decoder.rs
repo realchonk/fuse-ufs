@@ -59,6 +59,10 @@ impl<T: Read> Decoder<T> {
 		&self.inner
 	}
 
+	pub fn into_inner(self) -> T {
+		self.inner
+	}
+
 	pub fn decode<X: Decode<()>>(&mut self) -> Result<X> {
 		self.config.decode(&mut self.inner)
 	}

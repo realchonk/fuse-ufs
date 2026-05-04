@@ -18,6 +18,7 @@ fuse2 = ["dep:fuse2rs", "rufs/fuse2rs"]
 Linux = ["fuse3"]
 FreeBSD = ["fuse3"]
 OpenBSD = ["fuse2"]
+Darwin = ["fuse3"]
 
 [dependencies]
 anyhow.workspace = true
