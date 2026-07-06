@@ -90,7 +90,7 @@ jobs:
         run: make test
 
   fmt:
-   name: Fmt
+    name: Fmt
     runs-on: ubuntu-latest
     container:
       image: rustlang/rust:nightly
@@ -102,11 +102,12 @@ jobs:
   # tasks have passed, to save compute resources.
   audit:
     name: Audit
-    needs: ["Linux MSRV", "FreeBSD 13.5 nightly", "FreeBSD 13.5 1.85.0", "Fmt"]
+    runs-on: ubuntu-latest
+    needs: ["Linux MSRV", "FreeBSD 15.0 nightly", "FreeBSD 13.5 1.85.0", "Fmt"]
     container:
       image: rustlang/rust:nightly
     steps:
       - uses: actions/checkout@v6
       - run: |
-        cargo install cargo-audit
-        cargo audit
+          cargo install cargo-audit
+          cargo audit
