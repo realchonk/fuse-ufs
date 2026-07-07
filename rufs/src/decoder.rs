@@ -1,7 +1,7 @@
 use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 
-use bincode::{
-	config::{BigEndian, Configuration, Fixint, LittleEndian, NoLimit},
+use bincode_next::{
+	config::{BigEndian, Configuration, Fixint, LittleEndian, MsbFirst, NoLimit, SkipBitPacking},
 	Decode,
 	Encode,
 };
@@ -9,19 +9,19 @@ use bincode::{
 #[derive(Clone, Copy)]
 pub enum Config {
 	Little(Configuration<LittleEndian, Fixint, NoLimit>),
-	Big(Configuration<BigEndian, Fixint, NoLimit>),
+	Big(Configuration<BigEndian, Fixint, NoLimit, SkipBitPacking, MsbFirst>),
 }
 
 impl Config {
 	pub const fn little() -> Self {
-		let cfg = bincode::config::standard()
+		let cfg = bincode_next::config::standard()
 			.with_fixed_int_encoding()
 			.with_little_endian();
 		Self::Little(cfg)
 	}
 
 	pub const fn big() -> Self {
-		let cfg = bincode::config::standard()
+		let cfg = bincode_next::config::standard()
 			.with_fixed_int_encoding()
 			.with_big_endian();
 		Self::Big(cfg)
@@ -29,16 +29,16 @@ impl Config {
 
 	fn decode<T: Decode<()>>(&self, rdr: &mut impl Read) -> Result<T> {
 		match self {
-			Self::Little(cfg) => bincode::decode_from_std_read(rdr, *cfg),
-			Self::Big(cfg) => bincode::decode_from_std_read(rdr, *cfg),
+			Self::Little(cfg) => bincode_next::decode_from_std_read(rdr, *cfg),
+			Self::Big(cfg) => bincode_next::decode_from_std_read(rdr, *cfg),
 		}
 		.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to decode"))
 	}
 
 	fn encode(&self, wtr: &mut impl Write, x: &impl Encode) -> Result<()> {
 		match self {
-			Self::Little(cfg) => bincode::encode_into_std_write(x, wtr, *cfg),
-			Self::Big(cfg) => bincode::encode_into_std_write(x, wtr, *cfg),
+			Self::Little(cfg) => bincode_next::encode_into_std_write(x, wtr, *cfg),
+			Self::Big(cfg) => bincode_next::encode_into_std_write(x, wtr, *cfg),
 		}
 		.map(|_| ())
 		.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to encode"))
