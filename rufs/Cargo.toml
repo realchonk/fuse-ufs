@@ -16,7 +16,7 @@ fuser = ["dep:fuser"]
 fuse2rs = ["dep:fuse2rs"]
 
 [dependencies]
-bincode.workspace = true
+bincode-next.workspace = true
 fuse2rs = { workspace = true, optional = true }
 
 fuser = { workspace = true, optional = true }

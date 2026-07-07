@@ -3,7 +3,7 @@ use std::{
 	time::{Duration, SystemTime},
 };
 
-use bincode::{
+use bincode_next::{
 	de::Decoder,
 	enc::Encoder,
 	error::{DecodeError, EncodeError},

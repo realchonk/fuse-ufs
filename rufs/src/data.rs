@@ -8,7 +8,7 @@ use std::{
 	time::SystemTime,
 };
 
-use bincode::{Decode, Encode};
+use bincode_next::{Decode, Encode};
 
 /// UFS2 fast filesystem magic number
 pub const FS_UFS2_MAGIC: i32 = 0x19540119;
@@ -353,7 +353,7 @@ pub struct Inode {
 	pub atimensec: u32,                    //  68: Last access time.
 	pub ctimensec: u32,                    //  72: Last inode change time.
 	pub birthnsec: u32,                    //  76: Inode creation time.
-	pub gen:       u32,                    //  80: Generation number.
+	pub r#gen:     u32,                    //  80: Generation number.
 	pub kernflags: u32,                    //  84: Kernel flags.
 	pub flags:     u32,                    //  88: Status flags (chflags).
 	pub extsize:   u32,                    //  92: External attributes size.
