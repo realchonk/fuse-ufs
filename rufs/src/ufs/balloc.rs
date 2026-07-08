@@ -121,7 +121,7 @@ impl<R: Backend> Ufs<R> {
 
 		assert_ne!(size, 0);
 		assert!(size <= bsize);
-		assert!(size % fsize == 0);
+		assert!(size.is_multiple_of(fsize));
 		assert!(bno % bsize / fsize + nfrag <= sb.frag as u64);
 
 		let cgi = bno / fpg;
@@ -211,7 +211,7 @@ impl<R: Backend> Ufs<R> {
 
 		assert!(size > 0);
 		assert!(size <= bsize);
-		assert!(size % fsize == 0);
+		assert!(size.is_multiple_of(fsize));
 
 		// for now only allocate full blocks
 		let blk = self.blk_alloc_full()?;
