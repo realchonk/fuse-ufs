@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y zstd libfuse3-dev fuse kmod
+          sudo apt-get install -y zstd libfuse3-dev fuse3 kmod
       - name: Build
         run: make
       - name: Test
