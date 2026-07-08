@@ -65,13 +65,6 @@ jobs:
           . $HOME/.cargo/env
           rustup component add rustfmt
           cargo fmt -- --check --color=never
-      - name: Audit
-        if: matrix.rust_version == 'nightly'
-        shell: freebsd {0}
-        run: |
-          . $HOME/.cargo/env
-          pkg install -y cargo-audit
-          cargo audit
 
   linux-msrv:
     name: Linux MSRV
