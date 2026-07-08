@@ -96,6 +96,9 @@ jobs:
       image: rustlang/rust:nightly
     steps:
       - uses: actions/checkout@v6
+      - name: Install rustfmt
+        run: |
+          rustup component add --toolchain nightly rustfmt
       - run: make fmt
 
   # This task has a low probability of failure, so defer it until after other
