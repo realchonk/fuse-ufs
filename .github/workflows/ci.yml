@@ -84,6 +84,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y zstd libfuse3-dev fuse kmod
+          modprobe fuse
       - name: Build
         run: make
       - name: Test
