@@ -9,7 +9,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  freebsd:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -103,7 +103,7 @@ jobs:
   audit:
     name: Audit
     runs-on: ubuntu-latest
-    needs: ["Linux MSRV", "FreeBSD 15.0 nightly", "FreeBSD 13.5 1.85.0", "Fmt"]
+    needs: [linux-msrv, freebsd, fmt]
     container:
       image: rustlang/rust:nightly
     steps:
