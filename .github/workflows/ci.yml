@@ -79,7 +79,10 @@ jobs:
       - name: Build
         run: make
       - name: Test
-        run: make test
+        run: |
+          cargo test --no-run
+          sudo sed -i 's:\(.*env_reset\):#\1:' /etc/sudoers
+          sudo -E env PATH=$PATH make test
 
   fmt:
     name: Fmt
