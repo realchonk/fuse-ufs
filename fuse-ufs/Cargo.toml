@@ -24,18 +24,18 @@ anyhow.workspace = true
 cfg-if.workspace = true
 clap.workspace = true
 clap-verbosity-flag.workspace = true
-daemonize.workspace = true
 env_logger.workspace = true
 fuse2rs = { workspace = true, optional = true }
 fuser = { workspace = true, optional = true }
 libc.workspace = true
 log.workspace = true
+nix = { workspace = true, features = ["process"] }
 rufs.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
 cfg-if.workspace = true
-nix = { workspace = true, features = ["fs", "dir"] }
+nix = { workspace = true, features = ["fs", "dir", "process"] }
 rand.workspace = true
 rstest = { workspace = true, default-features = false }
 rstest_reuse.workspace = true
