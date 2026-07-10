@@ -3,6 +3,7 @@ use std::fs::File;
 use anyhow::Result;
 use cfg_if::cfg_if;
 use clap::Parser;
+use nix::unistd::daemon;
 use rufs::Ufs;
 
 use crate::cli::Cli;
@@ -58,9 +59,7 @@ fn main() -> Result<()> {
 			if cli.foreground {
 				fuser::mount2(fs, mp, &opts)?;
 			} else {
-				daemonize::Daemonize::new()
-					.working_directory(std::env::current_dir()?)
-					.start()?;
+				daemon(false, false)?;
 				fuser::mount2(fs, mp, &opts)?;
 			}
 		} else if #[cfg(feature = "fuse2")] {

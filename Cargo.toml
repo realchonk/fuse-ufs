@@ -12,7 +12,6 @@ bincode-next = "3.1.1"
 cfg-if = "1.0"
 clap = { version = "4.5.4", features = ["derive"] }
 clap-verbosity-flag = "2.2.1"
-daemonize = "0.5.0"
 env_logger = { version = "0.11.3", default-features = false, features = ["auto-color", "humantime"] }
 fuse2rs = "0.1.2"
 # Technically the libfuse dependency is only needed on FreeBSD,
@@ -21,11 +20,11 @@ fuse2rs = "0.1.2"
 fuser = { version = "0.16.0", features = [ "libfuse" ] }
 libc = "0.2.176"
 log = "0.4.22"
+nix = "0.29.0"
 rufs = { version = "0.6.0", path = "rufs" }
 
 # Dev dependencies
 assert_cmd = "2.0"
-nix = { version = "0.28.0", features = ["fs", "dir"] }
 rstest = { version = "0.19.0", default-features = false }
 rstest_reuse = "0.7.0"
 tempfile = "3.0"
