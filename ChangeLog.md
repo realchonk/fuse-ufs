@@ -15,7 +15,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### General
 
 - Update dependencies
-- fuse-ufs: switch from `daemonize` to `nix` crate
 - rufs: more logging
 
 ### Add
