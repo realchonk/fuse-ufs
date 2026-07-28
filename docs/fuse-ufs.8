@@ -1,87 +1,143 @@
 .\" Copyright (c) 2024 Benjamin Stürz <benni@stuerz.xyz>
-.Dd August 23, 2024
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd July 28, 2026
 .Dt FUSE-UFS 8
 .Os
 .Sh NAME
 .Nm fuse-ufs
-.Nd FUSE3 implementation of FreeBSD's UFSv2
+.Nd FUSE implementation of FreeBSD's UFSv2
 .Sh SYNOPSIS
 .Nm
 .Op Fl fqv
-.Op Fl o Ar options
+.Op Fl o Ar option[,option...]
 .Ar special
 .Ar mountpoint
 .Nm
-.Fl -help
+.Fl h | Fl V
 .Sh DESCRIPTION
 .Nm
-allows you to mount a FreeBSD UFSv2 filesystem.
-.\" TODO: expand + mention bi-endian support
-
-The following options are available:
+is a FUSE implementation of FreeBSD's UFSv2 filesystem.
+It mounts UFSv2 filesystem images and block devices read-only by default;
+experimental read-write access is available via the
+.Cm rw
+option.
+.Pp
+Both little- and big-endian filesystems are supported, regardless of the host's
+native byte order.
+.Nm
+selects a FUSE backend at compile time:
+.Cm fuse3
+.Pq via Xr fuser Ns -based libraries, used on Linux and FreeBSD
+or
+.Cm fuse2
+.Pq via fuse2rs, used on OpenBSD .
+.Pp
+Permission checking with
+.Cm default_permissions
+is always in effect: access checks are performed by the kernel using the
+credentials of the calling process.
+.Pp
+The following command-line options are available:
 .Bl -tag -width indent
-.It Fl o Ar opt,[opt...]
-Mount options, see below for details.
-.It Fl o Ar allow_other
-Allow other users to access the mounted filesystem.
-.It Fl o Ar allow_root
-Allow the root user to access the mounted filesystem.
-.It Fl o Ar default_permissions
-Let the kernel check file permissions.
-This is already the default for this filesystem.
-.It Fl o Ar dev|nodev
-Allow/prohibit using devices on the mounted filesystem.
-.It Fl o Ar exec|noexec
-Allow/prohibit executing programs from the mounted filesystem.
-.It Fl o Ar suid|nosuid
-Allow/prohibit honoring the setuid-bit when running programs from the mounted filesystem.
-.It Fl o Ar async|atime|dirsync|noatime|sync|ro
-These options have no effect on the mounted filesystem,
-as there is no write support yet.
-.It Fl o Ar rw
-As write support is not present, this option causes the program to crash.
 .It Fl f
-Wait for the filesystem to be unmounted before exiting.
-.It Fl v
-Increase the logging verbosity (this flag can be specified multiple times).
+Run in the foreground and wait for the filesystem to be unmounted before
+exiting.
+.It Fl o Ar option[,option...]
+Comma-separated list of mount options; see
+.Sx Mount options
+below.
+Unknown options are passed through to the FUSE backend.
 .It Fl q
-Decrease the logging verbosity.
+Decrease logging verbosity.
+.It Fl v
+Increase logging verbosity; may be given more than once.
 .It Fl h , -help
-Print a help page and exit.
+Print a help message and exit.
 .It Fl V , -version
-Print the version and exit.
+Print version information and exit.
 .El
-.\" .Sh FILES TODO: mention `special` and `mountpoint`
+.Ss Mount options
+Mount options are supplied as a comma-separated list to
+.Fl o .
+.Bl -tag -width indent
+.It Cm allow_other
+Allow other users to access the mounted filesystem.
+.It Cm allow_root
+Allow the root user to access the mounted filesystem.
+.Pq fuse3 backend only.
+.It Cm async
+Perform filesystem updates asynchronously.
+.It Cm atime
+Update file access times
+.Pq the default .
+.It Cm auto_unmount
+Automatically unmount the filesystem if the calling process exits.
+.Pq fuse3 backend only.
+.It Cm default_permissions
+No effect: kernel permission checks are always enabled.
+.It Cm dev | nodev
+Allow or prohibit access to devices on the mounted filesystem.
+.It Cm dirsync
+Synchronize directory updates.
+.Pq fuse3 backend only.
+.It Cm exec | noexec
+Allow or prohibit execution of programs from the mounted filesystem.
+.It Cm noatime
+Do not update file access times.
+.It Cm ro
+Mount the filesystem read-only.
+This is the default.
+.It Cm rw
+Mount the filesystem read-write.
+Write support is
+.Em experimental
+and may corrupt data; use with caution.
+.It Cm suid | nosuid
+Honor or ignore the set-user-ID and set-group-ID bits when executing programs
+from the mounted filesystem.
+.It Cm sync
+Perform filesystem updates synchronously.
+.It Cm debug
+Enable FUSE backend debug output.
+.Pq fuse2 backend only.
+.El
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
-Mount /dev/sda1 onto /mnt:
+Mount
+.Pa /dev/sda1
+read-only onto
+.Pa /mnt :
 .Pp
 .Dl $ fuse-ufs /dev/sda1 /mnt
 .Pp
 The same, but allow other users to access the mounted filesystem:
 .Pp
 .Dl $ fuse-ufs -o allow_other /dev/sda1 /mnt
+.Pp
+Mount with experimental read-write access and verbose logging:
+.Pp
+.Dl $ fuse-ufs -fv -o rw /dev/sda1 /mnt
 .Sh SEE ALSO
-.Xr mount 8
-
+.Xr fstab 5 ,
+.Xr mount 8 ,
+.Xr newfs 8
+.Pp
 .Lk https://github.com/realchonk/fuse-ufs
-.\".Sh HISTORY TODO: give credit to Kirk McKusick for UFS
 .Sh AUTHORS
-.An Benjamin Stürz Aq Mt benni@stuerz.xyz
-.An Alan Somers Aq Mt asomers@freebsd.org
+.An Benjamin Stürz Aq Mt benni@stuerz.xyz ,
+.An Alan Somers Aq Mt asomers@gmail.com ,
+.An Davids Paskevics Aq Mt davids.paskevics@gmail.com .
 .Sh CAVEATS
-Only 64-bit Linux & FreeBSD systems have been tested to work.
-Support for other systems (like MacOS) will be on a best-effort basis for now.
-
-Missing features:
+Only 64-bit Linux, FreeBSD, and OpenBSD systems have been tested.
+Support for other systems (such as macOS) is on a best-effort basis.
+.Pp
+Notable features still missing:
 .Bl -bullet -compact
 .It
-Write Support (TODO)
+Soft Updates
 .It
-Soft-Updates (TODO)
-.It
-Sun/Solaris UFS (TODO)
+Sun/Solaris UFSv2 support
 .It
 Journaling
 .It
@@ -90,5 +146,6 @@ Snapshots
 ACLs
 .El
 .Sh BUGS
-This software is not yet ready to be used in production,
-as it contains unfixed bugs that lead to crashes.
+This software is not yet ready for production use.
+Write support in particular is experimental and may corrupt filesystems.
+Please report issues at the project page linked above.
