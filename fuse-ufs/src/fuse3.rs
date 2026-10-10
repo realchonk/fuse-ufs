@@ -21,15 +21,6 @@ use crate::{consts::*, Fs};
 
 const MAX_CACHE: Duration = Duration::MAX;
 
-/// The unit FUSE's `bmap` uses for both its block index and its answer.
-///
-/// `struct fuse_bmap_in` carries a `sector_t` block index and the kernel's
-/// `fuse_bmap()` returns a `sector_t`, so the file offset is `idx * 512` and
-/// the reply is a device byte offset divided by 512.  Not `fs_bsize`: the
-/// `blocksize` field is the *superblock's* block size, and a UFS block is a
-/// fragment, so neither of them is the unit of the answer.
-const SECTOR: u64 = 512;
-
 fn run<T>(f: impl FnOnce() -> IoResult<T>) -> Result<T, c_int> {
 	f().map_err(|e| {
 		// suppress xattr errors
@@ -620,21 +611,23 @@ impl Filesystem for Fs {
 	///
 	/// # The units, which are the whole difficulty
 	///
-	/// The kernel sends the file-relative block index in **512-byte sectors**,
-	/// and its `blocksize` field is the *superblock's* block size, which for a
-	/// FUSE mount is whatever the mount option said.  The reply is a sector on
-	/// the underlying device.
-	///
-	/// A UFS block number is a *fragment* address, so the conversion is:
+	/// The kernel sends a file-relative block index in units of its `blocksize`
+	/// field (which for a FUSE mount is whatever the mount option said -- *not*
+	/// the superblock's block size), and expects the reply as a device block
+	/// index in those same `blocksize` units.  A UFS block number is a *fragment*
+	/// address, so the conversion is:
 	///
 	/// ```text
-	/// file offset = idx * 512
-	/// device offset = ufs_block * fs_fsize
-	/// reply = device offset / 512
+	/// file offset  = idx * blocksize
+	/// device offset = ufs_block * fs_fsize + (offset % fs_bsize)
+	/// reply         = device offset / blocksize
 	/// ```
 	///
-	/// and dividing by `fs_bsize` anywhere in there is a factor-of-`fs_frag`
-	/// error that still produces a plausible-looking number.
+	/// The `(offset % fs_bsize)` term is what makes a request in the middle of a
+	/// 32 KiB block land on the right sector: without it, every sector in the
+	/// block receives the block's first sector.  Hard-coding 512 for the sector
+	/// size is correct only when `blocksize` is 512 and silently mis-maps every
+	/// other case.
 	///
 	/// # Zero means "not mapped"
 	///
@@ -646,27 +639,40 @@ impl Filesystem for Fs {
 	/// Only for a `blkdev` mount, because the kernel only asks a filesystem to
 	/// do bmap when there is a block device behind it.
 	fn bmap(&mut self, _req: &Request<'_>, ino: u64, blocksize: u32, idx: u64, reply: ReplyBmap) {
-		// `blocksize` is informational: the file offset comes from `idx`, which
-		// is already in sectors.
 		log::trace!("bmap(ino={ino:#x}, blocksize={blocksize}, idx={idx})");
 		let f = || {
 			let inr = transino(ino)?;
+			let bs = blocksize as u64;
+			if bs == 0 {
+				return Err(IoError::from_raw_os_error(libc::EINVAL));
+			}
+			// `idx` is a block index in `blocksize` units, so the byte offset is
+			// `idx * blocksize`, *not* `idx * 512`.  Using 512 is correct only
+			// when blocksize is 512 and silently mis-maps every other case.
 			let offset = idx
-				.checked_mul(SECTOR)
+				.checked_mul(bs)
 				.ok_or_else(|| IoError::from_raw_os_error(libc::EOVERFLOW))?;
 			Ok(match self.ufs.inode_map_offset(inr, offset)? {
 				rufs::BlockMapping::Data { block, .. } => {
+					// The filesystem block is a fragment address: its byte start is
+					// `block * fs_fsize`.  The requested offset lands
+					// `offset % fs_bsize` bytes into that block, and that term is
+					// what makes a sector inside a 32 KiB block return the right
+					// sector instead of always the first one.
+					let within = offset % self.ufs.bsize();
 					let device = block
 						.checked_mul(self.ufs.fsize())
+						.and_then(|b| b.checked_add(within))
 						.ok_or_else(|| IoError::from_raw_os_error(libc::EOVERFLOW))?;
-					if device % SECTOR != 0 {
-						// A UFS fragment that is not sector-aligned cannot be
-						// named in this protocol at all.  UFS2's `fs_fsize` is a
-						// multiple of the sector size, so this should be
-						// unreachable; saying so beats rounding silently.
+					if device % bs != 0 {
+						// The reply is in `blocksize` units, so the byte offset must
+						// divide evenly.  A non-aligned fragment cannot be named in
+						// the bmap protocol; for UFS2 `fs_fsize` is a multiple of the
+						// usual 512-byte sector, so this rejects only genuinely
+						// misaligned requests rather than silently rounding.
 						return Err(IoError::from_raw_os_error(libc::EINVAL));
 					}
-					device / SECTOR
+					device / bs
 				}
 				// A hole, and end of file alike: both are "not mapped".
 				_ => 0,

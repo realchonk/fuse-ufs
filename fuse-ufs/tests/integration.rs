@@ -751,10 +751,14 @@ fn readdir_continues_past_a_short_buffer(#[case] harness: Harness) {
 
 		let mut pos = 0usize;
 		while pos < n {
-			// The record is unaligned within the buffer only in the sense that
-			// its start is wherever the previous record ended; it is packed, so
-			// there is no padding to skip.
-			let d = unsafe { &*(buf.as_ptr().add(pos) as *const Dirent64) };
+			// The record is packed, not aligned, so read it through `read_unaligned`
+			// rather than dereferencing a `*const Dirent64`: `buf` has alignment 1
+			// and a `#[repr(C)]` `Dirent64` needs 8, so the old cast was UB.
+			assert!(
+				pos + std::mem::size_of::<Dirent64>() <= n,
+				"short dirent at {pos}"
+			);
+			let d = unsafe { std::ptr::read_unaligned(buf.as_ptr().add(pos) as *const Dirent64) };
 			let reclen = d.d_reclen as usize;
 			assert!(reclen > 0 && pos + reclen <= n, "malformed reclen {reclen}");
 

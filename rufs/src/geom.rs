@@ -125,9 +125,18 @@ impl From<u32> for CgNum {
 	}
 }
 
-impl From<u64> for CgNum {
-	fn from(n: u64) -> Self {
-		Self(n as u32)
+impl TryFrom<u64> for CgNum {
+	type Error = <u32 as TryFrom<u64>>::Error;
+
+	/// Reject cylinder-group indices that do not fit in `u32`.
+	///
+	/// The infallible `From` silently truncated past `u32::MAX`, remapping an
+	/// out-of-range index to a different cylinder group — the exact address
+	/// confusion the `CgNum` newtype exists to prevent.  Conversions from
+	/// values that could exceed the on-disk `u16`/`u32` CG range must be
+	/// fallible.
+	fn try_from(n: u64) -> Result<Self, Self::Error> {
+		u32::try_from(n).map(Self)
 	}
 }
 
