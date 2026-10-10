@@ -151,10 +151,18 @@ impl<R: Backend> Ufs<R> {
 		Ok(flen)
 	}
 
+	/// Read an inode.
+	///
+	/// Through the metadata cache, so an inode that has been written but not
+	/// yet persisted — because a Soft Updates dependency still gates part of it
+	/// — reads back exactly as it was written.  Every caller depends on that:
+	/// `dir_iter`, `check_consistency`, the allocation policies and the
+	/// mapping layer all have to see the filesystem's current state, not the
+	/// last image that reached the disk.
 	pub(super) fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
 		log::trace!("read_inode({inr});");
 		let off = self.superblock.ino_to_fso(inr);
-		let ino: Inode = self.file.decode_at(off)?;
+		let ino: Inode = self.metadata_read(off)?;
 		let mode = ino.mode;
 
 		if (mode & S_IFMT) == 0 {
@@ -165,11 +173,17 @@ impl<R: Backend> Ufs<R> {
 		Ok(ino)
 	}
 
+	/// Stage an inode.
+	///
+	/// An inode occupies `UFS_INOSZ` bytes of a shared inode block, so this is
+	/// a read-modify-write of exactly that range: the `fs_inopb - 1` other
+	/// inodes in the block must survive untouched, which is what the cache's
+	/// whole-block view gives us.  It does not persist anything.
 	pub(super) fn write_inode(&mut self, inr: InodeNum, ino: &Inode) -> IoResult<()> {
 		log::trace!("write_inode({inr});");
 		self.assert_rw()?;
 		let off = self.superblock.ino_to_fso(inr);
-		self.file.encode_at(off, &ino)?;
+		self.metadata_write(off, &ino)?;
 		Ok(())
 	}
 
@@ -207,12 +221,47 @@ impl<R: Backend> Ufs<R> {
 		let size = self.inode_get_block_size(ino, blkidx);
 		match self.inode_resolve_block(inr, ino, blkidx)? {
 			Some(blkno) => {
-				self.file.read_at(blkno.get() * fs, &mut buf[0..size])?;
+				if Self::blocks_are_metadata(ino) {
+					// Read the *live* image, not the disk.  A directory block
+					// that has been extended but not flushed is the common
+					// case right after a link, and reading past the cache would
+					// make the new entry invisible to the very lookup that is
+					// about to find it.
+					let at = blkno.get() * fs;
+					buf[0..size].copy_from_slice(&self.metadata_read_at(at, size)?);
+				} else {
+					self.file.read_at(blkno.get() * fs, &mut buf[0..size])?;
+				}
 			}
 			None => buf.fill(0u8),
 		}
 
 		Ok(size)
+	}
+
+	/// Whether `ino`'s data blocks are filesystem metadata rather than file
+	/// data.
+	///
+	/// A directory's blocks are not a file's bytes.  They hold the entries that
+	/// make a name resolvable, and Soft Updates has to be able to hold *one
+	/// entry* back while the rest of the block goes out, so they belong in the
+	/// metadata cache exactly like inode blocks and indirect blocks do.
+	///
+	/// This has to be decided here rather than in `dir.rs` because every
+	/// directory path -- `dir_iter`, `dir_newlink`, `dir_unlink`,
+	/// `inode_copy_range`, `inode_truncate` -- reaches its blocks through the
+	/// generic read and write below.  Gating an entry in `dir_newlink` while
+	/// every other directory path went straight to the device would give one
+	/// block two writers, which is the same mistake the cylinder-group bitmaps
+	/// already made: the write-back of the cached block would restore whatever
+	/// the direct write had replaced.
+	///
+	/// A *file's* blocks deliberately stay direct.  The kernel page cache is
+	/// already buffering them, there are no ordering constraints between two
+	/// blocks of a file's payload, and a second layer would turn every FUSE
+	/// writeback into an ordering question for no benefit.
+	fn blocks_are_metadata(ino: &Inode) -> bool {
+		ino.kind() == InodeType::Directory
 	}
 
 	pub(super) fn inode_write_block(
@@ -231,21 +280,52 @@ impl<R: Backend> Ufs<R> {
 			None => self.inode_alloc_block(inr, ino, blkidx, size as u64)?.0,
 		};
 
+		if Self::blocks_are_metadata(ino) {
+			// Staged, not written.  Whether this block may reach the disk -- and
+			// which of its entries may -- is the dependency engine's decision,
+			// and `sync_metadata()` is the only thing that carries it out.
+			let at = blkno.get() * fs;
+			self.metadata_write_at(at, &buf[0..size])?;
+			return Ok(());
+		}
+
 		self.file.write_at(blkno.get() * fs, &buf[0..size])?;
+
+		// `buf[0..size]` is the whole allocated region for this logical block --
+		// `inode_write()` always assembles it -- so the block's initialised
+		// contents have now reached the device, and any dependency waiting on
+		// that fact may advance.  Noting it here rather than at allocation time
+		// is the point: the allocation only *reserved* the block.
+		//
+		// A metadata block does not come through here, so its contents event
+		// comes from the flush loop instead, which is where its bytes actually
+		// go.
+		self.note_block_contents(blkno.get())?;
 		Ok(())
 	}
 
-	pub(super) fn inode_find_block(
-		&mut self,
+	/// Where a file offset falls, without the panic.
+	///
+	/// `None` means the offset is beyond the end of the geometry `i_size`
+	/// implies, which is the filesystem saying "there is nothing here" rather
+	/// than "something is broken" — the caller decides whether that is `EOF`,
+	/// a hole or an error.
+	///
+	/// The last block of a file is the fragment case: `i_size % fs_bsize` bytes
+	/// that UFS2 accounts for as a run of `fs_fsize` fragments, so its size is
+	/// the rounded-up remainder rather than a whole `fs_bsize`.  Every caller
+	/// that assumed otherwise would over-read the last block.
+	pub(super) fn inode_locate(
+		&self,
 		inr: InodeNum,
 		ino: &Inode,
 		offset: u64,
-	) -> BlockInfo {
+	) -> Option<BlockInfo> {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
 		log::trace!(
-			"inode_find_block({inr}, {offset}): size={}, bs={bs}, blocks={blocks}, fs={fs}, frags={frags}",
+			"inode_locate({inr}, {offset}): size={}, bs={bs}, blocks={blocks}, fs={fs}, frags={frags}",
 			ino.size
 		);
 
@@ -262,10 +342,29 @@ impl<R: Backend> Ufs<R> {
 				size:   frags * fs,
 			}
 		} else {
-			panic!("inode_find_block({inr}, {offset}): out of bounds");
+			return None;
 		};
-		log::trace!("inode_find_block({inr}, {offset}) = {x:?}");
-		x
+		log::trace!("inode_locate({inr}, {offset}) = {x:?}");
+		Some(x)
+	}
+
+	/// [`Self::inode_locate`], panicking when the offset is out of bounds.
+	///
+	/// The read and write paths use this because they have already clamped to
+	/// `i_size`, so being out of bounds is a bug in *them* and not something
+	/// the caller asked for.  The mapping layer uses [`Self::inode_locate`],
+	/// because an arbitrary offset past the end of a file is a perfectly good
+	/// question.
+	pub(super) fn inode_find_block(
+		&mut self,
+		inr: InodeNum,
+		ino: &Inode,
+		offset: u64,
+	) -> BlockInfo {
+		match self.inode_locate(inr, ino, offset) {
+			Some(x) => x,
+			None => panic!("inode_find_block({inr}, {offset}): out of bounds"),
+		}
 	}
 
 	pub(super) fn inode_data_zones(&self) -> (u64, u64, u64, u64) {
@@ -310,7 +409,7 @@ impl<R: Backend> Ufs<R> {
 		}
 	}
 
-	fn inode_resolve_block(
+	pub(super) fn inode_resolve_block(
 		&mut self,
 		inr: InodeNum,
 		ino: &Inode,

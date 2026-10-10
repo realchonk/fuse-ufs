@@ -118,6 +118,35 @@ pub const UFS_SLLEN: usize = (UFS_NDADDR + UFS_NIADDR) * size_of::<UfsDaddr>();
 /// Size of an on-disk inode.
 pub const UFS_INOSZ: usize = 256;
 
+/// Byte offset of `di_ext[0]`, the first direct block pointer, within a
+/// serialized inode.
+///
+/// `struct ufs2_dinode` places `di_extb[UFS_NXADDR]` at offset 96 and
+/// `di_ext[UFS_NDADDR]` immediately after it, so this is 96 + 2 * 8.
+///
+/// Written as the sum of the fields that precede it rather than as a bare 112,
+/// because a bare literal is exactly the kind of thing that goes stale
+/// silently: adding a field to `struct Inode` would leave the literal pointing
+/// at the wrong bytes, and a Soft Updates gate on the wrong bytes corrupts an
+/// inode without failing anything.  The
+/// `the_pointer_offsets_match_the_encoding` test in
+/// `rufs/src/ufs/mapping.rs` checks every slot against the real encoder, so a
+/// change to either side is caught rather than shipped.
+///
+/// `UfsTime` is `i64` and every other field here is a fixed-width integer, so
+/// `size_of` is the serialized size -- unlike, say, `InodeData`, where bincode's
+/// encoding and Rust's `size_of` disagree.
+pub const UFS_EXT_OFF: usize = 2 * size_of::<u16>()          // di_mode, di_nlink
+	+ 3 * size_of::<u32>()                                // di_uid, di_gid, di_blksize
+	+ 2 * size_of::<u64>()                                // di_size, di_blocks
+	+ 4 * size_of::<UfsTime>()                            // the four timestamps
+	+ 4 * size_of::<u32>()                                // the four nsec fields
+	+ 4 * size_of::<u32>()                                // di_gen .. di_extsize
+	+ UFS_NXADDR * size_of::<UfsDaddr>(); // di_extb
+
+/// Byte offset of `di_extb[0]`, the first indirect block pointer.
+pub const UFS_EXTB_OFF: usize = UFS_EXT_OFF + UFS_NDADDR * size_of::<UfsDaddr>();
+
 /// Maximum length of an extattr name.
 pub const UFS_EXTATTR_MAXNAMELEN: usize = 64; // excluding null
 
@@ -160,7 +189,7 @@ pub const DT_WHT: u8 = 14;
 /// read in from fs_csaddr (size fs_cssize) in addition to the
 /// super block.
 /// `struct csum` in FreeBSD
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Decode, Encode, Clone, Copy, PartialEq, Eq)]
 pub struct Csum {
 	pub ndir:   i32, // number of directories
 	pub nbfree: i32, // number of free blocks
@@ -169,7 +198,7 @@ pub struct Csum {
 }
 
 /// `struct csum_total` in FreeBSD
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Decode, Encode, Clone, Copy, PartialEq, Eq)]
 pub struct CsumTotal {
 	pub ndir:        i64,      // number of directories
 	pub nbfree:      i64,      // number of free blocks
@@ -181,7 +210,7 @@ pub struct CsumTotal {
 
 /// Super block for an FFS filesystem.
 /// `struct fs` in FreeBSD
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Decode, Encode, Clone)]
 pub struct Superblock {
 	pub firstfield:       i32, // historic filesystem linked list,
 	pub unused_1:         i32, // used for incore super blocks
@@ -489,31 +518,8 @@ impl Superblock {
 			})
 	}
 
-	/// inode number to cylinder group number.
-	pub fn ino_to_cg(&self, inr: InodeNum) -> u64 {
-		inr.get64() / self.ipg as u64
-	}
-
-	/// inode number to cylinder group number and offset.
-	pub fn ino_in_cg(&self, inr: InodeNum) -> (u64, u64) {
-		let ipg = self.ipg as u64;
-		let inr = inr.get64();
-		(inr / ipg, inr % ipg)
-	}
-
 	pub fn blocks_to_frags(&self, blocks: u64) -> u64 {
 		blocks << self.fragshift as u32
-	}
-
-	pub fn ino_to_fso(&self, inr: InodeNum) -> u64 {
-		let ipg = self.ipg as u64;
-		let fpg = self.fpg as u64;
-		let fs = self.fsize as u64;
-		let cgi = inr.get64() / ipg;
-		let off = inr.get64() % ipg;
-		let cgstart = cgi * fpg * fs;
-		let cgistart = cgstart + (self.iblkno as u64 * fs);
-		cgistart + (off * UFS_INOSZ as u64)
 	}
 }
 

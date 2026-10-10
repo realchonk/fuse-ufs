@@ -44,6 +44,15 @@ impl<T: Backend> BlockReader<T> {
 		self.rw
 	}
 
+	/// The underlying medium.
+	///
+	/// The decoder adapter and the tests need to look at the bytes the
+	/// `BlockReader` has actually flushed, which is otherwise unobservable
+	/// from outside it.
+	pub fn inner(&self) -> &T {
+		&self.inner
+	}
+
 	fn refill(&mut self) -> IoResult<()> {
 		if self.dirty {
 			panic!("Cannot refill dirty BlockReader");

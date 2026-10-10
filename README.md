@@ -8,7 +8,7 @@ access (e.g. mounting a big-endian filesystem on a little-endian host).
 [![CI](https://github.com/realchonk/fuse-ufs/actions/workflows/ci.yml/badge.svg)](https://github.com/realchonk/fuse-ufs/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/rufs.svg?logo=rust)](https://crates.io/crates/rufs)
 [![docs.rs](https://docs.rs/rufs/badge.svg)](https://docs.rs/rufs)
-[![license](https://img.shields.io/crates/l/rufs.svg)](LICENSE.md)
+[![license](https://img.shields.io/crates/l/rufs.svg)](https://github.com/realchonk/fuse-ufs/blob/main/LICENSE.md)
 [![Packaging status](https://repology.org/badge/vertical-allrepos/fusefs:ufs.svg)](https://repology.org/project/fusefs:ufs/versions)
 
 ## Features
@@ -17,6 +17,20 @@ access (e.g. mounting a big-endian filesystem on a little-endian host).
 - **Bi-endian** access — mount big-endian filesystems on little-endian hosts and vice versa
 - **Extended attributes** (ACLs not yet supported)
 - Cross-platform FUSE backends: `fuse3` (Linux, FreeBSD) and `fuse2` (OpenBSD)
+
+## Documentation
+
+Absolute links, deliberately. This README is also the crate page for `rufs`
+on crates.io, where a relative link resolves against the crate URL rather
+than against the repository, and 404s.
+
+| file | what it covers |
+|---|---|
+| [docs/fuse-compatibility.md](https://github.com/realchonk/fuse-ufs/blob/main/docs/fuse-compatibility.md) | `bmap`, `lseek(SEEK_DATA/SEEK_HOLE)`, and which platforms reach them |
+| [docs/soft-updates.md](https://github.com/realchonk/fuse-ufs/blob/main/docs/soft-updates.md) | the dependency model and what is implemented |
+| [docs/ufs2-invariants.md](https://github.com/realchonk/fuse-ufs/blob/main/docs/ufs2-invariants.md) | the on-disk invariants a crash must not break |
+| [docs/freebsd-ufs2.md](https://github.com/realchonk/fuse-ufs/blob/main/docs/freebsd-ufs2.md) | behaviour mined from FreeBSD's implementation |
+| [fuse-ufs(8)](https://github.com/realchonk/fuse-ufs/blob/main/docs/fuse-ufs.8) | the manual page |
 
 ## Planned
 
@@ -80,7 +94,7 @@ This is a Cargo workspace with three crates:
 
 ## License
 
-Licensed under the [BSD-2-Clause](LICENSE.md) license.
+Licensed under the [BSD-2-Clause](https://github.com/realchonk/fuse-ufs/blob/main/LICENSE.md) license.
 
 ## Acknowledgements
 

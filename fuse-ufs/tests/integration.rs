@@ -1,7 +1,7 @@
 #[cfg(target_os = "freebsd")]
 use std::os::fd::AsRawFd;
 use std::{
-	ffi::{CStr, OsStr, OsString},
+	ffi::{OsStr, OsString},
 	fmt,
 	fs::{self, File},
 	io::{Error, ErrorKind, Read, Seek, SeekFrom, Write},
@@ -512,7 +512,7 @@ fn getxattr_size(#[case] harness: Harness) {
 	let expected = b"testvalue";
 
 	// Can't use c"test" syntax, because the apply macro doesn't like it
-	let name = CStr::from_bytes_until_nul(b"test\0").unwrap();
+	let name = std::ffi::CStr::from_bytes_until_nul(b"test\0").unwrap();
 	let num = unsafe {
 		libc::extattr_get_fd(
 			file.as_raw_fd(),
@@ -558,7 +558,7 @@ fn noxattrs_get(#[case] harness: Harness) {
 	let d = &harness.d;
 
 	let file = File::open(d.path().join("file1")).unwrap();
-	let name = CStr::from_bytes_until_nul(b"test\0").unwrap();
+	let name = std::ffi::CStr::from_bytes_until_nul(b"test\0").unwrap();
 	let num = unsafe {
 		libc::extattr_get_fd(
 			file.as_raw_fd(),
@@ -683,4 +683,160 @@ fn symlink(#[case] harness: Harness) {
 	std::os::unix::fs::symlink(target, &path).unwrap();
 
 	assert_eq!(std::fs::read_link(path).unwrap(), target);
+}
+
+/// Read a directory with a deliberately tiny `getdents64` buffer, so the kernel
+/// has to come back for the entries that did not fit.
+///
+/// `std::fs::read_dir` buffers generously enough that a few hundred entries
+/// arrive in one request, which hides the case this is about: a directory that
+/// does not fit in one reply.  A 256-byte buffer forces a `READDIR` every ten
+/// or so entries, each resuming from the offset the previous one reported.
+///
+/// This is what the offset is for.  A driver that answers a non-zero offset with
+/// an empty listing -- which is what this one used to do -- satisfies the first
+/// request and silently truncates the rest, so the caller sees a short
+/// directory rather than an error.
+#[cfg(target_os = "linux")]
+#[apply(all_images_rw)]
+fn readdir_continues_past_a_short_buffer(#[case] harness: Harness) {
+	use std::os::fd::AsRawFd;
+
+	let d = &harness.d;
+	let dir = d.path().join("continuation");
+	std::fs::create_dir(&dir).unwrap();
+
+	const N: usize = 512;
+	let mut created: Vec<String> = Vec::with_capacity(N);
+	for i in 0..N {
+		// Long enough that 256 bytes of buffer holds only a handful, and
+		// distinct enough that a repeated or skipped entry is visible.
+		let name = format!("entry-{i:04}-padding-padding-padding");
+		mkfile(&dir.join(&name));
+		created.push(name);
+	}
+
+	/// One `linux_dirent64`: ino, off, reclen, type, then a NUL-terminated name.
+	#[repr(C)]
+	struct Dirent64 {
+		d_ino:    u64,
+		d_off:    i64,
+		d_reclen: u16,
+		d_type:   u8,
+		// name follows, d_reclen bytes of it
+	}
+
+	let fd = File::open(&dir).unwrap();
+	let mut buf = [0u8; 256];
+	let mut names: Vec<String> = Vec::with_capacity(N);
+	let mut inodes: Vec<u64> = Vec::new();
+	let mut types: Vec<u8> = Vec::new();
+	let mut rounds = 0usize;
+
+	loop {
+		let n = unsafe {
+			libc::syscall(
+				libc::SYS_getdents64,
+				fd.as_raw_fd(),
+				buf.as_mut_ptr(),
+				buf.len(),
+			)
+		};
+		assert!(n >= 0, "getdents64 failed: {}", Error::last_os_error());
+		let n = n as usize;
+		if n == 0 {
+			break;
+		}
+		rounds += 1;
+
+		let mut pos = 0usize;
+		while pos < n {
+			// The record is packed, not aligned, so read it through `read_unaligned`
+			// rather than dereferencing a `*const Dirent64`: `buf` has alignment 1
+			// and a `#[repr(C)]` `Dirent64` needs 8, so the old cast was UB.
+			assert!(
+				pos + std::mem::size_of::<Dirent64>() <= n,
+				"short dirent at {pos}"
+			);
+			let d = unsafe { std::ptr::read_unaligned(buf.as_ptr().add(pos) as *const Dirent64) };
+			let reclen = d.d_reclen as usize;
+			assert!(reclen > 0 && pos + reclen <= n, "malformed reclen {reclen}");
+
+			let name_ptr = unsafe { buf.as_ptr().add(pos + 19) };
+			let name_bytes = unsafe { std::slice::from_raw_parts(name_ptr, reclen - 19) };
+			let name_bytes: Vec<u8> = name_bytes.iter().copied().take_while(|&b| b != 0).collect();
+			names.push(String::from_utf8_lossy(&name_bytes).into_owned());
+			inodes.push(d.d_ino);
+			types.push(d.d_type);
+
+			pos += reclen;
+		}
+	}
+
+	// The point of the test: this took several round trips.
+	assert!(
+		rounds > 8,
+		"listing took {rounds} round trips, so this never exercised continuation"
+	);
+
+	// `.` and `..` plus everything created, and nothing else.
+	assert_eq!(
+		names.len(),
+		N + 2,
+		"listing was truncated to {} entries",
+		names.len()
+	);
+
+	// Order within the dot entries is `rufs`' business, not the wire format's,
+	// so this only requires that they lead the listing.
+	let mut dot: Vec<&str> = names[..2].iter().map(String::as_str).collect();
+	dot.sort();
+	assert_eq!(dot, vec![".", ".."], "listing does not start with . and ..");
+
+	let mut listed = names[2..].to_vec();
+	listed.sort();
+	let mut expected = created.clone();
+	expected.sort();
+	assert_eq!(listed, expected, "listing differs from what was created");
+
+	// The two dot entries are directories; everything created is a regular
+	// file.  `d_type` is what `READDIRPLUS` sends as the entry type, and it is
+	// read out of the directory block rather than from the inode.
+	assert_eq!(
+		types[..2],
+		[libc::DT_DIR, libc::DT_DIR],
+		"dot entries are not reported as directories: {types:?}"
+	);
+	let bad: Vec<(&str, u8)> = names[2..]
+		.iter()
+		.zip(&types[2..])
+		.filter(|(_, &t)| t != libc::DT_REG)
+		.map(|(n, &t)| (n.as_str(), t))
+		.collect();
+	assert!(
+		bad.is_empty(),
+		"entries not reported as regular files: {bad:?}"
+	);
+
+	// The inode `readdir` reports must be the inode `stat` reports for the
+	// same name.  This is the claim the whole operation rests on: `READDIR`
+	// and `READDIRPLUS` and `GETATTR` all number an object the same way, so
+	// the kernel's directory cache stays valid.  A driver that renumbered,
+	// or that reported the on-disk inode while `getattr` answered with the
+	// FUSE one, would break here while every individual entry looked fine.
+	for (name, &ino) in names[2..].iter().zip(&inodes[2..]) {
+		let md = std::fs::metadata(dir.join(name)).unwrap();
+		assert_eq!(
+			md.ino(),
+			ino,
+			"readdir and stat disagree on the inode for {name}"
+		);
+	}
+
+	// Each created file has its own inode, so a listing that repeated one
+	// entry's number instead of advancing would be visible.
+	let mut seen = inodes[2..].to_vec();
+	seen.sort_unstable();
+	seen.dedup();
+	assert_eq!(seen.len(), N, "created files do not have distinct inodes");
 }

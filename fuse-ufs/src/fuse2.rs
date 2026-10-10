@@ -189,7 +189,7 @@ impl Filesystem for Fs {
 
 	fn truncate(&mut self, _req: &Request, path: &Path, size: u64) -> Result<()> {
 		let inr = self.lookup(path)?;
-		self.ufs.inode_truncate(inr, size)?;
+		self.ufs.truncate(inr, size)?;
 		Ok(())
 	}
 

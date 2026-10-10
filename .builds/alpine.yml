@@ -10,7 +10,7 @@ sources:
 tasks:
   - prepare: |
       sudo modprobe fuse
-      sudo sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
+      sudo cp fuse-ufs/.builds/fuse.conf /etc/fuse.conf
       sudo chmod 666 /dev/fuse
   - test: |
       cd fuse-ufs

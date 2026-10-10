@@ -2,11 +2,28 @@ image: openbsd/latest
 packages:
   - rust
   - zstd
+  # `fuse2rs`'s build script runs bindgen, so it needs fuse.h and libfuse to
+  # be installed even though nothing here calls into FUSE 2 at *build* time.
+  # `fuse2rs` is a workspace dependency, so `make test` builds it whatever
+  # features are selected -- hence this rather than a per-feature concern.
+  - fuse2-libs
 sources:
   - https://github.com/realchonk/fuse-ufs
 tasks:
   - install-llvm: |
       pkg_info -Q llvm | grep '^llvm-21' | xargs doas pkg_add
+  - prepare: |
+      # The integration harness mounts with `-oallow_other`, which fuse refuses
+      # unless /etc/fuse.conf sets it.
+      #
+      # `cp` rather than `sed -i ''`: BSD sed requires a suffix argument where
+      # GNU sed takes none, and `doas` execs the command directly without a
+      # shell, so the `''` arrives as two literal quote characters and sed
+      # concludes the *script* is a filename.  Copying a file has no quoting to
+      # get wrong and is the same thing the Alpine job now does.
+      doas cp fuse-ufs/.builds/fuse.conf /etc/fuse.conf
   - test: |
       cd fuse-ufs
+      # `LIBCLANG_PATH` is still needed: llvm21 is a port, under /usr/local,
+      # even though FUSE is not.
       RUST_BACKTRACE=1 LIBCLANG_PATH=/usr/local/llvm21/lib make test

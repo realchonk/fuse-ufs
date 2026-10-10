@@ -34,8 +34,41 @@ mod fuse3;
 #[cfg(feature = "fuse2")]
 mod fuse2;
 
-struct Fs {
-	ufs: Ufs<File>,
+pub(crate) struct Fs {
+	pub(crate) ufs: Ufs<File>,
+	/// Whether the mount was opened for writing.
+	///
+	/// A read-only mount has nothing to drain, and `Ufs::shutdown()` would say
+	/// so; the flag only exists so the teardown can say why.
+	pub(crate) rw:  bool,
+}
+
+/// Drain on the way out.
+///
+/// `Ufs` stages metadata changes and publishes them when a sync runs, and a
+/// filesystem that is dropped without one loses whatever was still queued.  For
+/// an ordinary unmount that is invisible -- everything was already flushed -- but
+/// for a crash-free teardown after a `kill`, or for the FUSE session ending
+/// with dirty metadata, it is silent data loss.
+///
+/// This cannot report an error: `Drop` has no way to return one, and refusing to
+/// drop would be worse than dropping.  So it logs what it could not finish, which
+/// is the only thing left that a user can act on.
+impl Drop for Fs {
+	fn drop(&mut self) {
+		if !self.rw {
+			return;
+		}
+		match self.ufs.shutdown() {
+			Ok(st) if st.is_drained() => log::debug!("unmount: metadata drained"),
+			Ok(st) => {
+				log::error!(
+					"unmount: metadata is still outstanding and has NOT been written: {st:?}"
+				)
+			}
+			Err(e) => log::error!("unmount: drain failed, metadata may be incomplete: {e}"),
+		}
+	}
 }
 
 fn main() -> Result<()> {
@@ -49,6 +82,7 @@ fn main() -> Result<()> {
 
 	let fs = Fs {
 		ufs: Ufs::open(&cli.device, rw)?,
+		rw,
 	};
 
 	let mp = &cli.mountpoint;

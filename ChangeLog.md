@@ -10,6 +10,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The MSRV is now 1.90.0.
 
+### Add
+
+- `rufs`: a metadata `BufferCache`, so that UFS metadata is staged rather than
+  written through.  Cylinder-group structs, both bitmaps, inodes and indirect
+  blocks all go through it now; `Ufs::sync_metadata()` is the only thing that
+  persists them.
+- `rufs`: `BlockMapping`, `BlockRun` and the `inode_block_runs` iterator —
+  canonical logical-to-physical mapping for a UFS file, walking the block map so
+  a sparse region is skipped in one step.
+- `rufs`: `inode_seek_data()` and `inode_seek_hole()`.
+- `fuse-ufs`: `bmap`, and `lseek` for `SEEK_DATA`/`SEEK_HOLE`.
+- `fuse-ufs`: `READDIRPLUS`, on the FUSE3 backend.  A kernel that asks for it
+  gets a directory listing with attributes attached, instead of `ENOSYS` and a
+  `GETATTR` per entry.
+- `rufs`: `Ufs::dir_entries()`, a collecting form of `dir_iter` that numbers
+  each entry by its position.  `READDIR` and `READDIRPLUS` are both built from
+  it, so the two cannot disagree about what a directory contains.
+
+### Fix
+
+- A directory this driver created was not laid out the way FreeBSD lays one
+  out, and the entries in it were silently misordered.  `newdir()` gave `..` a
+  reclen covering the rest of the block -- which is what marks a record as the
+  last entry in a block, and the last entry is the one split to make room for
+  a new one.  So the first file added to a new directory was written *into*
+  `..`, pushing it out of position 12, and the directory then listed `.` twice
+  with `..` in the middle.  `..` now keeps its natural size and the first real
+  entry packs into the space after it, which is the layout
+  `resources/ufs-little.img` has.
+- `Header::new()` sized a record from the length of the 256-byte name buffer
+  rather than the name in it, so every record it created got the same oversized
+  reclen regardless of how long its name was.
+- A directory with more entries than fit in one reply was silently truncated:
+  `readdir` answered any non-zero offset with an empty listing, so the second
+  and subsequent requests -- exactly the ones a kernel makes to read past a
+  full buffer -- returned nothing.  Offsets are now a property of the entry, so
+  a read resumes where the last one stopped.
+- A cylinder-group struct and its bitmaps share one `fs_bsize` block.  With the
+  struct staged through the cache and the bitmaps still written straight to the
+  device, the next write-back of that block rolled the bitmaps back: an
+  allocation whose counter survived and whose bit did not.
+
 ## [0.6.0] - 2025-09-27
 
 ### General

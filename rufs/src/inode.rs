@@ -175,6 +175,44 @@ impl Inode {
 
 		(blocks, frags)
 	}
+
+	/// This directory's depth below the root directory, if it is a directory.
+	///
+	/// UFS2 stores the depth in the on-disk `di_ignored` word, which the
+	/// directory-inode reader in `data.rs` names `ignored` because the same
+	/// word means "next unlinked inode" for the soft-update journal.  Two
+	/// consequences:
+	///
+	/// * it is only meaningful for directories, hence the `Option`;
+	/// * for a non-directory the word is expected to be zero, so
+	///   [`Self::dir_depth`] returning `None` is not merely a type-level
+	///   convenience — writing a non-zero value there would be visible to
+	///   journal-recovery code as a bogus linked list.
+	///
+	/// The root directory has depth 0 and a child of the root has depth 1.
+	/// FreeBSD calls this field `i_dirdepth` and uses it to drive the dirpref
+	/// placement of new directories; see [`crate::policy::pref_inode`].
+	pub fn dir_depth(&self) -> Option<u32> {
+		match self.kind() {
+			InodeType::Directory => Some(self.ignored),
+			_ => None,
+		}
+	}
+
+	/// Set this directory's depth below the root directory.
+	///
+	/// # Panics
+	///
+	/// If the inode is not a directory, because there is no correct value to
+	/// write into the shared `di_ignored` word.
+	pub fn set_dir_depth(&mut self, depth: u32) {
+		assert_eq!(
+			self.kind(),
+			InodeType::Directory,
+			"set_dir_depth() on a non-directory inode"
+		);
+		self.ignored = depth;
+	}
 }
 
 impl<Context> Decode<Context> for Inode {
