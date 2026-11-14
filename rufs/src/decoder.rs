@@ -2,6 +2,7 @@ use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 
 use bincode_next::{
 	config::{BigEndian, Configuration, Fixint, LittleEndian, MsbFirst, NoLimit, SkipBitPacking},
+	error::DecodeError,
 	Decode,
 	Encode,
 };
@@ -32,7 +33,12 @@ impl Config {
 			Self::Little(cfg) => bincode_next::decode_from_std_read(rdr, *cfg),
 			Self::Big(cfg) => bincode_next::decode_from_std_read(rdr, *cfg),
 		}
-		.map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to decode"))
+		.map_err(|e| {
+			match e {
+				DecodeError::Io { inner, .. } => inner,
+				_ => Error::new(ErrorKind::InvalidInput, "failed to decode"),
+			}
+		})
 	}
 
 	fn encode(&self, wtr: &mut impl Write, x: &impl Encode) -> Result<()> {
@@ -136,5 +142,28 @@ impl<T: Read + Write + Seek> Decoder<T> {
 	pub fn fill_at(&mut self, pos: u64, b: u8, num: usize) -> Result<()> {
 		self.seek(pos)?;
 		self.fill(b, num)
+	}
+}
+
+#[cfg(test)]
+mod t {
+	use super::*;
+
+	struct Failing;
+
+	impl Read for Failing {
+		fn read(&mut self, _buf: &mut [u8]) -> Result<usize> {
+			Err(Error::other("device failed"))
+		}
+	}
+
+	/// A read error reaches the caller instead of "failed to decode".
+	#[test]
+	fn decode_passes_io_error() {
+		let e = Decoder::new(Failing, Config::little())
+			.decode::<u32>()
+			.unwrap_err();
+		assert_eq!(e.kind(), ErrorKind::Other);
+		assert_eq!(e.to_string(), "device failed");
 	}
 }
