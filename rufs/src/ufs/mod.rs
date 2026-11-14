@@ -58,6 +58,24 @@ pub struct Info {
 
 	/// Fragment size.
 	pub fsize: u32,
+
+	/// Size of the file system in fragments, metadata included (`fs_size`).
+	pub frags: u64,
+
+	/// The file system was unmounted cleanly (`fs_clean`).
+	pub clean: bool,
+
+	/// Status flags (`fs_flags`), as defined in FreeBSD's `ufs/ffs/fs.h`.
+	pub flags: u32,
+
+	/// File system id (`fs_id`).
+	pub id: [u32; 2],
+
+	/// Volume name (`fs_volname`), without the trailing NULs.
+	pub label: Vec<u8>,
+
+	/// Where the file system was last mounted (`fs_fsmnt`), without the trailing NULs.
+	pub fsmnt: Vec<u8>,
 }
 
 /// Berkley Unix (Fast) Filesystem v2
@@ -132,6 +150,12 @@ impl<R: Backend> Ufs<R> {
 			ffree:  cst.nifree as u64,
 			bsize:  sb.bsize as u32,
 			fsize:  sb.fsize as u32,
+			frags:  sb.size as u64,
+			clean:  sb.clean != 0,
+			flags:  sb.flags as u32,
+			id:     [sb.id[0] as u32, sb.id[1] as u32],
+			label:  until_nul(&sb.volname),
+			fsmnt:  until_nul(&sb.fsmnt),
 		}
 	}
 
@@ -232,4 +256,11 @@ fn check_name_is_legal(name: &[u8], allow_special: bool) -> IoResult<()> {
 	} else {
 		Ok(())
 	}
+}
+
+fn until_nul(b: &[u8]) -> Vec<u8> {
+	b.iter()
+		.position(|&c| c == 0)
+		.map_or(b, |n| &b[..n])
+		.to_vec()
 }
