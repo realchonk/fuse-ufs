@@ -171,6 +171,12 @@ impl<R: Backend> Ufs<R> {
 		sbassert!(sb.sbsize == sb.fsize);
 		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
 
+		// Only the allocator uses the cylinder groups.
+		if !self.write_enabled() {
+			log::info!("OK (cylinder groups not checked)");
+			return Ok(());
+		}
+
 		let fpg = sb.fpg as u64;
 		let sblkno = sb.sblkno as u64;
 		let fs = sb.fsize as u64;

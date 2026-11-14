@@ -47,7 +47,7 @@ Ufs<R>                        high-level fs ops (inode, dir, xattr, balloc, iall
 ```
 
 - `BlockReader` panics on `write()` if opened read-only — check `write_enabled()` first. Calling `refill()` on a dirty block also panics.
-- `Ufs::open` validates every cylinder-group superblock and `Cgx` magic; failures return `EIO` via the local `sbassert!` macro (`rufs/src/ufs/mod.rs`).
+- `Ufs::open` validates the superblock; opened read-write it also checks every cylinder-group superblock and `Cgx` magic. Failures return `EIO` via the local `sbassert!` macro (`rufs/src/ufs/mod.rs`).
 - `transino()` (`fuse-ufs/src/fuse3.rs`, `fuse2.rs`) maps FUSE inode numbers to `InodeNum`: FUSE root `1` (`FUSE_ROOT_ID`) → UFS root `2` (`InodeNum::ROOT`).
 - `run()` wraps each FUSE op, turning `IoResult<T>` into a `c_int` errno; it suppresses logging for `ENOATTR`.
 - Error-construction macros (defined in `rufs/src/ufs/mod.rs`, re-exported): `err!(EINVAL)` → `IoError` from errno; `iobail!(kind, "..")` → early-return `IoError::new`. (A separate local `err!` exists in `fuse-ufs/src/main.rs`.)
