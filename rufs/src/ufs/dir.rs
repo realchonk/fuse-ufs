@@ -13,10 +13,10 @@ struct Header {
 }
 
 impl Header {
-	fn new(inr: InodeNum, kind: InodeType, dname: &OsStr) -> Self {
+	fn new(inr: InodeNum, kind: InodeType, dname: &[u8]) -> Self {
 		assert!(dname.len() <= UFS_MAXNAMELEN);
 		let mut name = [0u8; UFS_MAXNAMELEN + 1];
-		name[0..dname.len()].copy_from_slice(dname.as_bytes());
+		name[0..dname.len()].copy_from_slice(dname);
 		let reclen = ((4 + 2 + 1 + 1 + name.len() + 3) & !3) as u16;
 		Self {
 			inr,
@@ -46,8 +46,10 @@ impl Header {
 			return Ok(None);
 		}
 
-		log::trace!("Header::read(): {{ inr={inr}, reclen={reclen}, namelen={namelen}, name={:?}, kind={kind} }}",
-					unsafe { OsStr::from_encoded_bytes_unchecked(&name[0..namelen.into()]) });
+		log::trace!(
+			"Header::read(): {{ inr={inr}, reclen={reclen}, namelen={namelen}, name=\"{}\", kind={kind} }}",
+			name[0..namelen.into()].escape_ascii()
+		);
 
 		let kind = match kind {
 			DT_FIFO => Some(InodeType::NamedPipe),
@@ -83,11 +85,11 @@ impl Header {
 			None => DT_WHT,
 		};
 		log::trace!(
-			"Header::write(inr={}, reclen={}, namelen={}, name={:?}, kind={kind})",
+			"Header::write(inr={}, reclen={}, namelen={}, name=\"{}\", kind={kind})",
 			self.inr,
 			self.reclen,
 			self.namelen,
-			self.name()
+			self.name().escape_ascii()
 		);
 		file.encode(&self.inr)?;
 		file.encode(&self.reclen)?;
@@ -101,8 +103,8 @@ impl Header {
 		Ok(())
 	}
 
-	fn name(&self) -> &OsStr {
-		unsafe { OsStr::from_encoded_bytes_unchecked(&self.name[0..self.namelen.into()]) }
+	fn name(&self) -> &[u8] {
+		&self.name[0..self.namelen.into()]
 	}
 
 	fn minlen(&self) -> u16 {
@@ -114,7 +116,7 @@ fn readdir_block<T>(
 	inr: InodeNum,
 	block: &[u8],
 	config: Config,
-	mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
+	mut f: impl FnMut(&[u8], InodeNum, InodeType) -> Option<T>,
 ) -> IoResult<Option<T>> {
 	let mut file = Decoder::new(Cursor::new(block), config);
 
@@ -125,8 +127,8 @@ fn readdir_block<T>(
 
 		let Some(kind) = hdr.kind else {
 			log::warn!(
-				"readdir_block({inr}): encountered a whiteout entry: {:?}",
-				hdr.name()
+				"readdir_block({inr}): encountered a whiteout entry: \"{}\"",
+				hdr.name().escape_ascii()
 			);
 			continue;
 		};
@@ -169,7 +171,7 @@ fn newlink_block(block: &mut [u8], mut entry: Header, config: Config) -> IoResul
 fn unlink_block(
 	dinr: InodeNum,
 	block: &mut [u8],
-	name: &OsStr,
+	name: &[u8],
 	config: Config,
 ) -> IoResult<Option<(InodeNum, bool)>> {
 	let mut file = Decoder::new(Cursor::new(block), config);
@@ -186,13 +188,14 @@ fn unlink_block(
 			continue;
 		}
 
-		log::trace!("unlink_block({dinr}, {name:?}): pos={pos}, hdr={hdr:?}");
+		let shown = name.escape_ascii();
+		log::trace!("unlink_block({dinr}, \"{shown}\"): pos={pos}, hdr={hdr:?}");
 
 		let has;
 		if pos == 0 {
 			match Header::parse(&mut file) {
 				Ok(Some(next)) => {
-					log::trace!("unlink_block({dinr}, {name:?}): next={next:?}");
+					log::trace!("unlink_block({dinr}, \"{shown}\"): next={next:?}");
 					let new = Header {
 						reclen: hdr.reclen + next.reclen,
 						..next
@@ -202,7 +205,7 @@ fn unlink_block(
 					has = true;
 				}
 				_ => {
-					log::trace!("unlink_block({dinr}, {name:?}): no next");
+					log::trace!("unlink_block({dinr}, \"{shown}\"): no next");
 					has = false;
 				}
 			}
@@ -233,8 +236,8 @@ fn newdir(dinr: InodeNum, inr: InodeNum, config: Config) -> IoResult<[u8; DIRBLK
 	let mut block = [0u8; DIRBLKSIZE];
 	let mut file = Decoder::new(Cursor::new(&mut block as &mut [u8]), config);
 
-	let h_self = Header::new(inr, InodeType::Directory, OsStr::new("."));
-	let mut h_parent = Header::new(dinr, InodeType::Directory, OsStr::new(".."));
+	let h_self = Header::new(inr, InodeType::Directory, b".");
+	let mut h_parent = Header::new(dinr, InodeType::Directory, b"..");
 	h_parent.reclen = (DIRBLKSIZE as u16) - h_self.reclen;
 	h_self.write(&mut file)?;
 	h_parent.write(&mut file)?;
@@ -244,9 +247,17 @@ fn newdir(dinr: InodeNum, inr: InodeNum, config: Config) -> IoResult<[u8; DIRBLK
 
 impl<R: Backend> Ufs<R> {
 	/// Find a file named `name` in the directory referenced by `pinr`.
+	///
+	/// `name` is compared as `as_encoded_bytes()`. On non-Unix targets that is
+	/// UTF-8 for valid Unicode; use [`Self::dir_lookup_bytes`] for raw names.
 	pub fn dir_lookup(&mut self, pinr: InodeNum, name: &OsStr) -> IoResult<InodeNum> {
-		log::trace!("dir_lookup({pinr}, {name:?});");
-		self.dir_iter(
+		self.dir_lookup_bytes(pinr, name.as_encoded_bytes())
+	}
+
+	/// Find a file named `name` (raw on-disk bytes) in the directory referenced by `pinr`.
+	pub fn dir_lookup_bytes(&mut self, pinr: InodeNum, name: &[u8]) -> IoResult<InodeNum> {
+		log::trace!("dir_lookup_bytes({pinr}, \"{}\");", name.escape_ascii());
+		self.dir_iter_bytes(
 			pinr,
 			|name2, inr, _kind| {
 				if name == name2 {
@@ -260,10 +271,22 @@ impl<R: Backend> Ufs<R> {
 	}
 
 	/// Iterate through a directory referenced by `inr`, and call `f` for each entry.
+	#[cfg(unix)]
 	pub fn dir_iter<T>(
 		&mut self,
 		inr: InodeNum,
 		mut f: impl FnMut(&OsStr, InodeNum, InodeType) -> Option<T>,
+	) -> IoResult<Option<T>> {
+		use std::os::unix::ffi::OsStrExt;
+		self.dir_iter_bytes(inr, |name, inr, kind| f(OsStr::from_bytes(name), inr, kind))
+	}
+
+	/// Iterate through a directory referenced by `inr`, and call `f` for each entry.
+	/// Names are passed as raw on-disk bytes, which need not be valid UTF-8.
+	pub fn dir_iter_bytes<T>(
+		&mut self,
+		inr: InodeNum,
+		mut f: impl FnMut(&[u8], InodeNum, InodeType) -> Option<T>,
 	) -> IoResult<Option<T>> {
 		let ino = self.read_inode(inr)?;
 		ino.assert_dir()?;
@@ -293,7 +316,12 @@ impl<R: Backend> Ufs<R> {
 			let n = self.inode_read(dinr, pos, &mut block)?;
 			assert_eq!(n, DIRBLKSIZE);
 
-			if let Some((inr, has)) = unlink_block(dinr, &mut block, name, self.file.config())? {
+			if let Some((inr, has)) = unlink_block(
+				dinr,
+				&mut block,
+				name.as_encoded_bytes(),
+				self.file.config(),
+			)? {
 				if has {
 					self.inode_write(dinr, pos, &block)?;
 				} else {
@@ -323,7 +351,7 @@ impl<R: Backend> Ufs<R> {
 		let dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
 
-		let mut entry = Header::new(inr, kind, name);
+		let mut entry = Header::new(inr, kind, name.as_encoded_bytes());
 
 		let mut block = [0u8; DIRBLKSIZE];
 		let mut pos = 0;
@@ -405,16 +433,20 @@ impl<R: Backend> Ufs<R> {
 	pub fn rmdir(&mut self, dinr: InodeNum, name: &OsStr) -> IoResult<()> {
 		self.assert_rw()?;
 		let inr = self.dir_lookup(dinr, name)?;
-		let x = self.dir_iter(inr, |name, _inr, kind| {
-			if kind != InodeType::Directory || (name != "." && name != "..") {
-				Some(name.to_os_string())
+		let x = self.dir_iter_bytes(inr, |name, _inr, kind| {
+			if kind != InodeType::Directory || (name != b"." && name != b"..") {
+				Some(name.to_vec())
 			} else {
 				None
 			}
 		})?;
 
-		if x.is_some() {
-			log::debug!("rmdir({dinr}, {name:?}): x = {x:?}");
+		if let Some(x) = x {
+			log::debug!(
+				"rmdir({dinr}, \"{}\"): not empty: \"{}\"",
+				name.as_encoded_bytes().escape_ascii(),
+				x.escape_ascii()
+			);
 			return Err(err!(ENOTEMPTY));
 		}
 
@@ -436,7 +468,7 @@ impl<R: Backend> Ufs<R> {
 		gid: u32,
 	) -> IoResult<InodeAttr> {
 		self.assert_rw()?;
-		check_name_is_legal(name, false)?;
+		check_name_is_legal(name.as_encoded_bytes(), false)?;
 		let mut ino = Inode::new(kind, perm, uid, gid, self.superblock.bsize as u32);
 		let inr = self.inode_alloc(&mut ino)?;
 		self.dir_newlink(dinr, inr, name, kind)?;

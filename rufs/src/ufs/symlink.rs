@@ -41,7 +41,7 @@ impl<R: Backend> Ufs<R> {
 		let len = link.len();
 		if len < UFS_SLLEN {
 			let mut data = [0u8; UFS_SLLEN];
-			data[0..len].copy_from_slice(link.as_bytes());
+			data[0..len].copy_from_slice(link.as_encoded_bytes());
 			ino.data = InodeData::Shortlink(data);
 		} else {
 			todo!("creating long symlinks");

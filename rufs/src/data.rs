@@ -2,7 +2,6 @@
 #![allow(dead_code)]
 
 use std::{
-	ffi::{OsStr, OsString},
 	fmt::{self, Display, Formatter},
 	mem::size_of,
 	time::SystemTime,
@@ -533,15 +532,13 @@ impl ExtattrHeader {
 }
 
 impl ExtattrNamespace {
-	pub fn with_name(self, name: &OsStr) -> OsString {
-		let ns = match self {
-			Self::Empty => "",
-			Self::User => "user.",
-			Self::System => "system.",
+	pub fn with_name(self, name: &[u8]) -> Vec<u8> {
+		let ns: &[u8] = match self {
+			Self::Empty => b"",
+			Self::User => b"user.",
+			Self::System => b"system.",
 		};
-		let mut out = OsString::from(ns);
-		out.push(name);
-		out
+		[ns, name].concat()
 	}
 }
 

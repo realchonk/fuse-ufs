@@ -1,7 +1,6 @@
 use std::{
 	fs::File,
 	io::{self, BufRead, Read, Result as IoResult, Seek, SeekFrom, Write},
-	os::unix::fs::MetadataExt,
 	path::Path,
 };
 
@@ -23,7 +22,14 @@ pub struct BlockReader<T: Backend> {
 impl BlockReader<File> {
 	pub fn open(path: &Path, rw: bool) -> IoResult<Self> {
 		let file = File::options().read(true).write(rw).open(path)?;
-		let bs = file.metadata()?.blksize() as usize;
+		#[cfg(unix)]
+		let bs = {
+			use std::os::unix::fs::MetadataExt;
+			file.metadata()?.blksize() as usize
+		};
+		// No st_blksize here; 4096 is the common page and sector size.
+		#[cfg(not(unix))]
+		let bs = 4096;
 		Ok(BlockReader::new(file, bs, rw))
 	}
 }

@@ -8,7 +8,7 @@ mod ufs;
 
 #[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "macos"))]
 pub const ENOATTR: i32 = libc::ENOATTR;
-#[cfg(target_os = "linux")]
+#[cfg(not(any(target_os = "freebsd", target_os = "openbsd", target_os = "macos")))]
 pub const ENOATTR: i32 = libc::ENODATA;
 
 pub use crate::{
