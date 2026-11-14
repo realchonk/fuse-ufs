@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - rufs: backend I/O errors keep their kind and cause instead of becoming "failed to decode"
 - rufs: a read-only open no longer reads every cylinder group
+- rufs: `inode_read()` past the end of a file returns 0 instead of panicking
 
 ## [0.6.0] - 2025-09-27
 
