@@ -5,7 +5,7 @@ impl<R: Backend> Ufs<R> {
 	fn iter_xattr<T>(
 		&mut self,
 		ino: &Inode,
-		mut f: impl FnMut(&ExtattrHeader, &OsStr, &[u8]) -> Option<T>,
+		mut f: impl FnMut(&ExtattrHeader, &[u8], &[u8]) -> Option<T>,
 	) -> IoResult<Option<T>> {
 		if ino.extsize == 0 {
 			return Ok(None);
@@ -54,8 +54,7 @@ impl<R: Backend> Ufs<R> {
 			file.read(&mut data)?;
 			data.resize(data.len() - hdr.contentpadlen as usize, 0u8);
 
-			let name = OsStr::from_bytes(&name[0..namelen]);
-			if let Some(x) = f(&hdr, name, &data) {
+			if let Some(x) = f(&hdr, &name[0..namelen], &data) {
 				return Ok(Some(x));
 			}
 		}
@@ -66,7 +65,7 @@ impl<R: Backend> Ufs<R> {
 	fn read_xattr<T>(
 		&mut self,
 		ino: &Inode,
-		xname: &OsStr,
+		xname: &[u8],
 		mut f: impl FnMut(&ExtattrHeader, &[u8]) -> T,
 	) -> IoResult<T> {
 		self.iter_xattr(ino, |hdr, n, data| {
@@ -91,28 +90,27 @@ impl<R: Backend> Ufs<R> {
 	/// `"namespace.name\0"`
 	pub fn xattr_list(&mut self, inr: InodeNum) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
-		let mut data = OsString::new();
+		let mut data = Vec::new();
 		self.iter_xattr(&ino, |hdr, name, _data| {
 			let ns = hdr.namespace()?;
-			let name = ns.with_name(name);
-			data.push(name);
-			data.push("\0");
+			data.extend(ns.with_name(name));
+			data.push(0);
 			None::<()>
 		})?;
-		Ok(data.into_vec())
+		Ok(data)
 	}
 
 	/// Get the size of an extended attribute.
 	pub fn xattr_len(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<u32> {
 		let ino = self.read_inode(inr)?;
-		let len = self.read_xattr(&ino, name, |_hdr, data| data.len())?;
+		let len = self.read_xattr(&ino, name.as_encoded_bytes(), |_hdr, data| data.len())?;
 		Ok(len as u32)
 	}
 
 	/// Read the value of an extended attribute.
 	pub fn xattr_read(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
-		let data = self.read_xattr(&ino, name, |_hdr, data| data.into())?;
+		let data = self.read_xattr(&ino, name.as_encoded_bytes(), |_hdr, data| data.into())?;
 		Ok(data)
 	}
 }

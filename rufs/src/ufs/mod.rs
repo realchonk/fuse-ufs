@@ -1,10 +1,9 @@
 use std::{
-	ffi::{OsStr, OsString},
+	ffi::OsStr,
 	fs::File,
 	io::{Cursor, Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom},
 	mem::size_of,
 	num::NonZeroU64,
-	os::unix::ffi::{OsStrExt, OsStringExt},
 	path::Path,
 };
 
@@ -22,6 +21,9 @@ use crate::{
 };
 
 /// (INTERNAL) Constructs an [`std::io::Error`] from an `errno`.
+///
+/// The value is a libc errno on every target. On non-Unix targets it is not a
+/// native error code, so read it with `raw_os_error()`; `kind()` means nothing there.
 #[macro_export]
 macro_rules! err {
 	($name:ident) => {
@@ -213,13 +215,11 @@ impl<R: Backend> Ufs<R> {
 	}
 }
 
-fn check_name_is_legal(name: &OsStr, allow_special: bool) -> IoResult<()> {
-	let b = name.as_encoded_bytes();
-
-	let x = b.contains(&b'/') ||
-		(name == "." && !allow_special) ||
-		(name == ".." && !allow_special) ||
-		b.contains(&b'\0');
+fn check_name_is_legal(name: &[u8], allow_special: bool) -> IoResult<()> {
+	let x = name.contains(&b'/') ||
+		(name == b"." && !allow_special) ||
+		(name == b".." && !allow_special) ||
+		name.contains(&b'\0');
 
 	if x {
 		Err(err!(EINVAL))

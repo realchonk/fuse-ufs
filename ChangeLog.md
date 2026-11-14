@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The MSRV is now 1.90.0.
 
+### Add
+
+- rufs: build on non-Unix targets, such as Windows
+- rufs: `dir_iter_bytes()` and `dir_lookup_bytes()`, which pass names as raw on-disk bytes
+
 ## [0.6.0] - 2025-09-27
 
 ### General
