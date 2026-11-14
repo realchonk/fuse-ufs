@@ -8,6 +8,12 @@ pub trait Backend: Read + Write + Seek {}
 
 impl<T: Read + Write + Seek> Backend for T {}
 
+/// Wrap an error of the backend. The caller keeps its kind and cause, but its errno
+/// (such as ENODATA for a medium error on Linux) is not taken for one of ours.
+fn backend_err(e: io::Error) -> io::Error {
+	io::Error::new(e.kind(), e)
+}
+
 /// Block-level Abstraction Layer.
 ///
 /// `BlockReader` maps random access reads and writes onto block operations.
@@ -57,7 +63,11 @@ impl<T: Backend> BlockReader<T> {
 		self.block.fill(0u8);
 		let mut num = 0;
 		while num < self.block.len() {
-			match self.inner.read(&mut self.block[num..])? {
+			match self
+				.inner
+				.read(&mut self.block[num..])
+				.map_err(backend_err)?
+			{
 				0 => break,
 				n => num += n,
 			}
@@ -118,16 +128,18 @@ impl<T: Backend> Write for BlockReader<T> {
 			return Ok(());
 		}
 
-		self.inner.seek_relative(-(self.block.len() as i64))?;
+		self.inner
+			.seek_relative(-(self.block.len() as i64))
+			.map_err(backend_err)?;
 		let mut num = 0;
 		while num < self.block.len() {
-			match self.inner.write(&self.block[num..])? {
+			match self.inner.write(&self.block[num..]).map_err(backend_err)? {
 				0 => break,
 				n => num += n,
 			}
 		}
 		if num < self.block.len() {
-			let pos = self.inner.stream_position()?;
+			let pos = self.inner.stream_position().map_err(backend_err)?;
 			log::error!(
 				"short write: pos={pos}, num={num}, len={}",
 				self.block.len()
@@ -156,7 +168,10 @@ impl<T: Backend> Seek for BlockReader<T> {
 		match pos {
 			SeekFrom::Start(pos) => {
 				self.flush()?;
-				let real = self.inner.seek(SeekFrom::Start(pos / bs * bs))?;
+				let real = self
+					.inner
+					.seek(SeekFrom::Start(pos / bs * bs))
+					.map_err(backend_err)?;
 				let rem = pos - real;
 				assert!(rem < bs);
 
@@ -166,7 +181,7 @@ impl<T: Backend> Seek for BlockReader<T> {
 				Ok(real + rem)
 			}
 			SeekFrom::Current(offset) => {
-				let real = self.inner.stream_position()?;
+				let real = self.inner.stream_position().map_err(backend_err)?;
 				let cur = real - self.block.len() as u64 + self.idx as u64;
 				let newidx = offset + self.idx as i64;
 				if newidx >= 0 && newidx < self.blksize() as i64 {
@@ -302,5 +317,40 @@ mod t {
 				br.inner.stream_position().unwrap() + br.idx as u64
 			);
 		}
+	}
+
+	struct Failing;
+
+	impl Read for Failing {
+		fn read(&mut self, _buf: &mut [u8]) -> IoResult<usize> {
+			Err(io::Error::from_raw_os_error(61))
+		}
+	}
+
+	impl Write for Failing {
+		fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+			Ok(buf.len())
+		}
+
+		fn flush(&mut self) -> IoResult<()> {
+			Ok(())
+		}
+	}
+
+	impl Seek for Failing {
+		fn seek(&mut self, _pos: SeekFrom) -> IoResult<u64> {
+			Ok(0)
+		}
+	}
+
+	/// A backend error keeps its kind and cause, but not its errno.
+	#[test]
+	fn backend_error_is_wrapped() {
+		let mut br = BlockReader::new(Failing, 512, false);
+		let e = br.read(&mut [0u8; 4]).unwrap_err();
+		let cause = io::Error::from_raw_os_error(61);
+		assert_eq!(e.raw_os_error(), None);
+		assert_eq!(e.kind(), cause.kind());
+		assert_eq!(e.get_ref().unwrap().to_string(), cause.to_string());
 	}
 }
