@@ -221,8 +221,8 @@ impl<R: Backend> Ufs<R> {
 			let mut block = vec![0u64; bs as usize / size_of::<u64>()];
 
 			// free direct blocks
-			for i in 0..UFS_NDADDR {
-				let bno = blocks.direct[i] as u64;
+			for (i, &bno) in blocks.direct.iter().enumerate() {
+				let bno = bno as u64;
 				if bno == 0 {
 					continue;
 				}
@@ -351,8 +351,8 @@ impl<R: Backend> Ufs<R> {
 
 		self.inode_free_l1(ino, replace(&mut iblocks.indirect[0], 0) as u64, &mut block)?;
 
-		for i in (blocks as usize)..UFS_NDADDR {
-			let bno = replace(&mut iblocks.direct[i], 0) as u64;
+		for (i, bno) in iblocks.direct.iter_mut().enumerate().skip(blocks as usize) {
+			let bno = replace(bno, 0) as u64;
 			if bno == 0 {
 				continue;
 			}
