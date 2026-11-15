@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### General
 
 - The MSRV is now 1.90.0.
+- rufs: no `needless_range_loop` warnings from newer clippy
 
 ### Add
 
