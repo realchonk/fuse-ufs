@@ -201,7 +201,7 @@ impl<Context> Decode<Context> for Inode {
 		let flags = u32::decode(d)?;
 		let extsize = u32::decode(d)?;
 		let extb = <[UfsDaddr; UFS_NXADDR]>::decode(d)?;
-		let data = if (mode & S_IFMT) == S_IFLNK && blocks == 0 {
+		let data = if (mode & S_IFMT) == S_IFLNK && size < UFS_SLLEN as u64 {
 			InodeData::Shortlink(Decode::decode(d)?)
 		} else {
 			InodeData::Blocks(InodeBlocks::decode(d)?)

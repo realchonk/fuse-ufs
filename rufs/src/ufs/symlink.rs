@@ -13,7 +13,6 @@ impl<R: Backend> Ufs<R> {
 
 		match &ino.data {
 			InodeData::Shortlink(link) => {
-				assert_eq!(ino.blocks, 0);
 				let len = ino.size as usize;
 				Ok(link[0..len].to_vec())
 			}
