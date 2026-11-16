@@ -156,6 +156,10 @@ impl<R: Backend> Ufs<R> {
 
 	pub(super) fn read_inode(&mut self, inr: InodeNum) -> IoResult<Inode> {
 		log::trace!("read_inode({inr});");
+		if inr.get64() >= self.superblock.ipg as u64 * self.superblock.ncg as u64 {
+			log::error!("invalid inode number {inr}");
+			return Err(err!(EIO));
+		}
 		let off = self.superblock.ino_to_fso(inr);
 		let ino: Inode = self.file.decode_at(off)?;
 		let mode = ino.mode;
@@ -163,6 +167,13 @@ impl<R: Backend> Ufs<R> {
 		if (mode & S_IFMT) == 0 {
 			log::warn!("invalid inode {inr}: Mode {mode:#o}, S_IFMT is 0");
 			return Err(err!(EINVAL));
+		}
+		if !matches!(
+			mode & S_IFMT,
+			S_IFIFO | S_IFCHR | S_IFDIR | S_IFBLK | S_IFREG | S_IFLNK | S_IFSOCK
+		) {
+			log::error!("invalid inode {inr}: Mode {mode:#o}, unknown file type");
+			return Err(err!(EIO));
 		}
 
 		Ok(ino)
