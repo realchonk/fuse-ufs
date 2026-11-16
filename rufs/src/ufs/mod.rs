@@ -223,7 +223,7 @@ impl<R: Backend> Ufs<R> {
 		// check that all superblocks are ok.
 		for i in 0..sb.ncg {
 			let addr = (i as u64 * fpg + sblkno) * fs;
-			let csb: Superblock = self.file.decode_at(addr).unwrap();
+			let csb: Superblock = self.file.decode_at(addr)?;
 			if csb.magic != FS_UFS2_MAGIC {
 				log::error!("CG{i} has invalid superblock magic: {:x}", csb.magic);
 				return Err(err!(EIO));
@@ -233,7 +233,7 @@ impl<R: Backend> Ufs<R> {
 		// check that all cylgroups are ok.
 		for i in 0..self.superblock.ncg {
 			let addr = self.cg_addr(i as u64);
-			let cg: CylGroup = self.file.decode_at(addr).unwrap();
+			let cg: CylGroup = self.file.decode_at(addr)?;
 			if cg.magic != CG_MAGIC {
 				log::error!("CG{i} has invalid cg magic: {:x}", cg.magic);
 				return Err(err!(EIO));
