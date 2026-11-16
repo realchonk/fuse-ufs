@@ -360,6 +360,7 @@ impl<R: Backend> Ufs<R> {
 	) -> IoResult<Option<T>> {
 		let ino = self.read_inode(inr)?;
 		ino.assert_dir()?;
+		self.dir_check_size(inr, &ino)?;
 		let strict = self.write_enabled();
 		let mut block = [0u8; DIRBLKSIZE];
 		let mut pos = 0;
@@ -379,6 +380,21 @@ impl<R: Backend> Ufs<R> {
 			pos += DIRBLKSIZE as u64;
 		}
 		Ok(None)
+	}
+
+	/// Check that directory `inr` is no larger than the data area. The directory
+	/// loops run size / DIRBLKSIZE times, whatever the block pointers say.
+	fn dir_check_size(&self, inr: InodeNum, ino: &Inode) -> IoResult<()> {
+		let sb = &self.superblock;
+		let data = sb.dsize as u64 * sb.fsize as u64;
+		if ino.size > data {
+			log::error!(
+				"directory {inr}: size {} exceeds the data area ({data} bytes)",
+				ino.size
+			);
+			return Err(err!(EIO));
+		}
+		Ok(())
 	}
 
 	/// Read the directory chunk at `pos`. Returns its length: DIRBLKSIZE, or less for a
@@ -407,6 +423,7 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 		let dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
+		self.dir_check_size(dinr, &dino)?;
 
 		let mut block = vec![0u8; DIRBLKSIZE];
 		let mut pos = 0;
@@ -449,6 +466,7 @@ impl<R: Backend> Ufs<R> {
 		self.assert_rw()?;
 		let dino = self.read_inode(dinr)?;
 		dino.assert_dir()?;
+		self.dir_check_size(dinr, &dino)?;
 
 		let mut entry = Header::new(inr, kind, name.as_encoded_bytes());
 
@@ -780,5 +798,45 @@ mod t {
 		assert_eq!(kinds(&block, false, dir).unwrap(), want);
 		assert!(kinds(&block, false, None).unwrap().is_empty());
 		assert!(kinds(&block, true, None).is_err());
+	}
+
+	/// A file system whose root directory has `size` bytes. Every direct block
+	/// points at fragment 56, which holds "." and ".." in its first chunk.
+	fn root_dir(size: u64) -> Ufs<Cursor<Vec<u8>>> {
+		use crate::ufs::testfs::*;
+
+		let root = InodeNum::ROOT;
+		let mut img = image(&superblock());
+		let chunk = newdir(root, root, Config::little()).unwrap();
+		img[56 * 4096..][..DIRBLKSIZE].copy_from_slice(&chunk);
+		let mut ino = Inode::new(InodeType::Directory, 0o755, 0, 0, 32768);
+		ino.size = size;
+		ino.data = InodeData::Blocks(InodeBlocks {
+			direct:   [56; UFS_NDADDR],
+			indirect: [0; 3],
+		});
+		put_inode(&mut img, root, &ino);
+		open(img).unwrap()
+	}
+
+	fn root_names(mut ufs: Ufs<Cursor<Vec<u8>>>) -> Result<Vec<Vec<u8>>, Option<i32>> {
+		let mut names = Vec::new();
+		ufs.dir_iter_bytes(InodeNum::ROOT, |name, _inr, _kind| {
+			names.push(name.to_vec());
+			None::<()>
+		})
+		.map_err(|e| e.raw_os_error())?;
+		Ok(names)
+	}
+
+	/// A directory larger than the data area (192 fragments of 4096 bytes) gives EIO.
+	#[test]
+	fn dir_size_bounds() {
+		let dots = vec![b".".to_vec(), b"..".to_vec()];
+		assert_eq!(
+			root_names(root_dir(65536)),
+			Ok([dots.clone(), dots].concat())
+		);
+		assert_eq!(root_names(root_dir(1 << 20)), Err(Some(libc::EIO)));
 	}
 }
