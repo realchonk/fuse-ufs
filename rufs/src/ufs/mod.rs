@@ -334,6 +334,14 @@ mod testfs {
 		img
 	}
 
+	/// Write `ino` as inode `inr` into `img`, an image of [`superblock()`].
+	pub(super) fn put_inode(img: &mut [u8], inr: InodeNum, ino: &Inode) {
+		let off = superblock().ino_to_fso(inr);
+		Decoder::new(Cursor::new(img), Config::little())
+			.encode_at(off, ino)
+			.unwrap();
+	}
+
 	/// Open `img` read-only.
 	pub(super) fn open(img: Vec<u8>) -> IoResult<Ufs<Cursor<Vec<u8>>>> {
 		// Evaluate the arguments of every log call, as with a logger installed.
