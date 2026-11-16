@@ -11,19 +11,19 @@ impl<R: Backend> Ufs<R> {
 			return Err(err!(EINVAL));
 		}
 
+		let len = ino.size as usize;
 		match &ino.data {
-			InodeData::Shortlink(link) => {
-				let len = ino.size as usize;
-				Ok(link[0..len].to_vec())
-			}
+			InodeData::Shortlink(link) => Ok(link[0..len].to_vec()),
 			InodeData::Blocks { .. } => {
-				// TODO: this has to be tested for other configurations, such as 4K/4K
-				assert!(ino.blocks <= 8);
-
-				let len = ino.size as usize;
-				let mut buf = vec![0u8; self.superblock.bsize as usize];
-				self.inode_read_block(inr, &ino, 0, &mut buf)?;
-				buf.resize(len, 0u8);
+				if len > self.superblock.bsize as usize {
+					log::error!("symlink {inr}: invalid size {len}");
+					return Err(err!(EIO));
+				}
+				let mut buf = vec![0u8; len];
+				if self.inode_read(inr, 0, &mut buf)? != len {
+					log::error!("symlink {inr}: short read");
+					return Err(err!(EIO));
+				}
 				Ok(buf)
 			}
 		}
