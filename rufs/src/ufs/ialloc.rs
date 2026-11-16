@@ -120,7 +120,7 @@ impl<R: Backend> Ufs<R> {
 			if *bno == 0 {
 				continue;
 			}
-			let size = self.inode_get_block_size(ino, idx as u64);
+			let size = self.inode_get_block_size(ino, idx as u64)?;
 			self.inode_free_block(ino, *bno, size as u64)?;
 		}
 
@@ -226,7 +226,7 @@ impl<R: Backend> Ufs<R> {
 				if bno == 0 {
 					continue;
 				}
-				let size = self.inode_get_block_size(&ino, i as u64);
+				let size = self.inode_get_block_size(&ino, i as u64)?;
 				self.blk_free(bno, size as u64)?;
 			}
 
@@ -274,7 +274,7 @@ impl<R: Backend> Ufs<R> {
 					continue;
 				}
 				let size = self
-					.inode_get_block_size(ino, begin_indir3 + off3 * pbp * pbp + off2 * pbp + i);
+					.inode_get_block_size(ino, begin_indir3 + off3 * pbp * pbp + off2 * pbp + i)?;
 				self.inode_free_block(ino, bno, size as u64)?;
 			}
 			self.write_pblock(snd[off2 as usize], &block)?;
@@ -312,7 +312,7 @@ impl<R: Backend> Ufs<R> {
 				if bno == 0 {
 					continue;
 				}
-				let size = self.inode_get_block_size(ino, begin_indir2 + off2 * pbp + i);
+				let size = self.inode_get_block_size(ino, begin_indir2 + off2 * pbp + i)?;
 				self.inode_free_block(ino, bno, size as u64)?;
 			}
 			self.write_pblock(fst[off1 as usize], &block)?;
@@ -339,7 +339,7 @@ impl<R: Backend> Ufs<R> {
 				if bno == 0 {
 					continue;
 				}
-				let size = self.inode_get_block_size(ino, begin_indir1 + i);
+				let size = self.inode_get_block_size(ino, begin_indir1 + i)?;
 				self.inode_free_block(ino, bno, size as u64)?;
 			}
 
@@ -356,7 +356,7 @@ impl<R: Backend> Ufs<R> {
 			if bno == 0 {
 				continue;
 			}
-			let size = self.inode_get_block_size(ino, i as u64);
+			let size = self.inode_get_block_size(ino, i as u64)?;
 			self.inode_free_block(ino, bno, size as u64)?;
 		}
 

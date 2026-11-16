@@ -31,7 +31,7 @@ impl<R: Backend> Ufs<R> {
 		let end = offset + len;
 
 		while offset < end {
-			let block = self.inode_find_block(inr, &ino, offset);
+			let block = self.inode_find_block(inr, &ino, offset)?;
 			let num = (block.size - block.off).min(end - offset);
 
 			self.inode_read_block(
@@ -73,7 +73,7 @@ impl<R: Backend> Ufs<R> {
 		let end = offset + len;
 
 		while offset < end {
-			let block = self.inode_find_block(inr, &ino, offset);
+			let block = self.inode_find_block(inr, &ino, offset)?;
 			let num = (block.size - block.off).min(end - offset);
 
 			// TODO: remove this read, if writing a full block
@@ -221,7 +221,7 @@ impl<R: Backend> Ufs<R> {
 	) -> IoResult<usize> {
 		log::trace!("inode_read_block({inr}, {blkidx}, [u8; {}]);", buf.len());
 		let fs = self.superblock.fsize as u64;
-		let size = self.inode_get_block_size(ino, blkidx);
+		let size = self.inode_get_block_size(ino, blkidx)?;
 		match self.inode_resolve_block(inr, ino, blkidx)? {
 			Some(blkno) => {
 				self.file.read_at(blkno.get() * fs, &mut buf[0..size])?;
@@ -241,7 +241,7 @@ impl<R: Backend> Ufs<R> {
 	) -> IoResult<()> {
 		log::trace!("inode_write_block({inr}, {blkidx})");
 		let fs = self.superblock.fsize as u64;
-		let size = self.inode_get_block_size(ino, blkidx);
+		let size = self.inode_get_block_size(ino, blkidx)?;
 
 		let blkno = match self.inode_resolve_block(inr, ino, blkidx)? {
 			Some(blkno) => blkno,
@@ -257,7 +257,7 @@ impl<R: Backend> Ufs<R> {
 		inr: InodeNum,
 		ino: &Inode,
 		offset: u64,
-	) -> BlockInfo {
+	) -> IoResult<BlockInfo> {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
@@ -279,10 +279,11 @@ impl<R: Backend> Ufs<R> {
 				size:   frags * fs,
 			}
 		} else {
-			panic!("inode_find_block({inr}, {offset}): out of bounds");
+			log::error!("inode_find_block({inr}, {offset}): out of bounds");
+			return Err(err!(EIO));
 		};
 		log::trace!("inode_find_block({inr}, {offset}) = {x:?}");
-		x
+		Ok(x)
 	}
 
 	pub(super) fn inode_data_zones(&self) -> (u64, u64, u64, u64) {
@@ -398,7 +399,7 @@ impl<R: Backend> Ufs<R> {
 		Ok(bno)
 	}
 
-	pub(super) fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> usize {
+	pub(super) fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> IoResult<usize> {
 		let bs = self.superblock.bsize as u64;
 		let fs = self.superblock.fsize as u64;
 		let (blocks, frags) = ino.size(bs, fs);
@@ -408,12 +409,13 @@ impl<R: Backend> Ufs<R> {
 		} else if blkidx < blocks + frags {
 			(fs * frags) as usize
 		} else {
-			panic!("out of bounds: blkidx={blkidx}, blocks={blocks}, frags={frags}");
+			log::error!("out of bounds: blkidx={blkidx}, blocks={blocks}, frags={frags}");
+			return Err(err!(EIO));
 		};
 
 		log::trace!(
 			"inode_get_block_size(blkidx={blkidx}) = {res}; frags={frags}, blocks={blocks}"
 		);
-		res
+		Ok(res)
 	}
 }
