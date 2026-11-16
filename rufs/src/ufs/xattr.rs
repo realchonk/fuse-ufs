@@ -32,8 +32,8 @@ impl<R: Backend> Ufs<R> {
 			if bno == 0 {
 				return Err(bad("block"));
 			}
-			let pos = self.check_blkno(inr, bno)? * fs;
 			let num = bs.min(blocks.len() - nr);
+			let pos = self.check_blkno(inr, bno, (num as u64).div_ceil(fs))? * fs;
 			self.file.read_at(pos, &mut blocks[nr..(nr + num)])?;
 			blkidx += 1;
 			nr += num;
@@ -130,5 +130,30 @@ impl<R: Backend> Ufs<R> {
 		let ino = self.read_inode(inr)?;
 		let data = self.read_xattr(inr, &ino, name.as_encoded_bytes(), |_hdr, data| data.into())?;
 		Ok(data)
+	}
+}
+
+#[cfg(test)]
+mod t {
+	use super::*;
+	use crate::ufs::testfs::*;
+
+	/// List the extended attributes of a file whose 8192-byte extattr area
+	/// starts at fragment `bno`. Fails with the errno.
+	fn list(bno: UfsDaddr) -> Result<Vec<u8>, Option<i32>> {
+		let mut ino = Inode::new(InodeType::RegularFile, 0o644, 0, 0, 32768);
+		ino.extsize = 8192;
+		ino.extb[0] = bno;
+		let mut img = image(&superblock());
+		put_inode(&mut img, InodeNum::ROOT, &ino);
+		let mut ufs = open(img).unwrap();
+		ufs.xattr_list(InodeNum::ROOT).map_err(|e| e.raw_os_error())
+	}
+
+	/// The extattr area must end within the file system (256 fragments of 4096 bytes).
+	#[test]
+	fn area_past_the_end() {
+		assert_eq!(list(254), Ok(Vec::new()));
+		assert_eq!(list(255), Err(Some(libc::EIO)));
 	}
 }

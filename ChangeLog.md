@@ -44,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: the superblock is read correctly on 32-bit targets
 - rufs: after a failed read, `BlockReader` no longer returns zeros or stale data on the next read
 - rufs: no overflow panic for a file size close to 2^64
+- rufs: blocks that run past the end of the file system give `EIO`
 
 ## [0.6.0] - 2025-09-27
 
