@@ -13,19 +13,16 @@ use bincode_next::{
 
 use crate::data::*;
 
-fn timetosys(mut s: UfsTime, ns: u32) -> SystemTime {
-	let neg = s < 0;
-	if neg {
-		s = -s;
-	}
-	let dur = Duration::new(s as u64, ns);
-	let mut time = SystemTime::UNIX_EPOCH;
-	if neg {
-		time -= dur;
+/// `ns` is never negative on disk. Times `SystemTime` cannot hold become the epoch.
+fn timetosys(s: UfsTime, ns: u32) -> SystemTime {
+	let secs = Duration::from_secs(s.unsigned_abs());
+	let base = if s < 0 {
+		SystemTime::UNIX_EPOCH.checked_sub(secs)
 	} else {
-		time += dur;
-	}
-	time
+		SystemTime::UNIX_EPOCH.checked_add(secs)
+	};
+	base.and_then(|t| t.checked_add(Duration::from_nanos(ns.into())))
+		.unwrap_or(SystemTime::UNIX_EPOCH)
 }
 
 fn systotime(t: SystemTime) -> (UfsTime, u32) {
@@ -247,6 +244,19 @@ impl Encode for InodeData {
 }
 
 mod test {
+	#[test]
+	fn timetosys_extremes() {
+		use std::time::{Duration, SystemTime};
+
+		let t = super::timetosys;
+		let epoch = SystemTime::UNIX_EPOCH;
+		assert_eq!(t(-1, 0), epoch - Duration::from_secs(1));
+		assert_eq!(t(-1, 500_000_000), epoch - Duration::from_millis(500));
+		// Must not panic.
+		t(i64::MIN, u32::MAX);
+		t(i64::MAX, u32::MAX);
+	}
+
 	#[test]
 	fn inode_size() {
 		let bs = 32768;
