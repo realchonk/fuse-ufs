@@ -328,7 +328,7 @@ impl<R: Backend> Ufs<R> {
 		}
 	}
 
-	fn inode_resolve_block(
+	pub(super) fn inode_resolve_block(
 		&mut self,
 		inr: InodeNum,
 		ino: &Inode,
