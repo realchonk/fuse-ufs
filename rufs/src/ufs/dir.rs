@@ -148,6 +148,7 @@ fn readdir_block<T>(
 	config: Config,
 	strict: bool,
 	mut f: impl FnMut(&[u8], InodeNum, InodeType) -> Option<T>,
+	mut kind_of: impl FnMut(InodeNum) -> IoResult<InodeType>,
 ) -> IoResult<Option<T>> {
 	let end = block.len() as u64;
 	let mut file = Decoder::new(Cursor::new(block), config);
@@ -175,8 +176,20 @@ fn readdir_block<T>(
 				);
 				continue;
 			}
-			None if hdr.dtype == DT_UNKNOWN => todo!("DT_UNKNOWN: {}", hdr.inr),
-			None => panic!("invalid filetype: {}", hdr.dtype),
+			// DT_UNKNOWN, or a d_type that is not defined: the inode knows.
+			None => {
+				match kind_of(hdr.inr) {
+					Ok(kind) => kind,
+					Err(e) if strict => return Err(e),
+					Err(e) => {
+						log::error!(
+							"readdir_block({inr}): skipping \"{}\": {e}",
+							hdr.name().escape_ascii()
+						);
+						continue;
+					}
+				}
+			}
 		};
 
 		let res = f(hdr.name(), hdr.inr, kind);
@@ -352,7 +365,14 @@ impl<R: Backend> Ufs<R> {
 		let mut pos = 0;
 		while pos < ino.size {
 			let n = self.dir_read_chunk(inr, &ino, pos, &mut block)?;
-			if let Some(x) = readdir_block(inr, &block[..n], self.file.config(), strict, &mut f)? {
+			if let Some(x) = readdir_block(
+				inr,
+				&block[..n],
+				self.file.config(),
+				strict,
+				&mut f,
+				|inr| Ok(self.read_inode(inr)?.kind()),
+			)? {
 				return Ok(Some(x));
 			}
 
@@ -630,6 +650,7 @@ mod t {
 				names.push((name.to_vec(), inr.get()));
 				None::<()>
 			},
+			|_| Ok(InodeType::RegularFile),
 		)
 		.unwrap();
 		names
@@ -690,7 +711,14 @@ mod t {
 		block.resize(DIRBLKSIZE, 0);
 		assert_eq!(list(&block), vec![(b"ok".to_vec(), 5)]);
 
-		let strict = readdir_block(inr(2), &block, Config::little(), true, |_, _, _| None::<()>);
+		let strict = readdir_block(
+			inr(2),
+			&block,
+			Config::little(),
+			true,
+			|_, _, _| None::<()>,
+			|_| Ok(InodeType::RegularFile),
+		);
 		assert!(strict.is_err());
 		let entry = Header::new(inr(7), InodeType::RegularFile, b"new");
 		assert!(newlink_block(&mut block, entry, Config::little()).is_err());
@@ -714,5 +742,43 @@ mod t {
 		push_entry(&mut block, 5, 16, DT_REG, b"a");
 		push_entry(&mut block, 6, 84, DT_REG, b"b");
 		assert_eq!(list(&block), vec![(b"a".to_vec(), 5), (b"b".to_vec(), 6)]);
+	}
+
+	fn kinds(
+		block: &[u8],
+		strict: bool,
+		resolved: Option<InodeType>,
+	) -> IoResult<Vec<(Vec<u8>, InodeType)>> {
+		let mut out = Vec::new();
+		readdir_block(
+			inr(2),
+			block,
+			Config::little(),
+			strict,
+			|name, _inr, kind| {
+				out.push((name.to_vec(), kind));
+				None::<()>
+			},
+			|_| resolved.ok_or(err!(EIO)),
+		)?;
+		Ok(out)
+	}
+
+	/// An unknown or undefined d_type comes from the inode; if that fails, a read-only
+	/// listing skips the entry and strict reading fails.
+	#[test]
+	fn unknown_dtype() {
+		let mut block = Vec::new();
+		push_entry(&mut block, 5, 16, DT_UNKNOWN, b"what");
+		push_entry(&mut block, 6, (DIRBLKSIZE - 16) as u16, 99, b"bad");
+
+		let dir = Some(InodeType::Directory);
+		let want = vec![
+			(b"what".to_vec(), InodeType::Directory),
+			(b"bad".to_vec(), InodeType::Directory),
+		];
+		assert_eq!(kinds(&block, false, dir).unwrap(), want);
+		assert!(kinds(&block, false, None).unwrap().is_empty());
+		assert!(kinds(&block, true, None).is_err());
 	}
 }
