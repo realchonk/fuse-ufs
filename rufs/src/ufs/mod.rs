@@ -185,13 +185,24 @@ impl<R: Backend> Ufs<R> {
 		sbassert!(sb.ipg > 0);
 		sbassert!(sb.fpg > 0);
 		sbassert!(sb.frag > 0 && sb.frag <= 8);
+		// MINBSIZE, MAXBSIZE, DEV_BSIZE
+		sbassert!(sb.bsize >= 4096 && sb.bsize <= 65536);
+		sbassert!(sb.fsize >= 512);
 		sbassert!(sb.fsize == (sb.bsize / sb.frag));
+		sbassert!(sb.size > 0 && sb.dsize > 0 && sb.dsize <= sb.size);
+		// The last cylinder group may be partial, but not empty.
+		sbassert!(sb.size > (sb.ncg as i64 - 1) * sb.fpg as i64);
+		sbassert!(sb.size <= sb.ncg as i64 * sb.fpg as i64);
+		sbassert!(sb.size.checked_mul(sb.fsize as i64).is_some());
+		sbassert!(sb.sblkno >= 0 && sb.sblkno < sb.fpg);
+		sbassert!(sb.cblkno >= 0 && sb.cblkno < sb.fpg);
+		sbassert!(sb.iblkno >= 0 && sb.iblkno < sb.fpg);
 		// TODO: this looks ugly:
 		sbassert!(Some(sb.bsize) == 1i32.checked_shl(sb.bshift as u32));
 		sbassert!(Some(sb.fsize) == 1i32.checked_shl(sb.fshift as u32));
 		sbassert!(Some(sb.frag) == 1i32.checked_shl(sb.fragshift as u32));
-		sbassert!(sb.bsize == (!sb.bmask + 1));
-		sbassert!(sb.fsize == (!sb.fmask + 1));
+		sbassert!(sb.bmask == !(sb.bsize - 1));
+		sbassert!(sb.fmask == !(sb.fsize - 1));
 		sbassert!(sb.sbsize == sb.fsize);
 		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
 
