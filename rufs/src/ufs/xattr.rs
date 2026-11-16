@@ -1,9 +1,10 @@
 use super::*;
-use crate::InodeNum;
+use crate::{err, InodeNum};
 
 impl<R: Backend> Ufs<R> {
 	fn iter_xattr<T>(
 		&mut self,
+		inr: InodeNum,
 		ino: &Inode,
 		mut f: impl FnMut(&ExtattrHeader, &[u8], &[u8]) -> Option<T>,
 	) -> IoResult<Option<T>> {
@@ -14,14 +15,24 @@ impl<R: Backend> Ufs<R> {
 		let fs = self.superblock.fsize as u64;
 		let bs = self.superblock.bsize as usize;
 		let sz = ino.extsize as usize;
-		assert!(sz < UFS_NXADDR * bs);
+		let bad = |what: &str| {
+			log::error!("inode {inr}: invalid extattr {what}");
+			err!(EIO)
+		};
+		if sz > UFS_NXADDR * bs {
+			return Err(bad("area size"));
+		}
 
 		let mut blocks = vec![0u8; ino.extsize as usize];
 		let mut nr = 0;
 		let mut blkidx = 0;
 
 		while nr < blocks.len() {
-			let pos = ino.extb[blkidx] as u64 * fs;
+			let bno = ino.extb[blkidx] as u64;
+			if bno == 0 {
+				return Err(bad("block"));
+			}
+			let pos = self.check_blkno(inr, bno)? * fs;
 			let num = bs.min(blocks.len() - nr);
 			self.file.read_at(pos, &mut blocks[nr..(nr + num)])?;
 			blkidx += 1;
@@ -43,16 +54,22 @@ impl<R: Backend> Ufs<R> {
 			if namelen == 0 {
 				break;
 			} else if namelen > UFS_EXTATTR_MAXNAMELEN {
-				log::error!("invalid extattr name length: {namelen}");
-				break;
+				return Err(bad("name length"));
 			}
 
-			file.read(&mut name[0..namelen])?;
+			file.read(&mut name[0..namelen]).map_err(|_| bad("name"))?;
 			file.align_to(8)?;
-			let len = hdr.len as u64 - (file.pos()? - begin);
+			let len = (hdr.len as u64)
+				.checked_sub(file.pos()? - begin)
+				.filter(|&len| len <= sz as u64)
+				.ok_or_else(|| bad("length"))?;
 			data.resize(len as usize, 0u8);
-			file.read(&mut data)?;
-			data.resize(data.len() - hdr.contentpadlen as usize, 0u8);
+			file.read(&mut data).map_err(|_| bad("value"))?;
+			let keep = data
+				.len()
+				.checked_sub(hdr.contentpadlen as usize)
+				.ok_or_else(|| bad("padding"))?;
+			data.truncate(keep);
 
 			if let Some(x) = f(&hdr, &name[0..namelen], &data) {
 				return Ok(Some(x));
@@ -64,11 +81,12 @@ impl<R: Backend> Ufs<R> {
 
 	fn read_xattr<T>(
 		&mut self,
+		inr: InodeNum,
 		ino: &Inode,
 		xname: &[u8],
 		mut f: impl FnMut(&ExtattrHeader, &[u8]) -> T,
 	) -> IoResult<T> {
-		self.iter_xattr(ino, |hdr, n, data| {
+		self.iter_xattr(inr, ino, |hdr, n, data| {
 			let ns = hdr.namespace()?;
 			if xname == ns.with_name(n) {
 				Some(f(hdr, data))
@@ -91,7 +109,7 @@ impl<R: Backend> Ufs<R> {
 	pub fn xattr_list(&mut self, inr: InodeNum) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
 		let mut data = Vec::new();
-		self.iter_xattr(&ino, |hdr, name, _data| {
+		self.iter_xattr(inr, &ino, |hdr, name, _data| {
 			let ns = hdr.namespace()?;
 			data.extend(ns.with_name(name));
 			data.push(0);
@@ -103,14 +121,14 @@ impl<R: Backend> Ufs<R> {
 	/// Get the size of an extended attribute.
 	pub fn xattr_len(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<u32> {
 		let ino = self.read_inode(inr)?;
-		let len = self.read_xattr(&ino, name.as_encoded_bytes(), |_hdr, data| data.len())?;
+		let len = self.read_xattr(inr, &ino, name.as_encoded_bytes(), |_hdr, data| data.len())?;
 		Ok(len as u32)
 	}
 
 	/// Read the value of an extended attribute.
 	pub fn xattr_read(&mut self, inr: InodeNum, name: &OsStr) -> IoResult<Vec<u8>> {
 		let ino = self.read_inode(inr)?;
-		let data = self.read_xattr(&ino, name.as_encoded_bytes(), |_hdr, data| data.into())?;
+		let data = self.read_xattr(inr, &ino, name.as_encoded_bytes(), |_hdr, data| data.into())?;
 		Ok(data)
 	}
 }
