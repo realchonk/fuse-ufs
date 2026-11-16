@@ -22,7 +22,7 @@ impl<R: Backend> Ufs<R> {
 		log::trace!("inode_read({inr}, {offset}, {})", buffer.len());
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
 		let ino = self.read_inode(inr)?;
-		if offset >= ino.size {
+		if offset >= ino.size || !ino.has_data() {
 			return Ok(0);
 		}
 
@@ -62,6 +62,9 @@ impl<R: Backend> Ufs<R> {
 
 		let mut blockbuf = vec![0u8; self.superblock.bsize as usize];
 		let mut ino = self.read_inode(inr)?;
+		if !ino.has_data() {
+			return Err(err!(EINVAL));
+		}
 		ino.size = ino.size.max(offset + buffer.len() as u64);
 		self.write_inode(inr, &ino)?;
 

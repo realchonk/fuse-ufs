@@ -162,11 +162,16 @@ impl Inode {
 		}
 	}
 
+	/// Device nodes, fifos and sockets have no data, whatever di_size says.
+	pub fn has_data(&self) -> bool {
+		matches!(
+			self.kind(),
+			InodeType::RegularFile | InodeType::Symlink | InodeType::Directory
+		)
+	}
+
 	pub fn size(&self, bs: u64, fs: u64) -> (u64, u64) {
-		let size = match self.kind() {
-			InodeType::RegularFile | InodeType::Symlink | InodeType::Directory => self.size,
-			kind => todo!("Inode::size() is undefined for {kind:?}"),
-		};
+		let size = if self.has_data() { self.size } else { 0 };
 		Self::inode_size(bs, fs, size)
 	}
 
