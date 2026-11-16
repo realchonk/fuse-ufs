@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: block pointers past the end of the file system give `EIO` on the read path
 - rufs: corrupt extattr areas give `EIO` instead of panicking
 - rufs: directory records leave room for the NUL after the name, as FreeBSD requires
+- rufs: entries behind an unused directory entry are listed and found
 
 ## [0.6.0] - 2025-09-27
 
