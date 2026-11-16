@@ -353,7 +353,7 @@ impl<R: Backend> Ufs<R> {
 					return Ok(None);
 				}
 
-				self.read_pblock(x1, &mut data)?;
+				self.read_pblock(self.check_blkno(inr, x1)?, &mut data)?;
 				NonZeroU64::new(data[off])
 			}
 			InodeBlock::Indirect2(high, low) => {
@@ -362,13 +362,13 @@ impl<R: Backend> Ufs<R> {
 					return Ok(None);
 				}
 
-				self.read_pblock(x1, &mut data)?;
+				self.read_pblock(self.check_blkno(inr, x1)?, &mut data)?;
 				let x2 = data[high];
 				if x2 == 0 {
 					return Ok(None);
 				}
 
-				self.read_pblock(x2, &mut data)?;
+				self.read_pblock(self.check_blkno(inr, x2)?, &mut data)?;
 				NonZeroU64::new(data[low])
 			}
 			InodeBlock::Indirect3(high, mid, low) => {
@@ -377,26 +377,42 @@ impl<R: Backend> Ufs<R> {
 					return Ok(None);
 				}
 
-				self.read_pblock(x1, &mut data)?;
+				self.read_pblock(self.check_blkno(inr, x1)?, &mut data)?;
 				let x2 = data[high];
 				if x2 == 0 {
 					return Ok(None);
 				}
 
-				self.read_pblock(x2, &mut data)?;
+				self.read_pblock(self.check_blkno(inr, x2)?, &mut data)?;
 				let x3 = data[mid];
 				if x3 == 0 {
 					return Ok(None);
 				}
 
-				self.read_pblock(x3, &mut data)?;
+				self.read_pblock(self.check_blkno(inr, x3)?, &mut data)?;
 				NonZeroU64::new(data[low])
 			}
 		};
 
 		log::trace!("inode_resolve_block({inr}, {blkno}): bno={bno:?}");
 
+		if let Some(b) = bno {
+			self.check_blkno(inr, b.get())?;
+		}
 		Ok(bno)
+	}
+
+	/// Only the start of the run is checked, not its length.
+	pub(super) fn check_blkno(&self, inr: InodeNum, bno: u64) -> IoResult<u64> {
+		if bno < self.superblock.size as u64 {
+			Ok(bno)
+		} else {
+			log::error!(
+				"inode {inr}: block {bno} is outside the file system ({} fragments)",
+				self.superblock.size
+			);
+			Err(err!(EIO))
+		}
 	}
 
 	pub(super) fn inode_get_block_size(&mut self, ino: &Inode, blkidx: u64) -> IoResult<usize> {
