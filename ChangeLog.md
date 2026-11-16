@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: entries behind an unused directory entry are listed and found
 - rufs: corrupt directory records and holes in directories give `EIO` instead of panicking or looping
 - rufs: entries with `DT_UNKNOWN` or an undefined d_type take their type from the inode instead of panicking
+- rufs: a superblock with a negative `fs_fpg` gives `EIO` instead of panicking in the summary log
 
 ## [0.6.0] - 2025-09-27
 
