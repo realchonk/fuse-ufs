@@ -167,15 +167,6 @@ impl<R: Backend> Ufs<R> {
 		let sb = &self.superblock;
 		log::debug!("Superblock: {sb:#?}");
 
-		log::info!("Summary:");
-		log::info!("Block Size: {}", sb.bsize);
-		log::info!("# Blocks: {}", sb.size);
-		log::info!("# Data Blocks: {}", sb.dsize);
-		log::info!("Fragment Size: {}", sb.fsize);
-		log::info!("Fragments per Block: {}", sb.frag);
-		log::info!("# Cylinder Groups: {}", sb.ncg);
-		log::info!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
-
 		macro_rules! sbassert {
 			($e:expr) => {
 				if !($e) {
@@ -210,6 +201,15 @@ impl<R: Backend> Ufs<R> {
 		// sizeof(struct fs)..=SBLOCKSIZE; newfs rounds sbsize up to a fragment.
 		sbassert!(sb.sbsize >= 1376 && sb.sbsize <= 8192);
 		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
+
+		log::info!("Summary:");
+		log::info!("Block Size: {}", sb.bsize);
+		log::info!("# Blocks: {}", sb.size);
+		log::info!("# Data Blocks: {}", sb.dsize);
+		log::info!("Fragment Size: {}", sb.fsize);
+		log::info!("Fragments per Block: {}", sb.frag);
+		log::info!("# Cylinder Groups: {}", sb.ncg);
+		log::info!("CG Size: {}MiB", sb.cgsize() / 1024 / 1024);
 
 		// Only the allocator uses the cylinder groups.
 		if !self.write_enabled() {
@@ -279,4 +279,82 @@ fn until_nul(b: &[u8]) -> Vec<u8> {
 		.position(|&c| c == 0)
 		.map_or(b, |n| &b[..n])
 		.to_vec()
+}
+
+/// A small file system in memory, for tests.
+#[cfg(test)]
+mod testfs {
+	use super::*;
+
+	/// The whole file system of [`superblock()`].
+	const IMGSIZE: usize = 256 * 4096;
+
+	/// A valid superblock: one cylinder group of 256 fragments of 4096 bytes,
+	/// laid out as newfs does, with 256 inodes.
+	pub(super) fn superblock() -> Superblock {
+		let mut sb: Superblock = Decoder::new(Cursor::new([0u8; SBLOCKSIZE]), Config::little())
+			.decode()
+			.unwrap();
+		sb.magic = FS_UFS2_MAGIC;
+		sb.ncg = 1;
+		sb.bsize = 32768;
+		sb.fsize = 4096;
+		sb.frag = 8;
+		sb.bshift = 15;
+		sb.fshift = 12;
+		sb.fragshift = 3;
+		sb.bmask = !(sb.bsize - 1);
+		sb.fmask = !(sb.fsize - 1);
+		sb.sbsize = 4096;
+		sb.nindir = 4096;
+		sb.inopb = 128;
+		sb.ipg = 256;
+		sb.fpg = 256;
+		sb.sblkno = 24;
+		sb.cblkno = 32;
+		sb.iblkno = 40;
+		sb.dblkno = 56;
+		sb.size = 256;
+		sb.dsize = 192;
+		sb
+	}
+
+	/// An image with the superblock `sb` and nothing else.
+	pub(super) fn image(sb: &Superblock) -> Vec<u8> {
+		let mut img = vec![0u8; IMGSIZE];
+		Decoder::new(Cursor::new(&mut img[..]), Config::little())
+			.encode_at(SBLOCK_UFS2 as u64, sb)
+			.unwrap();
+		img
+	}
+
+	/// Open `img` read-only.
+	pub(super) fn open(img: Vec<u8>) -> IoResult<Ufs<Cursor<Vec<u8>>>> {
+		// Evaluate the arguments of every log call, as with a logger installed.
+		log::set_max_level(log::LevelFilter::Trace);
+		Ufs::new(BlockReader::new(Cursor::new(img), 4096, false))
+	}
+}
+
+#[cfg(test)]
+mod t {
+	use super::{testfs::*, *};
+
+	/// The errno of opening a file system with the superblock `sb`.
+	fn open_errno(sb: &Superblock) -> Option<i32> {
+		open(image(sb)).err().and_then(|e| e.raw_os_error())
+	}
+
+	#[test]
+	fn valid_superblock() {
+		let ufs = open(image(&superblock())).unwrap();
+		assert_eq!(ufs.info().frags, 256);
+	}
+
+	#[test]
+	fn negative_fpg() {
+		let mut sb = superblock();
+		sb.fpg = -1;
+		assert_eq!(open_errno(&sb), Some(libc::EIO));
+	}
 }
