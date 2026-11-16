@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: a read-only open no longer reads every cylinder group
 - rufs: `inode_read()` past the end of a file returns 0 instead of panicking
 - rufs: out-of-range timestamps no longer panic; times before the epoch with nanoseconds are read correctly
+- rufs: times before the epoch with nanoseconds are written correctly
 
 ## [0.6.0] - 2025-09-27
 
