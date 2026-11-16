@@ -26,13 +26,18 @@ fn timetosys(s: UfsTime, ns: u32) -> SystemTime {
 }
 
 fn systotime(t: SystemTime) -> (UfsTime, u32) {
-	let (diff, neg) = if t >= SystemTime::UNIX_EPOCH {
-		(t.duration_since(SystemTime::UNIX_EPOCH).unwrap(), 1)
-	} else {
-		(SystemTime::UNIX_EPOCH.duration_since(t).unwrap(), -1)
-	};
-
-	(neg * diff.as_secs() as UfsTime, diff.subsec_nanos())
+	match t.duration_since(SystemTime::UNIX_EPOCH) {
+		Ok(d) => (d.as_secs() as UfsTime, d.subsec_nanos()),
+		Err(e) => {
+			// Round the seconds down, so that the nanoseconds stay positive.
+			let d = e.duration();
+			let s = -(d.as_secs() as UfsTime);
+			match d.subsec_nanos() {
+				0 => (s, 0),
+				ns => (s - 1, 1_000_000_000 - ns),
+			}
+		}
+	}
 }
 
 impl Inode {
@@ -255,6 +260,23 @@ mod test {
 		// Must not panic.
 		t(i64::MIN, u32::MAX);
 		t(i64::MAX, u32::MAX);
+	}
+
+	#[test]
+	fn systotime_before_epoch() {
+		use std::time::{Duration, SystemTime};
+
+		let epoch = SystemTime::UNIX_EPOCH;
+		let half = epoch - Duration::from_millis(500);
+		assert_eq!(super::systotime(half), (-1, 500_000_000));
+		for t in [
+			epoch - Duration::new(5, 100),
+			epoch,
+			epoch + Duration::new(9, 900),
+		] {
+			let (s, ns) = super::systotime(t);
+			assert_eq!(super::timetosys(s, ns), t);
+		}
 	}
 
 	#[test]
