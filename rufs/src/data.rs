@@ -97,7 +97,9 @@ pub const FSMAXSNAP: usize = 20;
 /// structure. When writing the superblock to disk, this pointer is
 /// temporarily NULL'ed out so that the kernel pointer will not appear
 /// in the on-disk copy of the superblock.
-pub const NOCSPTRS: usize = (128 / size_of::<usize>()) - 1;
+///
+/// On disk the region is 128 bytes on every target, so it is read as u64 words.
+pub const NOCSPTRS: usize = (128 / size_of::<u64>()) - 1;
 
 /// External addresses in inode.
 pub const UFS_NXADDR: usize = 2;
@@ -247,44 +249,44 @@ pub struct Superblock {
 	pub swuid:            u64,             // system-wide uid
 	pub pad:              i32,             // due to alignment of fs_swuid
 	// these fields retain the current block allocation info
-	pub cgrotor:          i32,               // last cg searched
-	pub ocsp:             [usize; NOCSPTRS], // padding; was list of fs_cs buffers
-	pub si:               usize,             // In-core pointer to summary info
-	pub old_cpc:          i32,               // cyl per cycle in postbl
-	pub maxbsize:         i32,               // maximum blocking factor permitted
-	pub unrefs:           i64,               // number of unreferenced inodes
-	pub providersize:     i64,               // size of underlying GEOM provider
-	pub metaspace:        i64,               // size of area reserved for metadata
-	pub sparecon64:       [i64; 13],         // old rotation block list head
-	pub sblockactualloc:  i64,               // byte offset of this superblock
-	pub sblockloc:        i64,               // byte offset of standard superblock
-	pub cstotal:          CsumTotal,         // (u) cylinder summary information
-	pub time:             UfsTime,           // last time written
-	pub size:             i64,               // number of blocks in fs
-	pub dsize:            i64,               // number of data blocks in fs
-	pub csaddr:           UfsDaddr,          // blk addr of cyl grp summary area
-	pub pendingblocks:    i64,               // (u) blocks being freed
-	pub pendinginodes:    u32,               // (u) inodes being freed
-	pub snapinum:         [u32; FSMAXSNAP],  // list of snapshot inode numbers
-	pub avgfilesize:      u32,               // expected average file size
-	pub avgfpdir:         u32,               // expected # of files per directory
-	pub save_cgsize:      i32,               // save real cg size to use fs_bsize
-	pub mtime:            UfsTime,           // Last mount or fsck time.
-	pub sujfree:          i32,               // SUJ free list
-	pub sparecon32:       [i32; 21],         // reserved for future constants
-	pub ckhash:           u32,               // if CK_SUPERBLOCK, its check-hash
-	pub metackhash:       u32,               // metadata check-hash, see CK_ below
-	pub flags:            i32,               // see FS_ flags below
-	pub contigsumsize:    i32,               // size of cluster summary array
-	pub maxsymlinklen:    i32,               // max length of an internal symlink
-	pub old_inodefmt:     i32,               // format of on-disk inodes
-	pub maxfilesize:      u64,               // maximum representable file size
-	pub qbmask:           i64,               // ~fs_bmask for use with 64-bit size
-	pub qfmask:           i64,               // ~fs_fmask for use with 64-bit size
-	pub state:            i32,               // validate fs_clean field
-	pub old_postblformat: i32,               // format of positional layout tables
-	pub old_nrpos:        i32,               // number of rotational positions
-	pub spare5:           [i32; 2],          // old fs_postbloff
+	pub cgrotor:          i32,              // last cg searched
+	pub ocsp:             [u64; NOCSPTRS],  // padding; was list of fs_cs buffers
+	pub si:               u64,              // In-core pointer to summary info
+	pub old_cpc:          i32,              // cyl per cycle in postbl
+	pub maxbsize:         i32,              // maximum blocking factor permitted
+	pub unrefs:           i64,              // number of unreferenced inodes
+	pub providersize:     i64,              // size of underlying GEOM provider
+	pub metaspace:        i64,              // size of area reserved for metadata
+	pub sparecon64:       [i64; 13],        // old rotation block list head
+	pub sblockactualloc:  i64,              // byte offset of this superblock
+	pub sblockloc:        i64,              // byte offset of standard superblock
+	pub cstotal:          CsumTotal,        // (u) cylinder summary information
+	pub time:             UfsTime,          // last time written
+	pub size:             i64,              // number of blocks in fs
+	pub dsize:            i64,              // number of data blocks in fs
+	pub csaddr:           UfsDaddr,         // blk addr of cyl grp summary area
+	pub pendingblocks:    i64,              // (u) blocks being freed
+	pub pendinginodes:    u32,              // (u) inodes being freed
+	pub snapinum:         [u32; FSMAXSNAP], // list of snapshot inode numbers
+	pub avgfilesize:      u32,              // expected average file size
+	pub avgfpdir:         u32,              // expected # of files per directory
+	pub save_cgsize:      i32,              // save real cg size to use fs_bsize
+	pub mtime:            UfsTime,          // Last mount or fsck time.
+	pub sujfree:          i32,              // SUJ free list
+	pub sparecon32:       [i32; 21],        // reserved for future constants
+	pub ckhash:           u32,              // if CK_SUPERBLOCK, its check-hash
+	pub metackhash:       u32,              // metadata check-hash, see CK_ below
+	pub flags:            i32,              // see FS_ flags below
+	pub contigsumsize:    i32,              // size of cluster summary array
+	pub maxsymlinklen:    i32,              // max length of an internal symlink
+	pub old_inodefmt:     i32,              // format of on-disk inodes
+	pub maxfilesize:      u64,              // maximum representable file size
+	pub qbmask:           i64,              // ~fs_bmask for use with 64-bit size
+	pub qfmask:           i64,              // ~fs_fmask for use with 64-bit size
+	pub state:            i32,              // validate fs_clean field
+	pub old_postblformat: i32,              // format of positional layout tables
+	pub old_nrpos:        i32,              // number of rotational positions
+	pub spare5:           [i32; 2],         // old fs_postbloff
 	// old fs_rotbloff
 	pub magic:            i32, // magic number
 }
@@ -545,5 +547,24 @@ impl ExtattrNamespace {
 impl Display for InodeNum {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		write!(f, "{}", self.0)
+	}
+}
+
+#[cfg(test)]
+mod t {
+	use std::io::Cursor;
+
+	use super::*;
+	use crate::decoder::{Config, Decoder};
+
+	/// The superblock has the layout of FreeBSD's `struct fs` on every target.
+	#[test]
+	fn superblock_layout() {
+		let mut buf = [0u8; SBLOCKSIZE];
+		buf[MAGIC_OFFSET as usize..][..4].copy_from_slice(&FS_UFS2_MAGIC.to_le_bytes());
+		let mut file = Decoder::new(Cursor::new(&buf[..]), Config::little());
+		let sb: Superblock = file.decode().unwrap();
+		assert_eq!(sb.magic, FS_UFS2_MAGIC);
+		assert_eq!(file.pos().unwrap(), 1376);
 	}
 }
