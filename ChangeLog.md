@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: out-of-range timestamps no longer panic; times before the epoch with nanoseconds are read correctly
 - rufs: times before the epoch with nanoseconds are written correctly
 - rufs: read short symlinks that have extattr blocks
+- rufs: read long symlinks that end in a fragment of any size
 
 ## [0.6.0] - 2025-09-27
 
