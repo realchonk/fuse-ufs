@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: read errors while checking cylinder groups are returned instead of panicking
 - rufs: open file systems whose `sbsize` is not `fsize`
 - rufs: inode numbers past the last cylinder group and unknown file types give `EIO`
+- rufs: reading a device node, fifo or socket returns no data instead of panicking
 
 ## [0.6.0] - 2025-09-27
 
