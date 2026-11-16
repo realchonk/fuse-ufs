@@ -145,9 +145,13 @@ impl<R: Backend> Ufs<R> {
 		let cst = &sb.cstotal;
 		Info {
 			blocks: sb.dsize as u64,
-			bfree:  (cst.nbfree * sb.frag as i64 + cst.nffree) as u64,
-			files:  (sb.ipg * sb.ncg) as u64,
-			ffree:  cst.nifree as u64,
+			bfree:  cst
+				.nbfree
+				.saturating_mul(sb.frag as i64)
+				.saturating_add(cst.nffree)
+				.max(0) as u64,
+			files:  sb.ipg as u64 * sb.ncg as u64,
+			ffree:  cst.nifree.max(0) as u64,
 			bsize:  sb.bsize as u32,
 			fsize:  sb.fsize as u32,
 			frags:  sb.size as u64,
