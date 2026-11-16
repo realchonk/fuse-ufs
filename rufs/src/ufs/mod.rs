@@ -207,7 +207,8 @@ impl<R: Backend> Ufs<R> {
 		sbassert!(Some(sb.frag) == 1i32.checked_shl(sb.fragshift as u32));
 		sbassert!(sb.bmask == !(sb.bsize - 1));
 		sbassert!(sb.fmask == !(sb.fsize - 1));
-		sbassert!(sb.sbsize == sb.fsize);
+		// sizeof(struct fs)..=SBLOCKSIZE; newfs rounds sbsize up to a fragment.
+		sbassert!(sb.sbsize >= 1376 && sb.sbsize <= 8192);
 		sbassert!(sb.cgsize_struct() < sb.bsize as usize);
 
 		// Only the allocator uses the cylinder groups.

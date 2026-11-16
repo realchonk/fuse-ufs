@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: reject superblocks with impossible sizes or offsets
 - rufs: `info()` does not overflow on large file systems or corrupt counts
 - rufs: read errors while checking cylinder groups are returned instead of panicking
+- rufs: open file systems whose `sbsize` is not `fsize`
 
 ## [0.6.0] - 2025-09-27
 
