@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: reject superblocks whose inode blocks do not fit in a cylinder group, as FreeBSD does
 - rufs: the superblock is read correctly on 32-bit targets
 - rufs: after a failed read, `BlockReader` no longer returns zeros or stale data on the next read
+- rufs: no overflow panic for a file size close to 2^64
 
 ## [0.6.0] - 2025-09-27
 
