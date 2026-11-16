@@ -60,6 +60,8 @@ impl<T: Backend> BlockReader<T> {
 		if self.dirty {
 			panic!("Cannot refill dirty BlockReader");
 		}
+		// Nothing is buffered until the read succeeds.
+		self.idx = self.block.len();
 		self.block.fill(0u8);
 		let mut num = 0;
 		while num < self.block.len() {
@@ -352,5 +354,60 @@ mod t {
 		assert_eq!(e.raw_os_error(), None);
 		assert_eq!(e.kind(), cause.kind());
 		assert_eq!(e.get_ref().unwrap().to_string(), cause.to_string());
+	}
+
+	/// A backend whose reads fail while `fail` is set.
+	struct Flaky {
+		data: io::Cursor<Vec<u8>>,
+		fail: bool,
+	}
+
+	impl Read for Flaky {
+		fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+			if self.fail {
+				Err(io::Error::from_raw_os_error(61))
+			} else {
+				self.data.read(buf)
+			}
+		}
+	}
+
+	impl Write for Flaky {
+		fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+			Ok(buf.len())
+		}
+
+		fn flush(&mut self) -> IoResult<()> {
+			Ok(())
+		}
+	}
+
+	impl Seek for Flaky {
+		fn seek(&mut self, pos: SeekFrom) -> IoResult<u64> {
+			self.data.seek(pos)
+		}
+	}
+
+	/// After a failed refill the next read goes to the backend again.
+	#[test]
+	fn failed_refill() {
+		// Block n holds the byte n + 1.
+		let data = (0..2048).map(|i| (i / 512 + 1) as u8).collect();
+		let flaky = Flaky {
+			data: io::Cursor::new(data),
+			fail: false,
+		};
+		let mut br = BlockReader::new(flaky, 512, false);
+		let mut buf = [0u8; 4];
+		br.read_exact(&mut buf).unwrap();
+		assert_eq!(buf, [1; 4]);
+
+		br.inner.fail = true;
+		assert!(br.seek(SeekFrom::Start(1024)).is_err());
+		assert!(br.read(&mut buf).is_err());
+
+		br.inner.fail = false;
+		br.read_exact(&mut buf).unwrap();
+		assert_eq!(buf, [3; 4]);
 	}
 }
