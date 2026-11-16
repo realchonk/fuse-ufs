@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - rufs: times before the epoch with nanoseconds are written correctly
 - rufs: read short symlinks that have extattr blocks
 - rufs: read long symlinks that end in a fragment of any size
+- rufs: reject superblocks with impossible sizes or offsets
 
 ## [0.6.0] - 2025-09-27
 
